@@ -1,0 +1,24 @@
+{
+  "name": "solvechain",
+  "version": "0.1.0",
+  "description": "基于第一性原理的个人决策辅助系统",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run dev -w @solvechain/server",
+    "dev:client": "npm run dev -w @solvechain/client",
+    "build": "npm run build -w @solvechain/server && npm run build -w @solvechain/client",
+    "db:migrate": "npm run db:migrate -w @solvechain/server",
+    "db:seed": "npm run db:seed -w @solvechain/server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

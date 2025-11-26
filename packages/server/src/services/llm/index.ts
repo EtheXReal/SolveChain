@@ -1,0 +1,244 @@
+/**
+ * LLM 服务统一入口
+ */
+
+import { LLMProvider, LLMConfig, LLMRequest, LLMResponse, AnalysisType, AnalysisResult } from './types.js';
+import { callDashScope } from './providers/dashscope.js';
+import { callDeepSeek } from './providers/deepseek.js';
+import { Node, Edge } from '../../types/index.js';
+
+export * from './types.js';
+
+// 默认配置
+const DEFAULT_CONFIG: Partial<LLMConfig> = {
+  provider: LLMProvider.DASHSCOPE,
+  model: 'qwen-plus'
+};
+
+// 系统提示词
+const SYSTEM_PROMPTS = {
+  base: `你是一位精通第一性原理思维的决策顾问。你的任务是帮助用户：
+1. 将复杂问题分解为基本事实和假设
+2. 质疑未经验证的假设
+3. 发现逻辑链中的漏洞和盲点
+4. 提供客观、理性的分析
+
+请用中文回复，保持简洁专业。`,
+
+  decompose: `请帮助用户分解这个问题。识别出：
+1. 基本事实（可验证的客观信息）
+2. 核心假设（需要验证的主观判断）
+3. 关键推理（从事实/假设得出的结论）
+4. 可能的决策选项
+
+以 JSON 格式返回，格式如下：
+{
+  "insights": [{"type": "observation", "title": "标题", "content": "内容", "priority": "high"}],
+  "suggestedNodes": [{"type": "fact|assumption|inference|decision", "title": "标题", "content": "描述", "confidence": 50}],
+  "followUpQuestions": ["问题1", "问题2"]
+}`,
+
+  challenge: `请扮演"魔鬼代言人"角色，质疑以下假设：
+1. 每个假设的合理性和依据
+2. 可能的反例或边界情况
+3. 假设被证伪的可能性
+4. 需要补充的证据
+
+以 JSON 格式返回分析结果。`,
+
+  find_gaps: `请分析当前的决策逻辑链，找出：
+1. 缺失的重要考虑因素
+2. 过于简化的推理跳跃
+3. 可能存在的盲点
+4. 需要补充的节点
+
+以 JSON 格式返回分析结果。`,
+
+  devil_advocate: `假设当前倾向的决策是错误的，请：
+1. 构建反对当前决策的完整论证
+2. 找出支持相反决策的理由
+3. 指出可能存在的确认偏误
+
+以 JSON 格式返回分析结果。`
+};
+
+export class LLMService {
+  private config: LLMConfig;
+
+  constructor(config?: Partial<LLMConfig>) {
+    this.config = {
+      provider: config?.provider || DEFAULT_CONFIG.provider!,
+      apiKey: config?.apiKey || process.env.DASHSCOPE_API_KEY || '',
+      model: config?.model || DEFAULT_CONFIG.model!,
+      apiEndpoint: config?.apiEndpoint
+    };
+  }
+
+  /**
+   * 发送请求到 LLM
+   */
+  async chat(request: LLMRequest): Promise<LLMResponse> {
+    const { provider, apiKey, model } = this.config;
+
+    switch (provider) {
+      case LLMProvider.DASHSCOPE:
+        return callDashScope(apiKey, model, request);
+
+      case LLMProvider.DEEPSEEK:
+        return callDeepSeek(apiKey, model, request);
+
+      default:
+        throw new Error(`不支持的 Provider: ${provider}`);
+    }
+  }
+
+  /**
+   * 分析决策图
+   */
+  async analyze(
+    type: AnalysisType,
+    coreQuestion: string,
+    nodes: Node[],
+    edges: Edge[]
+  ): Promise<AnalysisResult> {
+    // 构建上下文
+    const context = this.buildContext(coreQuestion, nodes, edges);
+
+    // 获取对应的提示词
+    const systemPrompt = SYSTEM_PROMPTS[type] || SYSTEM_PROMPTS.base;
+
+    const response = await this.chat({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPTS.base + '\n\n' + systemPrompt },
+        { role: 'user', content: context }
+      ],
+      temperature: 0.7,
+      maxTokens: 4096,
+      jsonMode: true
+    });
+
+    // 解析响应
+    try {
+      const result = JSON.parse(response.content);
+      return {
+        insights: result.insights || [],
+        suggestedNodes: result.suggestedNodes || [],
+        followUpQuestions: result.followUpQuestions || []
+      };
+    } catch {
+      // 如果解析失败，返回原始内容作为观察
+      return {
+        insights: [{
+          type: 'observation',
+          title: '分析结果',
+          content: response.content,
+          priority: 'medium'
+        }]
+      };
+    }
+  }
+
+  /**
+   * 对话式交互
+   */
+  async conversation(
+    message: string,
+    coreQuestion: string,
+    nodes: Node[],
+    edges: Edge[],
+    history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  ): Promise<string> {
+    const context = this.buildContext(coreQuestion, nodes, edges);
+
+    const messages = [
+      { role: 'system' as const, content: SYSTEM_PROMPTS.base },
+      { role: 'user' as const, content: `当前决策图状态：\n${context}` },
+      ...history.map(h => ({ role: h.role, content: h.content })),
+      { role: 'user' as const, content: message }
+    ];
+
+    const response = await this.chat({
+      messages,
+      temperature: 0.7,
+      maxTokens: 2048
+    });
+
+    return response.content;
+  }
+
+  /**
+   * 构建上下文描述
+   */
+  private buildContext(coreQuestion: string, nodes: Node[], edges: Edge[]): string {
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    let context = `核心问题：${coreQuestion}\n\n`;
+
+    // 按类型分组节点
+    const facts = nodes.filter(n => n.type === 'fact');
+    const assumptions = nodes.filter(n => n.type === 'assumption');
+    const inferences = nodes.filter(n => n.type === 'inference');
+    const decisions = nodes.filter(n => n.type === 'decision');
+
+    if (facts.length > 0) {
+      context += '【事实】\n';
+      facts.forEach(n => {
+        context += `- ${n.title}（置信度: ${n.confidence}%）\n`;
+        if (n.content) context += `  ${n.content}\n`;
+      });
+      context += '\n';
+    }
+
+    if (assumptions.length > 0) {
+      context += '【假设】\n';
+      assumptions.forEach(n => {
+        context += `- ${n.title}（置信度: ${n.confidence}%）\n`;
+        if (n.content) context += `  ${n.content}\n`;
+      });
+      context += '\n';
+    }
+
+    if (inferences.length > 0) {
+      context += '【推理】\n';
+      inferences.forEach(n => {
+        context += `- ${n.title}（置信度: ${n.confidence}%）\n`;
+        if (n.content) context += `  ${n.content}\n`;
+      });
+      context += '\n';
+    }
+
+    if (decisions.length > 0) {
+      context += '【决策选项】\n';
+      decisions.forEach(n => {
+        context += `- ${n.title}（当前得分: ${n.calculatedScore || '未计算'}）\n`;
+        if (n.content) context += `  ${n.content}\n`;
+      });
+      context += '\n';
+    }
+
+    // 描述关系
+    if (edges.length > 0) {
+      context += '【逻辑关系】\n';
+      edges.forEach(e => {
+        const source = nodeMap.get(e.sourceNodeId);
+        const target = nodeMap.get(e.targetNodeId);
+        if (source && target) {
+          const relation = e.type === 'opposes' ? '反对' : '支持';
+          context += `- "${source.title}" ${relation} "${target.title}"（强度: ${e.strength}%）\n`;
+        }
+      });
+    }
+
+    return context;
+  }
+
+  /**
+   * 更新配置
+   */
+  updateConfig(config: Partial<LLMConfig>): void {
+    this.config = { ...this.config, ...config };
+  }
+}
+
+// 导出默认实例
+export const llmService = new LLMService();
