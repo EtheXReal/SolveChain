@@ -17,7 +17,8 @@
       "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"\\d decision_graphs\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

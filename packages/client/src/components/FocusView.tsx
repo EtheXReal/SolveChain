@@ -110,28 +110,41 @@ export default function FocusView({
     };
   }, [focusedNodeId, nodes, edges]);
 
-  // 计算节点布局位置 - 使用固定的网格布局，不因聚焦而改变
+  // 计算节点布局位置 - 优先使用数据库中的坐标，否则使用网格布局
   const calculatedPositions = useMemo(() => {
     if (nodes.length === 0) return new Map<string, NodePosition>();
 
     const positions = new Map<string, NodePosition>();
 
-    // 始终使用网格布局
-    const cols = Math.ceil(Math.sqrt(nodes.length));
-    const spacing = 220;
-    const rowSpacing = 140;
-    const startX = CENTER_X - (cols * spacing) / 2;
-    const rows = Math.ceil(nodes.length / cols);
-    const startY = CENTER_Y - (rows * rowSpacing) / 2;
+    // 检查是否有节点有自定义坐标（非0,0）
+    const hasCustomPositions = nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
 
-    nodes.forEach((node, index) => {
-      const row = Math.floor(index / cols);
-      const col = index % cols;
-      positions.set(node.id, {
-        x: startX + col * spacing + spacing / 2,
-        y: startY + row * rowSpacing + rowSpacing / 2,
+    if (hasCustomPositions) {
+      // 使用数据库中的坐标
+      nodes.forEach(node => {
+        positions.set(node.id, {
+          x: node.positionX,
+          y: node.positionY,
+        });
       });
-    });
+    } else {
+      // 回退到网格布局
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      const spacing = 220;
+      const rowSpacing = 140;
+      const startX = CENTER_X - (cols * spacing) / 2;
+      const rows = Math.ceil(nodes.length / cols);
+      const startY = CENTER_Y - (rows * rowSpacing) / 2;
+
+      nodes.forEach((node, index) => {
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+        positions.set(node.id, {
+          x: startX + col * spacing + spacing / 2,
+          y: startY + row * rowSpacing + rowSpacing / 2,
+        });
+      });
+    }
 
     return positions;
   }, [nodes]);
@@ -147,21 +160,41 @@ export default function FocusView({
 
   // 初始化时居中显示
   useEffect(() => {
-    if (nodes.length > 0 && containerRef.current) {
+    if (nodes.length > 0 && containerRef.current && nodePositions.size > 0) {
       // 使用 requestAnimationFrame 确保容器已完成布局
       requestAnimationFrame(() => {
         if (containerRef.current) {
           const rect = containerRef.current.getBoundingClientRect();
-          const currentScale = 0.8;
-          setScale(currentScale);
+
+          // 计算所有节点的边界
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+          nodePositions.forEach(pos => {
+            minX = Math.min(minX, pos.x);
+            maxX = Math.max(maxX, pos.x);
+            minY = Math.min(minY, pos.y);
+            maxY = Math.max(maxY, pos.y);
+          });
+
+          // 计算内容中心和尺寸
+          const contentWidth = maxX - minX + 200; // 加上节点宽度
+          const contentHeight = maxY - minY + 100; // 加上节点高度
+          const contentCenterX = (minX + maxX) / 2;
+          const contentCenterY = (minY + maxY) / 2;
+
+          // 计算适合的缩放比例
+          const scaleX = rect.width / contentWidth;
+          const scaleY = rect.height / contentHeight;
+          const fitScale = Math.min(scaleX, scaleY, 1) * 0.85; // 留一些边距
+
+          setScale(fitScale);
           setOffset({
-            x: rect.width / 2 - CENTER_X * currentScale,
-            y: rect.height / 2 - CENTER_Y * currentScale,
+            x: rect.width / 2 - contentCenterX * fitScale,
+            y: rect.height / 2 - contentCenterY * fitScale,
           });
         }
       });
     }
-  }, [nodes.length]);
+  }, [nodes.length, nodePositions]);
 
   // 添加滚轮事件监听器（非 passive，以便 preventDefault 生效）
   useEffect(() => {
