@@ -59,9 +59,9 @@ export default function Editor({ graphId, onBack }: EditorProps) {
     }
   }, [nodes, focusedNodeId]);
 
-  // 选择节点
+  // 选择节点（空字符串表示取消选择）
   const handleSelectNode = useCallback((nodeId: string) => {
-    setFocusedNodeId(nodeId);
+    setFocusedNodeId(nodeId || null);
   }, []);
 
   // 创建节点
