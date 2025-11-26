@@ -269,20 +269,8 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         const newScale = 0.8;
-        // 让画布中心点 (CENTER_X, CENTER_Y) 显示在容器中心
         const newOffsetX = rect.width / 2 - CENTER_X * newScale;
         const newOffsetY = rect.height / 2 - CENTER_Y * newScale;
-
-        console.log('Auto Layout Debug:', {
-          containerWidth: rect.width,
-          containerHeight: rect.height,
-          CENTER_X,
-          CENTER_Y,
-          newScale,
-          newOffsetX,
-          newOffsetY
-        });
-
         setScale(newScale);
         setOffset({ x: newOffsetX, y: newOffsetY });
       }
