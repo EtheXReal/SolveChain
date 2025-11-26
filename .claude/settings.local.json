@@ -11,7 +11,13 @@
       "Bash(start http://localhost:5174)",
       "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"ALTER TYPE edge_type ADD VALUE IF NOT EXISTS ''prerequisite'';\")",
       "Bash(npx tsx:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT id, name FROM users WHERE id = ''user-1'';\")",
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT id, name, email FROM users LIMIT 5;\")",
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"\\d decision_graphs\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
     ],
     "deny": [],
     "ask": []
