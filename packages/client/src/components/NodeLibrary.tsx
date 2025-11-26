@@ -12,10 +12,12 @@ interface NodeLibraryProps {
   onSelectNode: (nodeId: string) => void;
   selectedNodeId: string | null;
   onCreateNode: (type: NodeType) => void;
+  nodes?: GraphNode[]; // 可选，支持从外部传入
 }
 
-export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode }: NodeLibraryProps) {
-  const { nodes } = useGraphStore();
+export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode, nodes: propNodes }: NodeLibraryProps) {
+  const graphStore = useGraphStore();
+  const nodes = propNodes ?? graphStore.nodes;
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedTypes, setExpandedTypes] = useState<Set<NodeType>>(
     new Set([NodeType.DECISION, NodeType.FACT])

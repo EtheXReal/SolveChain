@@ -183,3 +183,76 @@ export const EDGE_TYPE_CONFIG = {
     description: 'A 和 B 有关联但不是因果'
   }
 };
+
+// ============ v2.0 项目-场景模型 ============
+
+export interface Project {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  status: GraphStatus;
+  category?: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Scene {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  color: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SceneNode {
+  id: string;
+  sceneId: string;
+  nodeId: string;
+  positionX: number;
+  positionY: number;
+  createdAt: string;
+}
+
+// 节点（包含场景位置）
+export interface SceneGraphNode extends GraphNode {
+  projectId?: string;
+  scenePositionX?: number;
+  scenePositionY?: number;
+}
+
+// 边（包含项目 ID）
+export interface ProjectGraphEdge extends GraphEdge {
+  projectId?: string;
+}
+
+// 项目完整数据
+export interface ProjectWithDetails {
+  project: Project;
+  scenes: Scene[];
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+// 场景完整数据
+export interface SceneWithNodes {
+  scene: Scene;
+  nodes: SceneGraphNode[];
+  edges: GraphEdge[];
+}
+
+// 场景颜色预设
+export const SCENE_COLORS = [
+  '#6366f1', // 紫色 (默认)
+  '#3b82f6', // 蓝色
+  '#22c55e', // 绿色
+  '#f59e0b', // 橙色
+  '#ef4444', // 红色
+  '#ec4899', // 粉色
+  '#8b5cf6', // 淡紫
+  '#06b6d4', // 青色
+];

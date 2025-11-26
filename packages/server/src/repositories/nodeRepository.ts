@@ -2,10 +2,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, queryOne } from '../database/db.js';
 import { Node, NodeStatus, NodeType, CreateNodeRequest, UpdateNodeRequest } from '../types/index.js';
 
-function toNode(row: any): Node {
+// 扩展 Node 类型以支持 projectId
+interface NodeWithProject extends Node {
+  projectId?: string;
+}
+
+function toNode(row: any): NodeWithProject {
   return {
     id: row.id,
     graphId: row.graph_id,
+    projectId: row.project_id,
     type: row.type as NodeType,
     title: row.title,
     content: row.content,
@@ -154,5 +160,39 @@ export const nodeRepository = {
       [graphId, type]
     );
     return rows.map(toNode);
+  },
+
+  // ========== v2.0 项目级操作 ==========
+
+  // 获取项目的所有节点
+  async findByProjectId(projectId: string): Promise<NodeWithProject[]> {
+    const rows = await query(
+      'SELECT * FROM nodes WHERE project_id = $1 ORDER BY created_at',
+      [projectId]
+    );
+    return rows.map(toNode);
+  },
+
+  // 在项目中创建节点
+  async createInProject(projectId: string, data: CreateNodeRequest, createdBy: 'user' | 'llm' = 'user'): Promise<NodeWithProject> {
+    const id = uuidv4();
+    const row = await queryOne(
+      `INSERT INTO nodes (id, project_id, type, title, content, confidence, weight, position_x, position_y, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [
+        id,
+        projectId,
+        data.type,
+        data.title,
+        data.content || '',
+        data.confidence ?? 50,
+        data.weight ?? 50,
+        data.positionX ?? 0,
+        data.positionY ?? 0,
+        createdBy
+      ]
+    );
+    return toNode(row);
   }
 };

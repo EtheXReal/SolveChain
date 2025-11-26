@@ -2,10 +2,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, queryOne } from '../database/db.js';
 import { Edge, EdgeType, CreateEdgeRequest, UpdateEdgeRequest } from '../types/index.js';
 
-function toEdge(row: any): Edge {
+// 扩展 Edge 类型以支持 projectId
+interface EdgeWithProject extends Edge {
+  projectId?: string;
+}
+
+function toEdge(row: any): EdgeWithProject {
   return {
     id: row.id,
     graphId: row.graph_id,
+    projectId: row.project_id,
     sourceNodeId: row.source_node_id,
     targetNodeId: row.target_node_id,
     type: row.type as EdgeType,
@@ -132,5 +138,37 @@ export const edgeRepository = {
       [sourceNodeId, targetNodeId, type]
     );
     return !!row;
+  },
+
+  // ========== v2.0 项目级操作 ==========
+
+  // 获取项目的所有边
+  async findByProjectId(projectId: string): Promise<EdgeWithProject[]> {
+    const rows = await query(
+      'SELECT * FROM edges WHERE project_id = $1 ORDER BY created_at',
+      [projectId]
+    );
+    return rows.map(toEdge);
+  },
+
+  // 在项目中创建边
+  async createInProject(projectId: string, data: CreateEdgeRequest, createdBy: 'user' | 'llm' = 'user'): Promise<EdgeWithProject> {
+    const id = uuidv4();
+    const row = await queryOne(
+      `INSERT INTO edges (id, project_id, source_node_id, target_node_id, type, strength, description, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        id,
+        projectId,
+        data.sourceNodeId,
+        data.targetNodeId,
+        data.type,
+        data.strength ?? 50,
+        data.description || '',
+        createdBy
+      ]
+    );
+    return toEdge(row);
   }
 };

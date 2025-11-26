@@ -18,6 +18,9 @@ interface FocusViewProps {
   onEditNode?: (nodeId: string) => void;
   onEditEdge?: (edgeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
+  nodes?: GraphNode[]; // 可选，支持从外部传入
+  edges?: GraphEdge[]; // 可选，支持从外部传入
+  useScenePosition?: boolean; // 是否使用场景位置
 }
 
 interface NodePosition {
@@ -39,9 +42,15 @@ export default function FocusView({
   editorMode,
   onEditNode,
   onEditEdge,
-  onDeleteNode
+  onDeleteNode,
+  nodes: propNodes,
+  edges: propEdges,
+  useScenePosition = false
 }: FocusViewProps) {
-  const { nodes, edges, connectingState, startConnecting, updateConnecting, finishConnecting, cancelConnecting } = useGraphStore();
+  const graphStore = useGraphStore();
+  const nodes = propNodes ?? graphStore.nodes;
+  const edges = propEdges ?? graphStore.edges;
+  const { connectingState, startConnecting, updateConnecting, finishConnecting, cancelConnecting } = graphStore;
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -110,11 +119,30 @@ export default function FocusView({
     };
   }, [focusedNodeId, nodes, edges]);
 
-  // 计算节点布局位置 - 优先使用数据库中的坐标，否则使用网格布局
+  // 计算节点布局位置 - 优先使用场景位置或数据库坐标，否则使用网格布局
   const calculatedPositions = useMemo(() => {
     if (nodes.length === 0) return new Map<string, NodePosition>();
 
     const positions = new Map<string, NodePosition>();
+
+    // 检查是否使用场景位置
+    if (useScenePosition) {
+      // 尝试使用场景位置（scenePositionX/Y），带有该属性的节点是 SceneGraphNode
+      const hasScenePositions = nodes.some((n: any) =>
+        (n.scenePositionX !== undefined && n.scenePositionX !== 0) ||
+        (n.scenePositionY !== undefined && n.scenePositionY !== 0)
+      );
+
+      if (hasScenePositions) {
+        nodes.forEach((node: any) => {
+          positions.set(node.id, {
+            x: node.scenePositionX ?? node.positionX ?? 0,
+            y: node.scenePositionY ?? node.positionY ?? 0,
+          });
+        });
+        return positions;
+      }
+    }
 
     // 检查是否有节点有自定义坐标（非0,0）
     const hasCustomPositions = nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
@@ -147,7 +175,7 @@ export default function FocusView({
     }
 
     return positions;
-  }, [nodes]);
+  }, [nodes, useScenePosition]);
 
   // 合并计算位置和自定义位置
   const nodePositions = useMemo(() => {

@@ -159,3 +159,77 @@ export interface ApiResponse<T> {
     message: string;
   };
 }
+
+// ============ v2.0 项目-场景模型 ============
+
+export interface Project {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  status: GraphStatus;
+  category?: string;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Scene {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  color: string;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SceneNode {
+  id: string;
+  sceneId: string;
+  nodeId: string;
+  positionX: number;
+  positionY: number;
+  createdAt: Date;
+}
+
+// v2.0 API 请求类型
+export interface CreateProjectRequest {
+  title: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+}
+
+export interface CreateSceneRequest {
+  name: string;
+  description?: string;
+  color?: string;
+  sortOrder?: number;
+}
+
+export interface AddNodeToSceneRequest {
+  nodeId: string;
+  positionX?: number;
+  positionY?: number;
+}
+
+export interface UpdateSceneNodePositionRequest {
+  positionX: number;
+  positionY: number;
+}
+
+// v2.0 复合响应类型
+export interface ProjectWithDetails {
+  project: Project;
+  scenes: Scene[];
+  nodes: Node[];
+  edges: Edge[];
+}
+
+export interface SceneWithNodes {
+  scene: Scene;
+  nodes: Array<Node & { scenePositionX: number; scenePositionY: number }>;
+  edges: Edge[];
+}
