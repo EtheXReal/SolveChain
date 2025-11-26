@@ -4,7 +4,7 @@
  * 左侧节点库 + 右侧聚焦视图 + 可选的编辑面板
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useGraphStore, EditorMode } from '../store/graphStore';
 import Header from '../components/Header';
 import NodeLibrary from '../components/NodeLibrary';
@@ -46,9 +46,11 @@ export default function Editor({ graphId, onBack }: EditorProps) {
     fetchGraph(graphId);
   }, [graphId, fetchGraph]);
 
-  // 图加载完成后，默认选中第一个决策节点
+  // 图加载完成后，默认选中第一个决策节点（仅初始加载时）
+  const initialFocusSet = useRef(false);
   useEffect(() => {
-    if (nodes.length > 0 && !focusedNodeId) {
+    if (nodes.length > 0 && !initialFocusSet.current) {
+      initialFocusSet.current = true;
       // 优先选择决策节点
       const decisionNode = nodes.find(n => n.type === NodeType.DECISION);
       if (decisionNode) {
@@ -57,7 +59,7 @@ export default function Editor({ graphId, onBack }: EditorProps) {
         setFocusedNodeId(nodes[0].id);
       }
     }
-  }, [nodes, focusedNodeId]);
+  }, [nodes]);
 
   // 选择节点（空字符串表示取消选择）
   const handleSelectNode = useCallback((nodeId: string) => {

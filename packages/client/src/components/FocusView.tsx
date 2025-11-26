@@ -241,7 +241,8 @@ export default function FocusView({
         }
       }
       // Escape 键取消聚焦
-      if (e.key === 'Escape' && focusedNodeId) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
         onNodeClick('');
       }
     };
