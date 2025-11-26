@@ -1944,12 +1944,707 @@ volumes:
 | 1.0.0 | 2024-01 | 初始设计 |
 | 1.1.0 | 2025-11 | 更新关系类型，新增聚焦视图功能 |
 | 1.2.0 | 2025-11 | 新增编辑模式，支持创建/编辑/删除节点和边，预留 LLM 接口 |
+| 2.0.0 | 2025-11 | 重大架构升级：项目-场景模型，支持多场景视图和节点复用 |
 
 ---
 
-## 8. 最近更新记录 (2025-11)
+## 8. 架构升级：项目-场景模型 (v2.0)
 
-### 8.1 关系类型更新
+### 8.0 概述
+
+v2.0 引入**项目-场景**架构，解决复杂决策分析中的信息过载问题：
+
+```
+项目 (Project)
+├── 总场景 (Overview) - 虚拟场景，显示所有节点和关系
+├── 场景A (Scene A) - 聚焦特定子问题
+├── 场景B (Scene B) - 另一个视角
+└── 场景C ...
+```
+
+**核心理念**：
+- **节点是项目级别的**：一个节点可以出现在多个场景中
+- **场景是视图/过滤器**：决定显示哪些节点，但不拥有节点
+- **关系是全局的**：在任何场景中编辑都影响整个项目
+- **总场景自动聚合**：实时显示项目所有节点和关系
+
+### 8.1 新数据模型
+
+#### 8.1.1 TypeScript 类型定义
+
+```typescript
+// ============================================
+// 新增：项目 (Project)
+// ============================================
+
+/** 项目 - 顶级容器 */
+interface Project {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  coreQuestion: string;           // 核心问题
+
+  status: ProjectStatus;
+  category?: string;
+  tags: string[];
+  deadline?: Date;
+
+  // 统计信息
+  sceneCount: number;
+  nodeCount: number;
+  edgeCount: number;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+enum ProjectStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  RESOLVED = 'resolved',
+  ARCHIVED = 'archived'
+}
+
+// ============================================
+// 新增：场景 (Scene)
+// ============================================
+
+/** 场景 - 节点的视图/过滤器 */
+interface Scene {
+  id: string;
+  projectId: string;
+
+  name: string;
+  description?: string;
+  color?: string;                 // 场景标识色
+
+  // 在全景模式下的位置和尺寸
+  canvasPosition: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+
+  // 排序顺序
+  order: number;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ============================================
+// 修改：节点 (Node)
+// ============================================
+
+/** 节点 - 现在属于项目而非图 */
+interface Node {
+  id: string;
+  projectId: string;              // 改：从 graphId 改为 projectId
+
+  type: NodeType;
+  title: string;
+  content: string;
+
+  confidence: number;
+  weight: number;
+  status: NodeStatus;
+
+  // 来源信息
+  source: NodeSource;
+  createdBy: 'user' | 'llm';
+  createdAt: Date;
+  updatedAt: Date;
+
+  // 注意：位置信息移到 SceneNode 中
+}
+
+// ============================================
+// 新增：场景-节点关联 (SceneNode)
+// ============================================
+
+/** 场景-节点关联 - 记录节点在场景中的位置 */
+interface SceneNode {
+  id: string;
+  sceneId: string;
+  nodeId: string;
+
+  // 节点在此场景中的位置
+  positionX: number;
+  positionY: number;
+
+  // 可选：场景特定的视觉样式
+  customStyle?: {
+    scale?: number;
+    opacity?: number;
+    highlighted?: boolean;
+  };
+
+  addedAt: Date;
+}
+
+// ============================================
+// 修改：边 (Edge)
+// ============================================
+
+/** 边 - 现在属于项目，全局可见 */
+interface Edge {
+  id: string;
+  projectId: string;              // 改：从 graphId 改为 projectId
+
+  sourceNodeId: string;
+  targetNodeId: string;
+
+  type: EdgeType;
+  strength: number;
+  description?: string;
+
+  createdBy: 'user' | 'llm';
+  createdAt: Date;
+  updatedAt: Date;
+
+  // 边不关联场景，因为它们是全局的
+}
+```
+
+#### 8.1.2 实体关系图
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                              User                                │
+└─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ 1:N
+                                    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                            Project                               │
+│  - id, title, coreQuestion, status                              │
+│  - 一个用户可以有多个项目                                          │
+└─────────────────────────────────────────────────────────────────┘
+          │                    │                    │
+          │ 1:N                │ 1:N                │ 1:N
+          ▼                    ▼                    ▼
+    ┌──────────┐         ┌──────────┐         ┌──────────┐
+    │  Scene   │         │   Node   │◄────────│   Edge   │
+    │  场景    │          │  节点    │   M:N    │    边    │
+    └──────────┘         └──────────┘         └──────────┘
+          │                    │
+          │                    │
+          └────────┬───────────┘
+                   │ M:N
+                   ▼
+            ┌──────────────┐
+            │  SceneNode   │
+            │  场景-节点   │
+            │  (位置信息)   │
+            └──────────────┘
+```
+
+### 8.2 数据库 Schema 变更
+
+```sql
+-- ============================================
+-- 新增表：项目 (projects)
+-- ============================================
+
+CREATE TABLE projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  core_question TEXT NOT NULL,
+
+  status project_status DEFAULT 'draft',
+  category VARCHAR(50),
+  tags TEXT[] DEFAULT '{}',
+  deadline TIMESTAMPTZ,
+
+  -- 统计字段
+  scene_count INT DEFAULT 0,
+  node_count INT DEFAULT 0,
+  edge_count INT DEFAULT 0,
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TYPE project_status AS ENUM (
+  'draft', 'active', 'resolved', 'archived'
+);
+
+-- ============================================
+-- 新增表：场景 (scenes)
+-- ============================================
+
+CREATE TABLE scenes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  color VARCHAR(7),               -- #RRGGBB 格式
+
+  -- 全景模式下的位置和尺寸
+  canvas_x DECIMAL(10,2) DEFAULT 0,
+  canvas_y DECIMAL(10,2) DEFAULT 0,
+  canvas_width DECIMAL(10,2) DEFAULT 800,
+  canvas_height DECIMAL(10,2) DEFAULT 600,
+
+  -- 排序
+  "order" INT DEFAULT 0,
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 修改表：节点 (nodes)
+-- ============================================
+
+-- 步骤 1: 添加新列
+ALTER TABLE nodes ADD COLUMN project_id UUID;
+
+-- 步骤 2: 迁移数据 (从 graph_id 推导 project_id)
+-- 注：需要先创建 projects 表并迁移 decision_graphs 数据
+
+-- 步骤 3: 移除位置列 (位置移到 scene_nodes)
+ALTER TABLE nodes DROP COLUMN position_x;
+ALTER TABLE nodes DROP COLUMN position_y;
+
+-- 步骤 4: 删除旧的外键，添加新的
+ALTER TABLE nodes DROP CONSTRAINT nodes_graph_id_fkey;
+ALTER TABLE nodes ADD CONSTRAINT nodes_project_id_fkey
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE;
+
+-- 步骤 5: 删除旧列
+ALTER TABLE nodes DROP COLUMN graph_id;
+
+-- ============================================
+-- 新增表：场景-节点关联 (scene_nodes)
+-- ============================================
+
+CREATE TABLE scene_nodes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scene_id UUID NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
+  node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+
+  -- 节点在此场景中的位置
+  position_x DECIMAL(10,2) DEFAULT 0,
+  position_y DECIMAL(10,2) DEFAULT 0,
+
+  -- 场景特定样式
+  custom_style JSONB DEFAULT '{}',
+
+  added_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- 一个节点在同一场景中只能出现一次
+  UNIQUE(scene_id, node_id)
+);
+
+-- ============================================
+-- 修改表：边 (edges)
+-- ============================================
+
+-- 类似节点的迁移过程
+ALTER TABLE edges ADD COLUMN project_id UUID;
+-- ... 迁移数据 ...
+ALTER TABLE edges DROP CONSTRAINT edges_graph_id_fkey;
+ALTER TABLE edges ADD CONSTRAINT edges_project_id_fkey
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE;
+ALTER TABLE edges DROP COLUMN graph_id;
+
+-- ============================================
+-- 新增索引
+-- ============================================
+
+CREATE INDEX idx_projects_user_id ON projects(user_id);
+CREATE INDEX idx_scenes_project_id ON scenes(project_id);
+CREATE INDEX idx_scene_nodes_scene_id ON scene_nodes(scene_id);
+CREATE INDEX idx_scene_nodes_node_id ON scene_nodes(node_id);
+CREATE INDEX idx_nodes_project_id ON nodes(project_id);
+CREATE INDEX idx_edges_project_id ON edges(project_id);
+
+-- ============================================
+-- 触发器：自动更新统计
+-- ============================================
+
+CREATE OR REPLACE FUNCTION update_project_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE projects SET
+    scene_count = (SELECT COUNT(*) FROM scenes WHERE project_id = COALESCE(NEW.project_id, OLD.project_id)),
+    node_count = (SELECT COUNT(*) FROM nodes WHERE project_id = COALESCE(NEW.project_id, OLD.project_id)),
+    edge_count = (SELECT COUNT(*) FROM edges WHERE project_id = COALESCE(NEW.project_id, OLD.project_id)),
+    updated_at = NOW()
+  WHERE id = COALESCE(NEW.project_id, OLD.project_id);
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+```
+
+### 8.3 API 变更
+
+#### 8.3.1 项目 API
+
+```yaml
+# 获取项目列表
+GET /api/projects
+Response: { success: true, data: Project[] }
+
+# 创建项目
+POST /api/projects
+Body: { title, coreQuestion, description?, category?, tags? }
+Response: { success: true, data: Project }
+# 注：创建项目时自动创建一个默认场景
+
+# 获取项目详情（包含所有场景、节点、边）
+GET /api/projects/:projectId
+Query: { includeNodes?, includeEdges? }
+Response: {
+  success: true,
+  data: {
+    project: Project,
+    scenes: Scene[],
+    nodes?: Node[],
+    edges?: Edge[]
+  }
+}
+
+# 更新项目
+PATCH /api/projects/:projectId
+Body: { title?, description?, status?, ... }
+
+# 删除项目
+DELETE /api/projects/:projectId
+```
+
+#### 8.3.2 场景 API
+
+```yaml
+# 获取项目的所有场景
+GET /api/projects/:projectId/scenes
+Response: { success: true, data: Scene[] }
+
+# 创建场景
+POST /api/projects/:projectId/scenes
+Body: { name, description?, color?, canvasPosition? }
+
+# 获取场景详情（包含场景中的节点）
+GET /api/scenes/:sceneId
+Response: {
+  success: true,
+  data: {
+    scene: Scene,
+    sceneNodes: (SceneNode & { node: Node })[],
+    // 边：返回连接场景内节点的所有边
+    edges: Edge[]
+  }
+}
+
+# 更新场景
+PATCH /api/scenes/:sceneId
+Body: { name?, description?, color?, canvasPosition?, order? }
+
+# 删除场景
+DELETE /api/scenes/:sceneId
+# 注：只删除场景和 scene_nodes 关联，不删除实际节点
+
+# 获取总场景（虚拟）
+GET /api/projects/:projectId/overview
+Response: {
+  success: true,
+  data: {
+    nodes: Node[],
+    edges: Edge[],
+    scenes: Scene[]  // 用于全景模式显示场景边界
+  }
+}
+```
+
+#### 8.3.3 场景-节点 API
+
+```yaml
+# 添加节点到场景
+POST /api/scenes/:sceneId/nodes
+Body: { nodeId, positionX, positionY }
+
+# 从场景移除节点（不删除节点本身）
+DELETE /api/scenes/:sceneId/nodes/:nodeId
+
+# 更新节点在场景中的位置
+PATCH /api/scenes/:sceneId/nodes/:nodeId
+Body: { positionX?, positionY?, customStyle? }
+
+# 批量更新位置（拖拽后保存）
+PUT /api/scenes/:sceneId/nodes/positions
+Body: { positions: [{ nodeId, positionX, positionY }] }
+```
+
+#### 8.3.4 节点 API（修改）
+
+```yaml
+# 创建节点（属于项目）
+POST /api/projects/:projectId/nodes
+Body: { type, title, content?, confidence?, weight? }
+# 可选：同时添加到指定场景
+Query: { sceneId?, positionX?, positionY? }
+
+# 删除节点（从项目删除，自动从所有场景移除）
+DELETE /api/nodes/:nodeId
+
+# 获取节点在哪些场景中
+GET /api/nodes/:nodeId/scenes
+Response: { success: true, data: Scene[] }
+```
+
+### 8.4 前端架构变更
+
+#### 8.4.1 视图模式
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 项目: 教父的赌局                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ 视图: [◉ 单场景] [ ○ 全景]  |  场景: [总览▼] [医院] [宅邸] [+]    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│                          画布区域                                 │
+│                                                                  │
+│    ┌──────────────────────────────────────────────────────┐     │
+│    │                                                       │     │
+│    │     单场景模式：显示当前场景的节点                      │     │
+│    │     全景模式：显示所有场景，用虚线框标记边界            │     │
+│    │                                                       │     │
+│    └──────────────────────────────────────────────────────┘     │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 8.4.2 单场景模式
+
+- Tab 切换不同场景
+- "总览"场景显示所有节点和边
+- 每个场景独立的节点位置
+- 操作：
+  - 创建节点：在当前场景中创建
+  - 删除节点：询问是"从场景移除"还是"彻底删除"
+  - 创建边：全局生效
+
+#### 8.4.3 全景模式
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                  │
+│  ┌─────────────────┐           ┌─────────────────┐              │
+│  │    医院场景      │           │    宅邸场景      │              │
+│  │  ┌───┐          │           │          ┌───┐  │              │
+│  │  │ A │──────────┼───────────┼──────────│ A │  │ (共享节点)   │
+│  │  └───┘          │           │          └───┘  │              │
+│  │    ↓            │           │            ↓    │              │
+│  │  ┌───┐          │           │          ┌───┐  │              │
+│  │  │ B │          │           │          │ C │  │              │
+│  │  └───┘          │           │          └───┘  │              │
+│  └─────────────────┘           └─────────────────┘              │
+│                                                                  │
+│  图例：                                                          │
+│  ─────  场景内边                                                 │
+│  - - -  跨场景边                                                 │
+│  ◉      共享节点（出现在多个场景）                                │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+特性：
+- 场景用虚线矩形 + 标题标记
+- 跨场景的边用虚线显示
+- 共享节点（出现在多个场景）用特殊样式标记
+- 可拖拽调整场景位置和大小
+- 左下角缩略图导航
+
+#### 8.4.4 组件结构
+
+```
+src/
+├── pages/
+│   ├── Home.tsx              # 项目列表（原 graphs 改为 projects）
+│   ├── ProjectEditor.tsx     # 项目编辑器（原 Editor.tsx）
+│   └── ...
+├── components/
+│   ├── SceneTabs.tsx         # 场景 Tab 切换
+│   ├── SceneCanvas.tsx       # 单场景画布
+│   ├── OverviewCanvas.tsx    # 全景画布
+│   ├── SceneBoundary.tsx     # 场景边界（全景模式）
+│   ├── SharedNodeBadge.tsx   # 共享节点标记
+│   ├── NodeLibrary.tsx       # 节点库（项目级别）
+│   ├── AddToSceneDialog.tsx  # 添加节点到场景对话框
+│   └── ...
+├── store/
+│   ├── projectStore.ts       # 项目状态
+│   ├── sceneStore.ts         # 场景状态
+│   └── ...
+└── types/
+    └── index.ts              # 更新类型定义
+```
+
+#### 8.4.5 状态管理
+
+```typescript
+// projectStore.ts
+interface ProjectState {
+  // 项目数据
+  currentProject: Project | null;
+  scenes: Scene[];
+  nodes: Node[];                  // 项目所有节点
+  edges: Edge[];                  // 项目所有边
+  sceneNodes: Map<string, SceneNode[]>; // sceneId -> SceneNode[]
+
+  // 视图状态
+  viewMode: 'single' | 'panorama';
+  currentSceneId: string | null;  // null 表示总览
+
+  // 操作
+  fetchProject: (projectId: string) => Promise<void>;
+  createScene: (name: string) => Promise<Scene>;
+  addNodeToScene: (sceneId: string, nodeId: string, position: Position) => Promise<void>;
+  removeNodeFromScene: (sceneId: string, nodeId: string) => Promise<void>;
+
+  // 获取当前场景显示的节点
+  getCurrentSceneNodes: () => (Node & { position: Position })[];
+  // 获取当前场景显示的边
+  getCurrentSceneEdges: () => Edge[];
+}
+```
+
+### 8.5 交互流程
+
+#### 8.5.1 创建项目流程
+
+```
+1. 用户点击"新建项目"
+2. 填写项目标题和核心问题
+3. 系统创建项目 + 默认场景（"主场景"）
+4. 进入项目编辑器，默认显示主场景
+```
+
+#### 8.5.2 添加节点到场景
+
+```
+方式一：直接创建
+1. 在当前场景画布中双击空白区域
+2. 选择节点类型，填写内容
+3. 节点创建并添加到当前场景
+
+方式二：从项目节点库添加
+1. 打开节点库面板
+2. 看到项目所有节点，标记哪些已在当前场景
+3. 拖拽或点击添加到当前场景
+```
+
+#### 8.5.3 在场景中删除节点
+
+```
+1. 选中节点，按 Delete
+2. 弹出选择对话框：
+   - "从当前场景移除"：仅移除关联，节点保留
+   - "从项目删除"：彻底删除节点和所有关联
+```
+
+#### 8.5.4 创建边（全局）
+
+```
+1. 右键点击源节点开始连线
+2. 点击目标节点
+3. 选择关系类型
+4. 边创建成功，全局可见
+   - 如果源和目标不在同一场景，边仍然存在
+   - 在总览或全景模式可以看到跨场景的边
+```
+
+### 8.6 数据迁移方案
+
+从 v1.x 迁移到 v2.0：
+
+```typescript
+async function migrateToV2() {
+  // 1. 为每个 decision_graph 创建对应的 project
+  for (const graph of allGraphs) {
+    const project = await createProject({
+      userId: graph.userId,
+      title: graph.title,
+      description: graph.description,
+      coreQuestion: graph.coreQuestion,
+      status: graph.status,
+      category: graph.category,
+      tags: graph.tags
+    });
+
+    // 2. 创建默认场景
+    const scene = await createScene({
+      projectId: project.id,
+      name: '主场景',
+      order: 0
+    });
+
+    // 3. 迁移节点：更新 project_id
+    await updateNodes({
+      where: { graphId: graph.id },
+      set: { projectId: project.id }
+    });
+
+    // 4. 创建 scene_nodes 关联
+    const nodes = await getNodesByProject(project.id);
+    for (const node of nodes) {
+      await createSceneNode({
+        sceneId: scene.id,
+        nodeId: node.id,
+        positionX: node.positionX,  // 使用原来的位置
+        positionY: node.positionY
+      });
+    }
+
+    // 5. 迁移边：更新 project_id
+    await updateEdges({
+      where: { graphId: graph.id },
+      set: { projectId: project.id }
+    });
+  }
+
+  // 6. 清理：删除 decision_graphs 表（或保留作为备份）
+}
+```
+
+### 8.7 实施计划
+
+**阶段 1：数据库和 API 层**
+- 创建新表 (projects, scenes, scene_nodes)
+- 实现数据迁移脚本
+- 更新 API 端点
+
+**阶段 2：前端单场景模式**
+- 重构 Home 页面（项目列表）
+- 实现 SceneTabs 组件
+- 更新 FocusView 适配新数据结构
+- 实现节点的"场景内/场景外"状态
+
+**阶段 3：全景模式**
+- 实现 OverviewCanvas 组件
+- 实现 SceneBoundary 可视化
+- 实现场景拖拽调整
+- 实现缩略图导航
+
+**阶段 4：优化和完善**
+- 共享节点可视化
+- 跨场景边样式
+- 性能优化
+- 用户引导
+
+---
+
+## 9. 历史更新记录 (2025-11)
+
+### 9.1 关系类型更新
 
 原有的关系类型（依赖、使能）不符合日常使用习惯，已更新为更直观的 6 种类型：
 
@@ -1962,7 +2657,7 @@ volumes:
 | 矛盾 | conflicts | A 和 B 不能同时成立 | 紫色 |
 | 相关 | related | A 和 B 有关联但不是因果 | 灰色 |
 
-### 8.2 聚焦视图功能
+### 9.2 聚焦视图功能
 
 双击节点进入聚焦模式，具有以下特性：
 
@@ -1981,7 +2676,7 @@ volumes:
    - 点击详情面板的关闭按钮取消聚焦
    - "居中显示"按钮将聚焦节点移到视图中心
 
-### 8.3 示例数据：教父决策图
+### 9.3 示例数据：教父决策图
 
 创建了经典案例"路易斯餐厅的抉择"作为复杂决策图示例：
 
@@ -1998,11 +2693,11 @@ cd packages/server
 npx tsx src/database/seed-godfather.ts
 ```
 
-### 8.4 编辑模式功能
+### 9.4 编辑模式功能
 
 新增编辑模式支持创建/编辑/删除节点和边，并预留了 LLM 交互接口。
 
-#### 8.4.1 模式切换
+#### 9.4.1 模式切换
 
 系统支持两种模式：
 - **查看模式 (view)**: 默认模式，用于浏览和分析决策图
@@ -2010,7 +2705,7 @@ npx tsx src/database/seed-godfather.ts
 
 通过头部的模式切换按钮进行切换。
 
-#### 8.4.2 编辑模式操作
+#### 9.4.2 编辑模式操作
 
 | 操作 | 方式 | 说明 |
 |------|------|------|
@@ -2020,7 +2715,7 @@ npx tsx src/database/seed-godfather.ts
 | 删除节点 | 编辑面板中的删除按钮 | 同时删除关联的边 |
 | 删除边 | 编辑面板中的删除按钮 | 仅删除选中的边 |
 
-#### 8.4.3 编辑面板功能
+#### 9.4.3 编辑面板功能
 
 **节点编辑面板**:
 - 节点类型选择（事实、假设、推理、决策、目标）
@@ -2036,7 +2731,7 @@ npx tsx src/database/seed-godfather.ts
 - 关系说明文本
 - 实时预览
 
-#### 8.4.4 状态管理扩展
+#### 9.4.4 状态管理扩展
 
 新增的 Zustand store 状态：
 
@@ -2069,7 +2764,7 @@ interface GraphState {
 }
 ```
 
-#### 8.4.5 LLM 交互接口
+#### 9.4.5 LLM 交互接口
 
 预留了 LLM 集成接口：
 
@@ -2086,7 +2781,7 @@ applyLLMSuggestion(actions: EditAction[]): Promise<void>
 2. `getEditHistoryForLLM()` 返回结构化的编辑历史，可直接作为 LLM prompt 的一部分
 3. `applyLLMSuggestion()` 允许 LLM 批量执行建议的修改操作
 
-#### 8.4.6 新增组件
+#### 9.4.6 新增组件
 
 | 组件 | 路径 | 说明 |
 |------|------|------|
@@ -2094,7 +2789,7 @@ applyLLMSuggestion(actions: EditAction[]): Promise<void>
 | EdgeEditPanel | `components/EdgeEditPanel.tsx` | 边编辑面板 |
 | EdgeTypeSelector | `components/EdgeTypeSelector.tsx` | 边类型选择弹窗 |
 
-#### 8.4.7 视觉反馈
+#### 9.4.7 视觉反馈
 
 - **连线源节点**: 绿色虚线边框 + 脉冲动画
 - **可连接目标**: 蓝色边框高亮
