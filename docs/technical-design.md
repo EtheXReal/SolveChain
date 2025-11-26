@@ -1943,6 +1943,7 @@ volumes:
 |------|------|------|
 | 1.0.0 | 2024-01 | 初始设计 |
 | 1.1.0 | 2025-11 | 更新关系类型，新增聚焦视图功能 |
+| 1.2.0 | 2025-11 | 新增编辑模式，支持创建/编辑/删除节点和边，预留 LLM 接口 |
 
 ---
 
@@ -1996,6 +1997,109 @@ volumes:
 cd packages/server
 npx tsx src/database/seed-godfather.ts
 ```
+
+### 8.4 编辑模式功能
+
+新增编辑模式支持创建/编辑/删除节点和边，并预留了 LLM 交互接口。
+
+#### 8.4.1 模式切换
+
+系统支持两种模式：
+- **查看模式 (view)**: 默认模式，用于浏览和分析决策图
+- **编辑模式 (edit)**: 用于修改决策图内容
+
+通过头部的模式切换按钮进行切换。
+
+#### 8.4.2 编辑模式操作
+
+| 操作 | 方式 | 说明 |
+|------|------|------|
+| 编辑节点 | 双击节点 | 打开右侧节点编辑面板 |
+| 创建连线 | 右键点击源节点 → 点击目标节点 | 开始拖拽连线，选择关系类型 |
+| 编辑边 | 单击边 | 打开右侧边编辑面板 |
+| 删除节点 | 编辑面板中的删除按钮 | 同时删除关联的边 |
+| 删除边 | 编辑面板中的删除按钮 | 仅删除选中的边 |
+
+#### 8.4.3 编辑面板功能
+
+**节点编辑面板**:
+- 节点类型选择（事实、假设、推理、决策、目标）
+- 标题和详细内容编辑
+- 置信度滑块 (0-100%)
+- 重要性滑块 (0-100%)
+- 实时预览
+
+**边编辑面板**:
+- 显示连接的源节点和目标节点
+- 关系类型选择（6 种类型）
+- 关系强度滑块 (0-100%)
+- 关系说明文本
+- 实时预览
+
+#### 8.4.4 状态管理扩展
+
+新增的 Zustand store 状态：
+
+```typescript
+// 编辑模式类型
+type EditorMode = 'view' | 'edit';
+
+// 编辑动作类型（用于历史记录和LLM交互）
+type EditAction =
+  | { type: 'CREATE_NODE'; node: GraphNode }
+  | { type: 'UPDATE_NODE'; nodeId: string; before: Partial<GraphNode>; after: Partial<GraphNode> }
+  | { type: 'DELETE_NODE'; node: GraphNode; relatedEdges: GraphEdge[] }
+  | { type: 'CREATE_EDGE'; edge: GraphEdge }
+  | { type: 'UPDATE_EDGE'; edgeId: string; before: Partial<GraphEdge>; after: Partial<GraphEdge> }
+  | { type: 'DELETE_EDGE'; edge: GraphEdge };
+
+// 连线状态（创建边时的视觉反馈）
+interface ConnectingState {
+  sourceNodeId: string;
+  sourcePosition: { x: number; y: number };
+  currentPosition: { x: number; y: number };
+}
+
+// Store 新增状态
+interface GraphState {
+  // ... 现有状态
+  editorMode: EditorMode;
+  connectingState: ConnectingState | null;
+  editHistory: EditAction[];
+}
+```
+
+#### 8.4.5 LLM 交互接口
+
+预留了 LLM 集成接口：
+
+```typescript
+// 获取编辑历史（供 LLM 分析用户意图）
+getEditHistoryForLLM(): EditAction[]
+
+// 应用 LLM 建议的修改
+applyLLMSuggestion(actions: EditAction[]): Promise<void>
+```
+
+**设计意图**:
+1. `EditAction` 类型记录所有编辑操作，便于 LLM 理解用户的修改意图
+2. `getEditHistoryForLLM()` 返回结构化的编辑历史，可直接作为 LLM prompt 的一部分
+3. `applyLLMSuggestion()` 允许 LLM 批量执行建议的修改操作
+
+#### 8.4.6 新增组件
+
+| 组件 | 路径 | 说明 |
+|------|------|------|
+| NodeEditPanel | `components/NodeEditPanel.tsx` | 节点编辑面板 |
+| EdgeEditPanel | `components/EdgeEditPanel.tsx` | 边编辑面板 |
+| EdgeTypeSelector | `components/EdgeTypeSelector.tsx` | 边类型选择弹窗 |
+
+#### 8.4.7 视觉反馈
+
+- **连线源节点**: 绿色虚线边框 + 脉冲动画
+- **可连接目标**: 蓝色边框高亮
+- **选中的边**: 加粗显示 + 光晕效果
+- **编辑模式按钮**: 绿色背景表示编辑模式，灰色表示查看模式
 
 ---
 

@@ -10,7 +10,8 @@
       "Bash(npm run dev:*)",
       "Bash(start http://localhost:5174)",
       "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"ALTER TYPE edge_type ADD VALUE IF NOT EXISTS ''prerequisite'';\")",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

@@ -2,16 +2,22 @@
  * 聚焦视图组件
  * 可缩放、可平移、可拖拽节点的关系图
  * 双击节点聚焦：高亮关系链接，显示详细内容（不改变位置）
+ * 支持编辑模式：创建/编辑/删除节点和边
  */
 
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { useGraphStore } from '../store/graphStore';
-import { GraphNode, GraphEdge, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG } from '../types';
+import { useGraphStore, EditorMode } from '../store/graphStore';
+import { GraphNode, GraphEdge, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG, EdgeType } from '../types';
 import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, X } from 'lucide-react';
+import EdgeTypeSelector from './EdgeTypeSelector';
 
 interface FocusViewProps {
   focusedNodeId: string | null;
   onNodeClick: (nodeId: string) => void;
+  editorMode: EditorMode;
+  onEditNode?: (nodeId: string) => void;
+  onEditEdge?: (edgeId: string) => void;
+  onDeleteNode?: (nodeId: string) => void;
 }
 
 interface NodePosition {
@@ -27,8 +33,15 @@ const NODE_HEIGHT = 60;
 const CENTER_X = CANVAS_WIDTH / 2;
 const CENTER_Y = CANVAS_HEIGHT / 2;
 
-export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps) {
-  const { nodes, edges } = useGraphStore();
+export default function FocusView({
+  focusedNodeId,
+  onNodeClick,
+  editorMode,
+  onEditNode,
+  onEditEdge,
+  onDeleteNode
+}: FocusViewProps) {
+  const { nodes, edges, connectingState, startConnecting, updateConnecting, finishConnecting, cancelConnecting } = useGraphStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -45,6 +58,17 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
 
   // 自定义节点位置
   const [customPositions, setCustomPositions] = useState<Map<string, NodePosition>>(new Map());
+
+  // 编辑模式状态
+  const [showEdgeTypeSelector, setShowEdgeTypeSelector] = useState(false);
+  const [pendingTargetNodeId, setPendingTargetNodeId] = useState<string | null>(null);
+  const [selectorPosition, setSelectorPosition] = useState({ x: 0, y: 0 });
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+
+  // 追踪画布是否真的移动了（用于判断点击 vs 拖动）
+  const [hasPanned, setHasPanned] = useState(false);
+
+  const isEditMode = editorMode === 'edit';
 
   // 获取聚焦节点及其相邻节点信息
   const focusInfo = useMemo(() => {
@@ -167,6 +191,31 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
     container.addEventListener('wheel', wheelHandler, { passive: false });
     return () => container.removeEventListener('wheel', wheelHandler);
   }, [offset, scale]);
+
+  // 添加键盘事件监听器（Delete 键删除聚焦的节点）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete 或 Backspace 键删除聚焦的节点
+      if ((e.key === 'Delete' || e.key === 'Backspace') && focusedNodeId && onDeleteNode) {
+        // 避免在输入框中触发删除
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+        e.preventDefault();
+        if (window.confirm('确定要删除这个节点吗？相关的连线也会被删除。')) {
+          onDeleteNode(focusedNodeId);
+        }
+      }
+      // Escape 键取消聚焦
+      if (e.key === 'Escape' && focusedNodeId) {
+        onNodeClick('');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedNodeId, onDeleteNode, onNodeClick]);
 
   // 缩放控制 - 围绕屏幕中心缩放
   const zoomAroundCenter = useCallback((newScale: number) => {
@@ -291,11 +340,18 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!draggingNodeId) {
       setIsPanning(true);
+      setHasPanned(false); // 重置拖动标记
       setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     }
   }, [draggingNodeId, offset]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // 更新连线位置
+    if (connectingState) {
+      const svgCoords = getSVGCoords(e.clientX, e.clientY);
+      updateConnecting(svgCoords);
+    }
+
     if (draggingNodeId) {
       setHasDragged(true);
       const svgCoords = getSVGCoords(e.clientX, e.clientY);
@@ -308,18 +364,35 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
         return next;
       });
     } else if (isPanning) {
-      setOffset({
-        x: e.clientX - panStart.x,
-        y: e.clientY - panStart.y,
-      });
+      // 检测是否真的移动了（移动距离 > 3px 视为拖动）
+      const newX = e.clientX - panStart.x;
+      const newY = e.clientY - panStart.y;
+      const movedX = Math.abs(newX - offset.x);
+      const movedY = Math.abs(newY - offset.y);
+      if (movedX > 3 || movedY > 3) {
+        setHasPanned(true);
+      }
+      setOffset({ x: newX, y: newY });
     }
-  }, [draggingNodeId, dragOffset, isPanning, panStart, getSVGCoords]);
+  }, [draggingNodeId, dragOffset, isPanning, panStart, offset, getSVGCoords, connectingState, updateConnecting]);
 
   const handleMouseUp = useCallback(() => {
+    // 如果没有拖动画布且有聚焦节点，则取消聚焦
+    if (isPanning && !hasPanned && focusedNodeId && !draggingNodeId) {
+      onNodeClick(''); // 传空字符串取消聚焦
+    }
+
     setDraggingNodeId(null);
     setIsPanning(false);
-    setTimeout(() => setHasDragged(false), 100);
-  }, []);
+    setTimeout(() => {
+      setHasDragged(false);
+      setHasPanned(false);
+    }, 100);
+    // 如果正在连线但没有目标，取消连线
+    if (connectingState && !pendingTargetNodeId) {
+      cancelConnecting();
+    }
+  }, [isPanning, hasPanned, focusedNodeId, draggingNodeId, onNodeClick, connectingState, pendingTargetNodeId, cancelConnecting]);
 
   const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
@@ -338,14 +411,67 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
   const handleNodeDoubleClick = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     if (!hasDragged) {
-      // 如果点击的是已聚焦的节点，取消聚焦
-      if (nodeId === focusedNodeId) {
-        onNodeClick('');
+      if (isEditMode) {
+        // 编辑模式：打开节点编辑面板
+        onEditNode?.(nodeId);
       } else {
-        onNodeClick(nodeId);
+        // 查看模式：聚焦节点
+        if (nodeId === focusedNodeId) {
+          onNodeClick('');
+        } else {
+          onNodeClick(nodeId);
+        }
       }
     }
-  }, [hasDragged, focusedNodeId, onNodeClick]);
+  }, [hasDragged, focusedNodeId, onNodeClick, isEditMode, onEditNode]);
+
+  // 右键开始连线（编辑模式下）
+  const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isEditMode) return;
+
+    const pos = nodePositions.get(nodeId);
+    if (pos) {
+      startConnecting(nodeId, pos);
+    }
+  }, [isEditMode, nodePositions, startConnecting]);
+
+  // 点击节点结束连线
+  const handleNodeClickForConnect = useCallback((e: React.MouseEvent, nodeId: string) => {
+    if (!connectingState || connectingState.sourceNodeId === nodeId) return;
+
+    e.stopPropagation();
+    // 弹出边类型选择器
+    setPendingTargetNodeId(nodeId);
+    setSelectorPosition({ x: e.clientX, y: e.clientY });
+    setShowEdgeTypeSelector(true);
+  }, [connectingState]);
+
+  // 选择边类型并创建连线
+  const handleSelectEdgeType = useCallback(async (edgeType: EdgeType) => {
+    if (pendingTargetNodeId) {
+      await finishConnecting(pendingTargetNodeId, edgeType);
+    }
+    setShowEdgeTypeSelector(false);
+    setPendingTargetNodeId(null);
+  }, [pendingTargetNodeId, finishConnecting]);
+
+  // 取消边类型选择
+  const handleCancelEdgeType = useCallback(() => {
+    setShowEdgeTypeSelector(false);
+    setPendingTargetNodeId(null);
+    cancelConnecting();
+  }, [cancelConnecting]);
+
+  // 点击边（编辑模式下）
+  const handleEdgeClick = useCallback((e: React.MouseEvent, edgeId: string) => {
+    e.stopPropagation();
+    if (isEditMode) {
+      setSelectedEdgeId(edgeId);
+      onEditEdge?.(edgeId);
+    }
+  }, [isEditMode, onEditEdge]);
 
   // 渲染节点
   const renderNode = (node: GraphNode) => {
@@ -357,6 +483,8 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
     const isDragging = node.id === draggingNodeId;
     const isRelated = focusInfo?.relatedNodeIds.has(node.id) ?? false;
     const isUnrelated = focusedNodeId && !isRelated;
+    const isConnectSource = connectingState?.sourceNodeId === node.id;
+    const canBeConnectTarget = connectingState && !isConnectSource;
 
     return (
       <g
@@ -364,7 +492,9 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
         transform={`translate(${pos.x}, ${pos.y})`}
         onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
         onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        onContextMenu={(e) => handleNodeContextMenu(e, node.id)}
+        onClick={(e) => canBeConnectTarget && handleNodeClickForConnect(e, node.id)}
+        style={{ cursor: isDragging ? 'grabbing' : canBeConnectTarget ? 'crosshair' : 'grab' }}
         opacity={isUnrelated ? 0.3 : 1}
       >
         {/* 聚焦高亮光晕 */}
@@ -383,6 +513,37 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
           />
         )}
 
+        {/* 连线源节点高亮 */}
+        {isConnectSource && (
+          <rect
+            x={-80}
+            y={-35}
+            width={160}
+            height={70}
+            rx={12}
+            fill="none"
+            stroke="#10b981"
+            strokeWidth={3}
+            strokeDasharray="5,5"
+            className="animate-pulse"
+          />
+        )}
+
+        {/* 可连接目标高亮 */}
+        {canBeConnectTarget && (
+          <rect
+            x={-78}
+            y={-33}
+            width={156}
+            height={66}
+            rx={10}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            opacity={0.5}
+          />
+        )}
+
         {/* 节点背景 */}
         <rect
           x={-75}
@@ -391,8 +552,8 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
           height={60}
           rx={8}
           fill={config.bgColor}
-          stroke={isFocused ? config.color : isRelated ? config.color : '#ddd'}
-          strokeWidth={isFocused ? 3 : isRelated ? 2 : 1}
+          stroke={isConnectSource ? '#10b981' : isFocused ? config.color : isRelated ? config.color : '#ddd'}
+          strokeWidth={isConnectSource ? 3 : isFocused ? 3 : isRelated ? 2 : 1}
           filter={isDragging ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' : undefined}
         />
 
@@ -434,6 +595,7 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
     const color = config?.color || '#999';
     const isRelatedToFocus = focusInfo?.relatedEdgeIds.has(edge.id) ?? false;
     const isUnrelated = focusedNodeId && !isRelatedToFocus;
+    const isSelected = selectedEdgeId === edge.id;
 
     const dx = targetPos.x - sourcePos.x;
     const dy = targetPos.y - sourcePos.y;
@@ -449,18 +611,48 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
     const endY = targetPos.y - unitY * 35;
 
     return (
-      <g key={edge.id} opacity={isUnrelated ? 0.15 : 1}>
+      <g
+        key={edge.id}
+        opacity={isUnrelated ? 0.15 : 1}
+        onClick={(e) => handleEdgeClick(e, edge.id)}
+        style={{ cursor: isEditMode ? 'pointer' : 'default' }}
+      >
+        {/* 透明的粗线用于更容易点击 */}
+        {isEditMode && (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke="transparent"
+            strokeWidth={15}
+          />
+        )}
+
+        {/* 选中高亮 */}
+        {isSelected && (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke={color}
+            strokeWidth={6}
+            opacity={0.3}
+          />
+        )}
+
         <line
           x1={startX}
           y1={startY}
           x2={endX}
           y2={endY}
           stroke={color}
-          strokeWidth={isRelatedToFocus ? 3 : 1}
+          strokeWidth={isSelected ? 4 : isRelatedToFocus ? 3 : 1}
           markerEnd={`url(#arrow-${edge.type})`}
         />
 
-        {isRelatedToFocus && (
+        {(isRelatedToFocus || isSelected || isEditMode) && (
           <text
             x={(startX + endX) / 2}
             y={(startY + endY) / 2 - 8}
@@ -474,6 +666,26 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
           </text>
         )}
       </g>
+    );
+  };
+
+  // 渲染正在创建的连线
+  const renderConnectingLine = () => {
+    if (!connectingState) return null;
+
+    const { sourcePosition, currentPosition } = connectingState;
+
+    return (
+      <line
+        x1={sourcePosition.x}
+        y1={sourcePosition.y}
+        x2={currentPosition.x}
+        y2={currentPosition.y}
+        stroke="#10b981"
+        strokeWidth={2}
+        strokeDasharray="8,4"
+        opacity={0.8}
+      />
     );
   };
 
@@ -525,7 +737,12 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
 
         {/* 图例 */}
         <div className="absolute bottom-4 left-4 z-10 bg-white rounded-lg shadow-md p-3">
-          <div className="text-xs text-gray-500 mb-2">拖拽移动节点，双击聚焦/取消聚焦</div>
+          <div className="text-xs text-gray-500 mb-2">
+            {isEditMode
+              ? '双击编辑节点 | 右键创建连线 | 点击边编辑关系 | Delete删除节点'
+              : '拖拽移动节点 | 双击聚焦 | 点击空白/Esc取消聚焦 | Delete删除节点'
+            }
+          </div>
           <div className="flex flex-wrap gap-3 text-xs">
             {Object.entries(EDGE_TYPE_CONFIG).map(([type, config]) => (
               <div key={type} className="flex items-center gap-1" title={config.description}>
@@ -582,10 +799,22 @@ export default function FocusView({ focusedNodeId, onNodeClick }: FocusViewProps
             {/* 渲染边 */}
             <g>{edges.map(renderEdge)}</g>
 
+            {/* 渲染正在创建的连线 */}
+            {renderConnectingLine()}
+
             {/* 渲染节点 */}
             <g>{nodes.map(renderNode)}</g>
           </svg>
         </div>
+
+        {/* 边类型选择器 */}
+        {showEdgeTypeSelector && (
+          <EdgeTypeSelector
+            position={selectorPosition}
+            onSelect={handleSelectEdgeType}
+            onCancel={handleCancelEdgeType}
+          />
+        )}
       </div>
 
       {/* 右侧详情面板 */}
