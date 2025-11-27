@@ -300,6 +300,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           nodes={displayNodes}
           edges={displayEdges}
           useScenePosition={!!currentSceneId}
+          currentSceneId={currentSceneId}
           onCreateEdge={handleCreateEdge}
           onSaveLayout={saveLayout}
         />

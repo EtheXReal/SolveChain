@@ -29,10 +29,11 @@ interface FocusViewProps {
   nodes?: GraphNode[]; // 可选，支持从外部传入
   edges?: GraphEdge[]; // 可选，支持从外部传入
   useScenePosition?: boolean; // 是否使用场景位置
+  currentSceneId?: string | null; // 当前场景 ID（用于区分保存到场景还是项目）
   // 外部连线方法（用于 v2.0 项目模式）
   onCreateEdge?: (sourceId: string, targetId: string, edgeType: EdgeType) => Promise<void>;
   // 保存布局回调（用于 v2.0 项目模式）
-  onSaveLayout?: (positions: Array<{ id: string; x: number; y: number }>) => Promise<void>;
+  onSaveLayout?: (positions: Array<{ id: string; x: number; y: number }>, sceneId?: string | null) => Promise<void>;
 }
 
 interface NodePosition {
@@ -58,6 +59,7 @@ export default function FocusView({
   nodes: propNodes,
   edges: propEdges,
   useScenePosition = false,
+  currentSceneId,
   onCreateEdge,
   onSaveLayout
 }: FocusViewProps) {
@@ -238,7 +240,8 @@ export default function FocusView({
     return merged;
   }, [calculatedPositions, customPositions]);
 
-  // 记录上一次的节点ID集合，用于检测场景切换
+  // 记录上一次的场景ID和节点集合，用于检测场景切换
+  const prevSceneIdRef = useRef<string | null | undefined>(undefined);
   const prevNodesRef = useRef<string>('');
   const customPositionsRef = useRef<Map<string, NodePosition>>(new Map());
 
@@ -247,25 +250,27 @@ export default function FocusView({
     customPositionsRef.current = customPositions;
   }, [customPositions]);
 
-  // 自动保存布局：当节点集合变化（切换场景）时，保存当前布局
+  // 自动保存布局：当场景切换时，保存当前布局到对应的场景
   useEffect(() => {
     const currentNodesKey = nodes.map(n => n.id).sort().join(',');
     const prevNodesKey = prevNodesRef.current;
+    const prevSceneId = prevSceneIdRef.current;
 
-    // 如果之前有节点，且节点集合发生了变化，保存之前的布局
+    // 如果之前有节点，且节点集合发生了变化（说明场景切换了），保存之前的布局
     if (prevNodesKey && prevNodesKey !== currentNodesKey && onSaveLayout && customPositionsRef.current.size > 0) {
-      // 保存之前场景的布局
+      // 保存之前场景的布局，传入之前的场景ID
       const positions = Array.from(customPositionsRef.current.entries()).map(([id, pos]) => ({
         id,
         x: pos.x,
         y: pos.y,
       }));
-      // 静默保存，不显示提示
-      onSaveLayout(positions).catch(err => console.error('自动保存布局失败:', err));
+      // 静默保存到之前的场景，不显示提示
+      onSaveLayout(positions, prevSceneId).catch(err => console.error('自动保存布局失败:', err));
     }
 
     prevNodesRef.current = currentNodesKey;
-  }, [nodes, onSaveLayout]);
+    prevSceneIdRef.current = currentSceneId;
+  }, [nodes, currentSceneId, onSaveLayout]);
 
   // 节点变化时加载布局
   useEffect(() => {
@@ -274,8 +279,10 @@ export default function FocusView({
       return;
     }
 
-    // 检查是否有保存的布局（节点有非零坐标）
-    const hasSavedLayout = nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
+    // 根据是否在场景中，检查对应的坐标是否有保存的布局
+    const hasSavedLayout = useScenePosition
+      ? nodes.some((n: any) => (n.scenePositionX !== undefined && n.scenePositionX !== 0) || (n.scenePositionY !== undefined && n.scenePositionY !== 0))
+      : nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
 
     // 延迟执行以确保容器已渲染
     setTimeout(() => {
@@ -284,11 +291,20 @@ export default function FocusView({
       if (hasSavedLayout) {
         // 用户已保存布局，使用数据库中的坐标
         positionsToUse = new Map();
-        nodes.forEach(node => {
-          positionsToUse.set(node.id, {
-            x: node.positionX,
-            y: node.positionY,
-          });
+        nodes.forEach((node: any) => {
+          if (useScenePosition) {
+            // 场景模式：使用场景位置
+            positionsToUse.set(node.id, {
+              x: node.scenePositionX ?? node.positionX ?? 0,
+              y: node.scenePositionY ?? node.positionY ?? 0,
+            });
+          } else {
+            // 概览模式：使用项目级位置
+            positionsToUse.set(node.id, {
+              x: node.positionX,
+              y: node.positionY,
+            });
+          }
         });
         setCustomPositions(positionsToUse);
       } else {
@@ -337,7 +353,7 @@ export default function FocusView({
         }
       }, 50);
     }, 100);
-  }, [nodes, edges]);
+  }, [nodes, edges, useScenePosition]);
 
   // 添加滚轮事件监听器（非 passive，以便 preventDefault 生效）
   useEffect(() => {

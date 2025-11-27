@@ -71,7 +71,7 @@ interface ProjectState {
   updateNodeScenePosition: (sceneId: string, nodeId: string, positionX: number, positionY: number) => Promise<void>;
 
   // 布局操作
-  saveLayout: (positions: Array<{ id: string; x: number; y: number }>) => Promise<void>;
+  saveLayout: (positions: Array<{ id: string; x: number; y: number }>, sceneId?: string | null) => Promise<void>;
 
   // UI 操作
   setViewMode: (mode: ViewMode) => void;
@@ -469,32 +469,55 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   // ========== 布局操作 ==========
 
-  saveLayout: async (positions) => {
+  saveLayout: async (positions, sceneId) => {
     const { currentProject } = get();
     if (!currentProject) throw new Error('未选择项目');
 
-    try {
-      const res = await fetch(`${API_BASE}/projects/${currentProject.id}/layout`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ positions }),
-      });
-      const result = await res.json();
-      if (!result.success) {
-        throw new Error(result.error?.message || '保存布局失败');
-      }
+    // 使用传入的 sceneId，如果没有传入则使用当前场景
+    const targetSceneId = sceneId !== undefined ? sceneId : get().currentSceneId;
 
-      // 更新本地节点位置
-      set((state) => ({
-        nodes: state.nodes.map((n) => {
-          const pos = positions.find((p) => p.id === n.id);
-          return pos ? { ...n, positionX: pos.x, positionY: pos.y } : n;
-        }),
-        sceneNodes: state.sceneNodes.map((n) => {
-          const pos = positions.find((p) => p.id === n.id);
-          return pos ? { ...n, positionX: pos.x, positionY: pos.y } : n;
-        }),
-      }));
+    try {
+      if (targetSceneId) {
+        // 在场景中：保存到场景级别的位置 (scene_nodes 表)
+        const res = await fetch(`${API_BASE}/scenes/${targetSceneId}/layout`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ positions }),
+        });
+        const result = await res.json();
+        if (!result.success) {
+          throw new Error(result.error?.message || '保存场景布局失败');
+        }
+
+        // 更新本地场景节点位置
+        if (get().currentSceneId === targetSceneId) {
+          set((state) => ({
+            sceneNodes: state.sceneNodes.map((n) => {
+              const pos = positions.find((p) => p.id === n.id);
+              return pos ? { ...n, scenePositionX: pos.x, scenePositionY: pos.y } : n;
+            }),
+          }));
+        }
+      } else {
+        // 在概览中：保存到项目级别的位置 (nodes 表)
+        const res = await fetch(`${API_BASE}/projects/${currentProject.id}/layout`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ positions }),
+        });
+        const result = await res.json();
+        if (!result.success) {
+          throw new Error(result.error?.message || '保存布局失败');
+        }
+
+        // 更新本地节点位置
+        set((state) => ({
+          nodes: state.nodes.map((n) => {
+            const pos = positions.find((p) => p.id === n.id);
+            return pos ? { ...n, positionX: pos.x, positionY: pos.y } : n;
+          }),
+        }));
+      }
     } catch (err: any) {
       set({ error: err.message });
       throw err;

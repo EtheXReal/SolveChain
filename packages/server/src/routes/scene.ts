@@ -154,4 +154,28 @@ router.patch('/:id/nodes/batch/positions', async (req: Request, res: Response, n
   }
 });
 
+// 保存场景布局（批量更新节点位置）
+router.put('/:id/layout', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { positions } = req.body;
+
+    if (!positions || !Array.isArray(positions)) {
+      throw new AppError(400, 'VALIDATION_ERROR', '位置数据格式错误');
+    }
+
+    // 转换格式：{ id, x, y } -> { nodeId, positionX, positionY }
+    const formattedPositions = positions.map((p: { id: string; x: number; y: number }) => ({
+      nodeId: p.id,
+      positionX: p.x,
+      positionY: p.y,
+    }));
+
+    await sceneRepository.updateNodePositions(id, formattedPositions);
+    res.json({ success: true, message: '场景布局已保存' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export { router as sceneRoutes };
