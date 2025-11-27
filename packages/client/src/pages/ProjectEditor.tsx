@@ -46,6 +46,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     setEditorMode,
     clearError,
     saveLayout,
+    setPendingLayoutPositions,
   } = useProjectStore();
 
   // 当前聚焦的节点ID
@@ -303,6 +304,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           currentSceneId={currentSceneId}
           onCreateEdge={handleCreateEdge}
           onSaveLayout={saveLayout}
+          onUpdatePendingPositions={setPendingLayoutPositions}
         />
 
         {/* 右侧编辑面板 */}

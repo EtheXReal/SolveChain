@@ -34,6 +34,8 @@ interface FocusViewProps {
   onCreateEdge?: (sourceId: string, targetId: string, edgeType: EdgeType) => Promise<void>;
   // 保存布局回调（用于 v2.0 项目模式）
   onSaveLayout?: (positions: Array<{ id: string; x: number; y: number }>, sceneId?: string | null) => Promise<void>;
+  // 更新待保存的布局位置（用于场景切换时自动保存）
+  onUpdatePendingPositions?: (positions: Map<string, { x: number; y: number }>) => void;
 }
 
 interface NodePosition {
@@ -61,7 +63,8 @@ export default function FocusView({
   useScenePosition = false,
   currentSceneId,
   onCreateEdge,
-  onSaveLayout
+  onSaveLayout,
+  onUpdatePendingPositions
 }: FocusViewProps) {
   const graphStore = useGraphStore();
   const nodes = propNodes ?? graphStore.nodes;
@@ -173,60 +176,62 @@ export default function FocusView({
     };
   }, [focusedNodeId, nodes, edges]);
 
-  // 计算节点布局位置 - 优先使用场景位置或数据库坐标，否则使用网格布局
+  // 计算节点布局位置 - 场景模式使用场景位置，概览模式使用项目位置
   const calculatedPositions = useMemo(() => {
     if (nodes.length === 0) return new Map<string, NodePosition>();
 
     const positions = new Map<string, NodePosition>();
 
-    // 检查是否使用场景位置
     if (useScenePosition) {
-      // 尝试使用场景位置（scenePositionX/Y），带有该属性的节点是 SceneGraphNode
+      // 场景模式：只使用 scenePositionX/Y，不 fallback 到 positionX/Y
+      // 这样每个场景的布局是完全独立的
       const hasScenePositions = nodes.some((n: any) =>
-        (n.scenePositionX !== undefined && n.scenePositionX !== 0) ||
-        (n.scenePositionY !== undefined && n.scenePositionY !== 0)
+        n.scenePositionX !== undefined && n.scenePositionY !== undefined &&
+        (n.scenePositionX !== 0 || n.scenePositionY !== 0)
       );
 
       if (hasScenePositions) {
         nodes.forEach((node: any) => {
+          // 只使用场景位置，不 fallback
           positions.set(node.id, {
-            x: node.scenePositionX ?? node.positionX ?? 0,
-            y: node.scenePositionY ?? node.positionY ?? 0,
+            x: node.scenePositionX ?? 0,
+            y: node.scenePositionY ?? 0,
+          });
+        });
+        return positions;
+      }
+      // 如果场景没有保存位置，返回空，让后面的逻辑触发自动布局
+    } else {
+      // 概览模式：使用项目级位置 positionX/Y
+      const hasProjectPositions = nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
+
+      if (hasProjectPositions) {
+        nodes.forEach(node => {
+          positions.set(node.id, {
+            x: node.positionX,
+            y: node.positionY,
           });
         });
         return positions;
       }
     }
 
-    // 检查是否有节点有自定义坐标（非0,0）
-    const hasCustomPositions = nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
+    // 没有保存的位置，使用网格布局作为初始布局（会触发自动布局）
+    const cols = Math.ceil(Math.sqrt(nodes.length));
+    const spacing = 220;
+    const rowSpacing = 140;
+    const startX = CENTER_X - (cols * spacing) / 2;
+    const rows = Math.ceil(nodes.length / cols);
+    const startY = CENTER_Y - (rows * rowSpacing) / 2;
 
-    if (hasCustomPositions) {
-      // 使用数据库中的坐标
-      nodes.forEach(node => {
-        positions.set(node.id, {
-          x: node.positionX,
-          y: node.positionY,
-        });
+    nodes.forEach((node, index) => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      positions.set(node.id, {
+        x: startX + col * spacing + spacing / 2,
+        y: startY + row * rowSpacing + rowSpacing / 2,
       });
-    } else {
-      // 回退到网格布局
-      const cols = Math.ceil(Math.sqrt(nodes.length));
-      const spacing = 220;
-      const rowSpacing = 140;
-      const startX = CENTER_X - (cols * spacing) / 2;
-      const rows = Math.ceil(nodes.length / cols);
-      const startY = CENTER_Y - (rows * rowSpacing) / 2;
-
-      nodes.forEach((node, index) => {
-        const row = Math.floor(index / cols);
-        const col = index % cols;
-        positions.set(node.id, {
-          x: startX + col * spacing + spacing / 2,
-          y: startY + row * rowSpacing + rowSpacing / 2,
-        });
-      });
-    }
+    });
 
     return positions;
   }, [nodes, useScenePosition]);
@@ -240,37 +245,12 @@ export default function FocusView({
     return merged;
   }, [calculatedPositions, customPositions]);
 
-  // 记录上一次的场景ID和节点集合，用于检测场景切换
-  const prevSceneIdRef = useRef<string | null | undefined>(undefined);
-  const prevNodesRef = useRef<string>('');
-  const customPositionsRef = useRef<Map<string, NodePosition>>(new Map());
-
-  // 同步 customPositions 到 ref，用于自动保存
+  // 同步当前位置到 store（用于场景切换时保存）
   useEffect(() => {
-    customPositionsRef.current = customPositions;
-  }, [customPositions]);
-
-  // 自动保存布局：当场景切换时，保存当前布局到对应的场景
-  useEffect(() => {
-    const currentNodesKey = nodes.map(n => n.id).sort().join(',');
-    const prevNodesKey = prevNodesRef.current;
-    const prevSceneId = prevSceneIdRef.current;
-
-    // 如果之前有节点，且节点集合发生了变化（说明场景切换了），保存之前的布局
-    if (prevNodesKey && prevNodesKey !== currentNodesKey && onSaveLayout && customPositionsRef.current.size > 0) {
-      // 保存之前场景的布局，传入之前的场景ID
-      const positions = Array.from(customPositionsRef.current.entries()).map(([id, pos]) => ({
-        id,
-        x: pos.x,
-        y: pos.y,
-      }));
-      // 静默保存到之前的场景，不显示提示
-      onSaveLayout(positions, prevSceneId).catch(err => console.error('自动保存布局失败:', err));
+    if (onUpdatePendingPositions && customPositions.size > 0) {
+      onUpdatePendingPositions(customPositions);
     }
-
-    prevNodesRef.current = currentNodesKey;
-    prevSceneIdRef.current = currentSceneId;
-  }, [nodes, currentSceneId, onSaveLayout]);
+  }, [customPositions, onUpdatePendingPositions]);
 
   // 节点变化时加载布局
   useEffect(() => {
@@ -280,8 +260,13 @@ export default function FocusView({
     }
 
     // 根据是否在场景中，检查对应的坐标是否有保存的布局
+    // 场景模式：检查 scenePositionX/Y 是否有非零值（不 fallback 到 positionX/Y）
+    // 概览模式：检查 positionX/Y 是否有非零值
     const hasSavedLayout = useScenePosition
-      ? nodes.some((n: any) => (n.scenePositionX !== undefined && n.scenePositionX !== 0) || (n.scenePositionY !== undefined && n.scenePositionY !== 0))
+      ? nodes.some((n: any) =>
+          n.scenePositionX !== undefined && n.scenePositionY !== undefined &&
+          (n.scenePositionX !== 0 || n.scenePositionY !== 0)
+        )
       : nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
 
     // 延迟执行以确保容器已渲染
@@ -293,10 +278,10 @@ export default function FocusView({
         positionsToUse = new Map();
         nodes.forEach((node: any) => {
           if (useScenePosition) {
-            // 场景模式：使用场景位置
+            // 场景模式：只使用场景位置，不 fallback（保持场景独立）
             positionsToUse.set(node.id, {
-              x: node.scenePositionX ?? node.positionX ?? 0,
-              y: node.scenePositionY ?? node.positionY ?? 0,
+              x: node.scenePositionX ?? 0,
+              y: node.scenePositionY ?? 0,
             });
           } else {
             // 概览模式：使用项目级位置
@@ -452,30 +437,20 @@ export default function FocusView({
     let newPositions: Map<string, NodePosition>;
 
     if (focusedNodeId) {
-      // 有聚焦节点：使用径向布局
-      // 以聚焦节点为中心，根据关系远近排布位置
+      // 有聚焦节点：使用聚焦布局（左右展开）
+      // 聚焦节点在中心，上游在左侧，下游在右侧
       const result = radialLayout(nodes, edges, focusedNodeId, {
-        baseRadius: 180,
-        radiusStep: 140,
-        minAngleSep: 30,
+        radiusStep: 220,  // 层间距
         maxLayers: 4,
       });
-
-      // 径向布局已经比较好，只做轻微微调
-      newPositions = forceDirectedRefinement(nodes, edges, result.positions, {
-        iterations: 15,
-        repulsionStrength: 1000,
-        attractionStrength: 0.01,
-        fixedNodeId: focusedNodeId, // 聚焦节点固定在中心
-        maxDisplacement: 10,
-      });
+      newPositions = result.positions;
     } else {
       // 无聚焦节点：使用分层布局 (Dagre)
       // 按逻辑层次排列，最小化边交叉
       const result = hierarchicalLayout(nodes, edges, {
         direction: 'LR', // 从左到右，符合因果推理的阅读习惯
-        rankSep: 120,    // 层间距
-        nodeSep: 50,     // 同层节点间距
+        rankSep: 150,    // 层间距
+        nodeSep: 60,     // 同层节点间距
       });
 
       // 应用力导向微调

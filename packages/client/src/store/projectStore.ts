@@ -55,6 +55,10 @@ interface ProjectState {
   deleteScene: (sceneId: string) => Promise<void>;
   setCurrentScene: (sceneId: string | null) => void;
 
+  // 待保存的场景布局（由 FocusView 在位置变化时更新）
+  pendingLayoutPositions: Map<string, { x: number; y: number }>;
+  setPendingLayoutPositions: (positions: Map<string, { x: number; y: number }>) => void;
+
   // 节点操作（项目级）
   createNode: (data: { type: NodeType; title: string; content?: string; positionX?: number; positionY?: number }) => Promise<SceneGraphNode>;
   updateNode: (nodeId: string, data: Partial<SceneGraphNode>) => Promise<void>;
@@ -93,6 +97,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   editorMode: 'view',
   loading: false,
   error: null,
+  pendingLayoutPositions: new Map(),
 
   // ========== 项目操作 ==========
 
@@ -196,8 +201,37 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   // ========== 场景操作 ==========
 
-  setCurrentScene: (sceneId) => {
-    set({ currentSceneId: sceneId });
+  setPendingLayoutPositions: (positions) => {
+    set({ pendingLayoutPositions: positions });
+  },
+
+  setCurrentScene: async (sceneId) => {
+    const { currentSceneId: prevSceneId, pendingLayoutPositions, sceneNodes } = get();
+
+    // 如果有待保存的布局且正在从一个场景切换出去，先保存
+    if (prevSceneId && pendingLayoutPositions.size > 0) {
+      const sceneNodeIds = new Set(sceneNodes.map(n => n.id));
+      const positions = Array.from(pendingLayoutPositions.entries())
+        .filter(([id]) => sceneNodeIds.has(id))
+        .map(([id, pos]) => ({
+          id,
+          x: pos.x,
+          y: pos.y,
+        }));
+
+      if (positions.length > 0) {
+        console.log(`[场景切换] 保存 ${positions.length} 个节点到场景 ${prevSceneId}`);
+        try {
+          await get().saveLayout(positions, prevSceneId);
+        } catch (err) {
+          console.error('自动保存布局失败:', err);
+        }
+      }
+    }
+
+    // 清空待保存的布局
+    set({ pendingLayoutPositions: new Map(), currentSceneId: sceneId });
+
     if (sceneId) {
       get().fetchScene(sceneId);
     } else {

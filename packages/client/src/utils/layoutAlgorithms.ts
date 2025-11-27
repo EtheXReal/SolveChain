@@ -165,26 +165,24 @@ function computeDistances(
 }
 
 /**
- * 径向布局算法
- * 以聚焦节点为中心，根据关系远近排布位置
- * 使用改进的力导向思想减少边交叉
+ * 聚焦布局算法（左右展开）
+ * 聚焦节点在中心，上游节点（指向它的）在左侧，下游节点（它指向的）在右侧
+ * 形成清晰的因果流向：原因 → 聚焦点 → 结果
  */
-export function radialLayout(
+export function focusedLayout(
   nodes: GraphNode[],
   edges: GraphEdge[],
   focusedNodeId: string,
   options: {
-    baseRadius?: number;    // 第一圈半径
-    radiusStep?: number;    // 每层增加的半径
-    minAngleSep?: number;   // 最小角度间隔（度）
-    maxLayers?: number;     // 最大层数
+    layerGap?: number;      // 层间距（水平）
+    nodeGap?: number;       // 同层节点间距（垂直）
+    maxLayers?: number;     // 每侧最大层数
   } = {}
 ): LayoutResult {
   const {
-    baseRadius = 200,
-    radiusStep = 150,
-    minAngleSep = 20,
-    maxLayers = 5,  // 限制最大层数
+    layerGap = 220,
+    nodeGap = 100,
+    maxLayers = 4,
   } = options;
 
   if (nodes.length === 0) {
@@ -192,153 +190,169 @@ export function radialLayout(
   }
 
   const positions = new Map<string, NodePosition>();
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const nodeIds = new Set(nodes.map(n => n.id));
 
-  // 计算每个节点到聚焦节点的距离
-  const distances = computeDistances(nodes, edges, focusedNodeId);
-
-  // 找出最大的有效距离（排除不可达节点）
-  let maxValidDistance = 0;
-  distances.forEach(dist => {
-    if (dist < 999 && dist > maxValidDistance) {
-      maxValidDistance = dist;
+  // 构建有向邻接表
+  const outgoing = new Map<string, Set<string>>(); // 节点指向谁
+  const incoming = new Map<string, Set<string>>(); // 谁指向节点
+  nodes.forEach(n => {
+    outgoing.set(n.id, new Set());
+    incoming.set(n.id, new Set());
+  });
+  edges.forEach(edge => {
+    if (nodeIds.has(edge.sourceNodeId) && nodeIds.has(edge.targetNodeId)) {
+      outgoing.get(edge.sourceNodeId)?.add(edge.targetNodeId);
+      incoming.get(edge.targetNodeId)?.add(edge.sourceNodeId);
     }
   });
 
-  // 聚焦节点放在中心（最先设置，确保不被覆盖）
+  // BFS 分层：从聚焦节点向上游（反向）和下游（正向）分别遍历
+  const upstreamLayers: GraphNode[][] = [];   // 上游：指向聚焦节点的链条
+  const downstreamLayers: GraphNode[][] = []; // 下游：聚焦节点指向的链条
+  const visited = new Set<string>([focusedNodeId]);
+
+  // 上游 BFS（反向：找谁指向当前节点）
+  let currentLayer = [focusedNodeId];
+  for (let depth = 0; depth < maxLayers && currentLayer.length > 0; depth++) {
+    const nextLayer: string[] = [];
+    currentLayer.forEach(nodeId => {
+      const sources = incoming.get(nodeId) || new Set();
+      sources.forEach(sourceId => {
+        if (!visited.has(sourceId)) {
+          visited.add(sourceId);
+          nextLayer.push(sourceId);
+        }
+      });
+    });
+    if (nextLayer.length > 0) {
+      upstreamLayers.push(nextLayer.map(id => nodeMap.get(id)!).filter(Boolean));
+    }
+    currentLayer = nextLayer;
+  }
+
+  // 下游 BFS（正向：找当前节点指向谁）
+  currentLayer = [focusedNodeId];
+  for (let depth = 0; depth < maxLayers && currentLayer.length > 0; depth++) {
+    const nextLayer: string[] = [];
+    currentLayer.forEach(nodeId => {
+      const targets = outgoing.get(nodeId) || new Set();
+      targets.forEach(targetId => {
+        if (!visited.has(targetId)) {
+          visited.add(targetId);
+          nextLayer.push(targetId);
+        }
+      });
+    });
+    if (nextLayer.length > 0) {
+      downstreamLayers.push(nextLayer.map(id => nodeMap.get(id)!).filter(Boolean));
+    }
+    currentLayer = nextLayer;
+  }
+
+  // 收集未访问的节点（不直接相连的）
+  const unconnectedNodes: GraphNode[] = [];
+  nodes.forEach(node => {
+    if (!visited.has(node.id)) {
+      unconnectedNodes.push(node);
+    }
+  });
+
+  // 聚焦节点放在中心
   positions.set(focusedNodeId, { x: CENTER_X, y: CENTER_Y });
 
-  // 按距离分组，将不可达节点放到最外层
-  const layers = new Map<number, GraphNode[]>();
-  const outerLayerDist = Math.min(Math.max(maxValidDistance + 1, 2), maxLayers); // 不可达节点的层级，至少为2
+  // 辅助函数：垂直居中排列一组节点
+  const arrangeVertically = (layerNodes: GraphNode[], centerX: number) => {
+    const count = layerNodes.length;
+    if (count === 0) return;
 
-  nodes.forEach(node => {
-    // 跳过聚焦节点，它已经被放在中心了
-    if (node.id === focusedNodeId) {
-      return;
-    }
+    const totalHeight = (count - 1) * nodeGap;
+    const startY = CENTER_Y - totalHeight / 2;
 
-    let dist = distances.get(node.id) || 999;
-    // 将不可达节点和超出最大层数的节点放到最外层
-    if (dist >= 999 || dist > maxLayers) {
-      dist = outerLayerDist;
-    }
-    if (!layers.has(dist)) {
-      layers.set(dist, []);
-    }
-    layers.get(dist)!.push(node);
-  });
-
-  // 构建邻接表用于优化角度分配
-  const adjacency = new Map<string, Set<string>>();
-  nodes.forEach(node => adjacency.set(node.id, new Set()));
-  edges.forEach(edge => {
-    adjacency.get(edge.sourceNodeId)?.add(edge.targetNodeId);
-    adjacency.get(edge.targetNodeId)?.add(edge.sourceNodeId);
-  });
-
-  // 按层布局
-  const sortedLayers = Array.from(layers.keys()).sort((a, b) => a - b);
-
-  sortedLayers.forEach(layerDist => {
-    if (layerDist === 0) return; // 跳过聚焦节点
-
-    const layerNodes = layers.get(layerDist)!;
-    // 使用限制后的层级计算半径
-    const effectiveLayer = Math.min(layerDist, maxLayers);
-    const radius = baseRadius + (effectiveLayer - 1) * radiusStep;
-    const nodeCount = layerNodes.length;
-
-    if (nodeCount === 0) return;
-
-    // 计算理想角度位置
-    // 尝试让节点靠近其在上一层的邻居
-    const angleAssignments: { node: GraphNode; idealAngle: number }[] = [];
-
-    layerNodes.forEach(node => {
-      // 找到上一层的邻居
-      const neighbors = adjacency.get(node.id) || new Set();
-      let sumAngle = 0;
-      let neighborCount = 0;
-
-      neighbors.forEach(neighborId => {
-        const neighborDist = distances.get(neighborId);
-        const neighborPos = positions.get(neighborId);
-        if (neighborDist !== undefined && neighborDist < layerDist && neighborPos) {
-          // 计算邻居相对于中心的角度
-          const angle = Math.atan2(neighborPos.y - CENTER_Y, neighborPos.x - CENTER_X);
-          sumAngle += angle;
-          neighborCount++;
-        }
+    // 按照与上一层连接的位置排序，减少边交叉
+    layerNodes.forEach((node, index) => {
+      positions.set(node.id, {
+        x: centerX,
+        y: startY + index * nodeGap,
       });
+    });
+  };
 
-      // 理想角度是邻居角度的平均值，如果没有邻居则随机分配
-      const idealAngle = neighborCount > 0
-        ? sumAngle / neighborCount
-        : Math.random() * 2 * Math.PI;
+  // 辅助函数：根据连接关系排序节点，减少边交叉
+  const sortByConnections = (layerNodes: GraphNode[], prevLayerPositions: Map<string, number>, isUpstream: boolean) => {
+    return layerNodes.sort((a, b) => {
+      // 计算每个节点与上一层连接的平均 Y 位置
+      const getAvgY = (node: GraphNode) => {
+        const connections = isUpstream ? outgoing.get(node.id) : incoming.get(node.id);
+        if (!connections || connections.size === 0) return CENTER_Y;
 
-      angleAssignments.push({ node, idealAngle });
+        let sumY = 0;
+        let count = 0;
+        connections.forEach(connId => {
+          const y = prevLayerPositions.get(connId);
+          if (y !== undefined) {
+            sumY += y;
+            count++;
+          }
+        });
+        return count > 0 ? sumY / count : CENTER_Y;
+      };
+
+      return getAvgY(a) - getAvgY(b);
+    });
+  };
+
+  // 布局上游节点（从中心向左展开）
+  let prevLayerY = new Map<string, number>([[focusedNodeId, CENTER_Y]]);
+  upstreamLayers.forEach((layer, layerIndex) => {
+    const x = CENTER_X - (layerIndex + 1) * layerGap;
+    const sortedLayer = sortByConnections(layer, prevLayerY, true);
+    arrangeVertically(sortedLayer, x);
+
+    // 更新 prevLayerY
+    prevLayerY = new Map();
+    sortedLayer.forEach(node => {
+      const pos = positions.get(node.id);
+      if (pos) prevLayerY.set(node.id, pos.y);
+    });
+  });
+
+  // 布局下游节点（从中心向右展开）
+  prevLayerY = new Map([[focusedNodeId, CENTER_Y]]);
+  downstreamLayers.forEach((layer, layerIndex) => {
+    const x = CENTER_X + (layerIndex + 1) * layerGap;
+    const sortedLayer = sortByConnections(layer, prevLayerY, false);
+    arrangeVertically(sortedLayer, x);
+
+    // 更新 prevLayerY
+    prevLayerY = new Map();
+    sortedLayer.forEach(node => {
+      const pos = positions.get(node.id);
+      if (pos) prevLayerY.set(node.id, pos.y);
+    });
+  });
+
+  // 布局不相连的节点（放在下方）
+  if (unconnectedNodes.length > 0) {
+    // 找到当前布局的最大 Y
+    let maxY = CENTER_Y;
+    positions.forEach(pos => {
+      maxY = Math.max(maxY, pos.y);
     });
 
-    // 按理想角度排序
-    angleAssignments.sort((a, b) => a.idealAngle - b.idealAngle);
+    const startY = maxY + nodeGap * 1.5;
+    const cols = Math.ceil(Math.sqrt(unconnectedNodes.length));
+    const startX = CENTER_X - ((cols - 1) * layerGap) / 2;
 
-    // 分配最终角度，确保最小间隔
-    const minAngleRad = (minAngleSep * Math.PI) / 180;
-    const totalAngleNeeded = nodeCount * minAngleRad;
-    const availableAngle = 2 * Math.PI;
-
-    // 如果节点太多，均匀分布
-    if (totalAngleNeeded >= availableAngle) {
-      const angleStep = availableAngle / nodeCount;
-      angleAssignments.forEach((assignment, index) => {
-        const angle = -Math.PI / 2 + index * angleStep; // 从顶部开始
-        positions.set(assignment.node.id, {
-          x: CENTER_X + radius * Math.cos(angle),
-          y: CENTER_Y + radius * Math.sin(angle),
-        });
+    unconnectedNodes.forEach((node, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      positions.set(node.id, {
+        x: startX + col * layerGap * 0.8,
+        y: startY + row * nodeGap,
       });
-    } else {
-      // 尝试保持理想角度，但确保最小间隔
-      const finalAngles: number[] = [];
-
-      angleAssignments.forEach((assignment, index) => {
-        let angle = assignment.idealAngle;
-
-        // 确保与前一个节点的最小间隔
-        if (index > 0) {
-          const prevAngle = finalAngles[index - 1];
-          if (angle - prevAngle < minAngleRad) {
-            angle = prevAngle + minAngleRad;
-          }
-        }
-
-        finalAngles.push(angle);
-        positions.set(assignment.node.id, {
-          x: CENTER_X + radius * Math.cos(angle),
-          y: CENTER_Y + radius * Math.sin(angle),
-        });
-      });
-
-      // 处理首尾环绕的情况
-      if (finalAngles.length > 1) {
-        const firstAngle = finalAngles[0];
-        const lastAngle = finalAngles[finalAngles.length - 1];
-        const wrapGap = (2 * Math.PI + firstAngle) - lastAngle;
-
-        if (wrapGap < minAngleRad) {
-          // 需要重新均匀分布
-          const angleStep = (2 * Math.PI) / nodeCount;
-          angleAssignments.forEach((assignment, index) => {
-            const angle = -Math.PI / 2 + index * angleStep;
-            positions.set(assignment.node.id, {
-              x: CENTER_X + radius * Math.cos(angle),
-              y: CENTER_Y + radius * Math.sin(angle),
-            });
-          });
-        }
-      }
-    }
-  });
+    });
+  }
 
   // 计算布局尺寸
   let minX = Infinity, maxX = -Infinity;
@@ -356,6 +370,29 @@ export function radialLayout(
     width: maxX - minX + 160,
     height: maxY - minY + 70,
   };
+}
+
+/**
+ * 径向布局算法（保留作为备选）
+ * 以聚焦节点为中心，根据关系远近排布位置
+ */
+export function radialLayout(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  focusedNodeId: string,
+  options: {
+    baseRadius?: number;
+    radiusStep?: number;
+    minAngleSep?: number;
+    maxLayers?: number;
+  } = {}
+): LayoutResult {
+  // 直接使用新的聚焦布局
+  return focusedLayout(nodes, edges, focusedNodeId, {
+    layerGap: options.radiusStep || 220,
+    nodeGap: 100,
+    maxLayers: options.maxLayers || 4,
+  });
 }
 
 /**
