@@ -70,6 +70,9 @@ interface ProjectState {
   removeNodeFromScene: (sceneId: string, nodeId: string) => Promise<void>;
   updateNodeScenePosition: (sceneId: string, nodeId: string, positionX: number, positionY: number) => Promise<void>;
 
+  // 布局操作
+  saveLayout: (positions: Array<{ id: string; x: number; y: number }>) => Promise<void>;
+
   // UI 操作
   setViewMode: (mode: ViewMode) => void;
   setEditorMode: (mode: EditorMode) => void;
@@ -461,6 +464,40 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }
     } catch (err: any) {
       set({ error: err.message });
+    }
+  },
+
+  // ========== 布局操作 ==========
+
+  saveLayout: async (positions) => {
+    const { currentProject } = get();
+    if (!currentProject) throw new Error('未选择项目');
+
+    try {
+      const res = await fetch(`${API_BASE}/projects/${currentProject.id}/layout`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positions }),
+      });
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.error?.message || '保存布局失败');
+      }
+
+      // 更新本地节点位置
+      set((state) => ({
+        nodes: state.nodes.map((n) => {
+          const pos = positions.find((p) => p.id === n.id);
+          return pos ? { ...n, positionX: pos.x, positionY: pos.y } : n;
+        }),
+        sceneNodes: state.sceneNodes.map((n) => {
+          const pos = positions.find((p) => p.id === n.id);
+          return pos ? { ...n, positionX: pos.x, positionY: pos.y } : n;
+        }),
+      }));
+    } catch (err: any) {
+      set({ error: err.message });
+      throw err;
     }
   },
 

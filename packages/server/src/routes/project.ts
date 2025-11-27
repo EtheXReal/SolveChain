@@ -150,6 +150,31 @@ router.post('/:id/nodes', async (req: Request, res: Response, next: NextFunction
   }
 });
 
+// 批量更新节点位置（保存布局）
+router.put('/:id/layout', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { positions } = req.body;
+
+    if (!positions || !Array.isArray(positions)) {
+      throw new AppError(400, 'VALIDATION_ERROR', '位置数据格式错误');
+    }
+
+    // 验证项目存在
+    const project = await projectRepository.findByIdWithDetails(id);
+    if (!project) {
+      throw new AppError(404, 'NOT_FOUND', '项目不存在');
+    }
+
+    // 批量更新位置
+    await nodeRepository.updatePositions(positions);
+
+    res.json({ success: true, message: '布局已保存' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ========== 项目内的边 API ==========
 
 // 获取项目的所有边

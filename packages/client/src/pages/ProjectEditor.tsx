@@ -11,7 +11,7 @@ import FocusView from '../components/FocusView';
 import NodeEditPanel from '../components/NodeEditPanel';
 import EdgeEditPanel from '../components/EdgeEditPanel';
 import SceneTabs from '../components/SceneTabs';
-import { NodeType } from '../types';
+import { NodeType, EdgeType } from '../types';
 import { Edit3, Eye } from 'lucide-react';
 
 interface ProjectEditorProps {
@@ -38,10 +38,14 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     deleteScene,
     createNode,
     deleteNode,
+    createEdge,
+    updateEdge,
     deleteEdge,
+    updateNode,
     addNodeToScene,
     setEditorMode,
     clearError,
+    saveLayout,
   } = useProjectStore();
 
   // 当前聚焦的节点ID
@@ -168,6 +172,22 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     [deleteEdge]
   );
 
+  // 创建边（连线）
+  const handleCreateEdge = useCallback(
+    async (sourceId: string, targetId: string, edgeType: EdgeType) => {
+      try {
+        await createEdge({
+          sourceNodeId: sourceId,
+          targetNodeId: targetId,
+          type: edgeType,
+        });
+      } catch (err) {
+        // 错误已在 store 中处理
+      }
+    },
+    [createEdge]
+  );
+
   // 错误提示
   useEffect(() => {
     if (error) {
@@ -260,6 +280,13 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           onSelectNode={handleSelectNode}
           onCreateNode={handleCreateNode}
           nodes={displayNodes}
+          allNodes={nodes}
+          isInScene={!!currentSceneId}
+          onAddNodeToScene={(nodeId) => {
+            if (currentSceneId) {
+              addNodeToScene(currentSceneId, nodeId, 0, 0);
+            }
+          }}
         />
 
         {/* 中间聚焦视图 */}
@@ -273,6 +300,8 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           nodes={displayNodes}
           edges={displayEdges}
           useScenePosition={!!currentSceneId}
+          onCreateEdge={handleCreateEdge}
+          onSaveLayout={saveLayout}
         />
 
         {/* 右侧编辑面板 */}
@@ -281,6 +310,8 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             nodeId={editingNodeId}
             onClose={handleCloseEditPanel}
             onDelete={handleDeleteNode}
+            nodes={displayNodes}
+            onUpdateNode={updateNode}
           />
         )}
 
@@ -289,6 +320,9 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             edgeId={editingEdgeId}
             onClose={handleCloseEditPanel}
             onDelete={handleDeleteEdge}
+            edges={displayEdges}
+            nodes={displayNodes}
+            onUpdateEdge={updateEdge}
           />
         )}
       </div>

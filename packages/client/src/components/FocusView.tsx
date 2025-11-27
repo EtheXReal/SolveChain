@@ -8,8 +8,16 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { useGraphStore, EditorMode } from '../store/graphStore';
 import { GraphNode, GraphEdge, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG, EdgeType } from '../types';
-import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, X } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, Save, X } from 'lucide-react';
 import EdgeTypeSelector from './EdgeTypeSelector';
+import { hierarchicalLayout, radialLayout, forceDirectedRefinement } from '../utils/layoutAlgorithms';
+
+// 连线状态类型
+interface ConnectingState {
+  sourceNodeId: string;
+  sourcePosition: { x: number; y: number };
+  currentPosition: { x: number; y: number };
+}
 
 interface FocusViewProps {
   focusedNodeId: string | null;
@@ -21,6 +29,10 @@ interface FocusViewProps {
   nodes?: GraphNode[]; // 可选，支持从外部传入
   edges?: GraphEdge[]; // 可选，支持从外部传入
   useScenePosition?: boolean; // 是否使用场景位置
+  // 外部连线方法（用于 v2.0 项目模式）
+  onCreateEdge?: (sourceId: string, targetId: string, edgeType: EdgeType) => Promise<void>;
+  // 保存布局回调（用于 v2.0 项目模式）
+  onSaveLayout?: (positions: Array<{ id: string; x: number; y: number }>) => Promise<void>;
 }
 
 interface NodePosition {
@@ -45,12 +57,48 @@ export default function FocusView({
   onDeleteNode,
   nodes: propNodes,
   edges: propEdges,
-  useScenePosition = false
+  useScenePosition = false,
+  onCreateEdge,
+  onSaveLayout
 }: FocusViewProps) {
   const graphStore = useGraphStore();
   const nodes = propNodes ?? graphStore.nodes;
   const edges = propEdges ?? graphStore.edges;
-  const { connectingState, startConnecting, updateConnecting, finishConnecting, cancelConnecting } = graphStore;
+
+  // 如果有外部 onCreateEdge，使用本地连线状态；否则使用 graphStore
+  const useExternalConnect = !!onCreateEdge;
+  const [localConnectingState, setLocalConnectingState] = useState<ConnectingState | null>(null);
+
+  const connectingState = useExternalConnect ? localConnectingState : graphStore.connectingState;
+
+  const startConnecting = useExternalConnect
+    ? (nodeId: string, position: { x: number; y: number }) => {
+        setLocalConnectingState({
+          sourceNodeId: nodeId,
+          sourcePosition: position,
+          currentPosition: position
+        });
+      }
+    : graphStore.startConnecting;
+
+  const updateConnecting = useExternalConnect
+    ? (position: { x: number; y: number }) => {
+        setLocalConnectingState(prev => prev ? { ...prev, currentPosition: position } : null);
+      }
+    : graphStore.updateConnecting;
+
+  const cancelConnecting = useExternalConnect
+    ? () => setLocalConnectingState(null)
+    : graphStore.cancelConnecting;
+
+  const finishConnecting = useExternalConnect
+    ? async (targetNodeId: string, edgeType: EdgeType) => {
+        if (localConnectingState && onCreateEdge) {
+          await onCreateEdge(localConnectingState.sourceNodeId, targetNodeId, edgeType);
+        }
+        setLocalConnectingState(null);
+      }
+    : graphStore.finishConnecting;
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -76,6 +124,10 @@ export default function FocusView({
 
   // 追踪画布是否真的移动了（用于判断点击 vs 拖动）
   const [hasPanned, setHasPanned] = useState(false);
+
+  // 布局保存提示状态
+  const [showSaveToast, setShowSaveToast] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const isEditMode = editorMode === 'edit';
 
@@ -186,33 +238,75 @@ export default function FocusView({
     return merged;
   }, [calculatedPositions, customPositions]);
 
-  // 初始化时居中显示
+  // 标记是否已完成首次布局（仅在首次加载时自动布局，切换场景不重新布局）
+  const hasInitialLayout = useRef(false);
+
+  // 首次加载时：如果用户没有保存布局则自动布局，否则调整视图
+  // 切换场景时不执行自动布局
   useEffect(() => {
-    if (nodes.length > 0 && containerRef.current && nodePositions.size > 0) {
-      // 使用 requestAnimationFrame 确保容器已完成布局
-      requestAnimationFrame(() => {
-        if (containerRef.current) {
+    if (nodes.length === 0) return;
+
+    // 如果已经完成过首次布局，不再自动布局
+    if (hasInitialLayout.current) {
+      return;
+    }
+
+    hasInitialLayout.current = true;
+
+    // 检查是否有保存的布局（节点有非零坐标）
+    const hasSavedLayout = nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
+
+    // 延迟执行以确保容器已渲染
+    setTimeout(() => {
+      let positionsToUse: Map<string, NodePosition>;
+
+      if (hasSavedLayout) {
+        // 用户已保存布局，使用数据库中的坐标
+        positionsToUse = new Map();
+        nodes.forEach(node => {
+          positionsToUse.set(node.id, {
+            x: node.positionX,
+            y: node.positionY,
+          });
+        });
+        setCustomPositions(positionsToUse);
+      } else {
+        // 用户没有保存布局，执行自动布局
+        const result = hierarchicalLayout(nodes, edges, {
+          direction: 'LR',
+          rankSep: 120,
+          nodeSep: 50,
+        });
+
+        // 应用力导向微调
+        positionsToUse = forceDirectedRefinement(nodes, edges, result.positions, {
+          iterations: 20,
+        });
+
+        setCustomPositions(positionsToUse);
+      }
+
+      // 自动调整视图以显示所有节点
+      setTimeout(() => {
+        if (containerRef.current && positionsToUse.size > 0) {
           const rect = containerRef.current.getBoundingClientRect();
 
-          // 计算所有节点的边界
           let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-          nodePositions.forEach(pos => {
+          positionsToUse.forEach(pos => {
             minX = Math.min(minX, pos.x);
             maxX = Math.max(maxX, pos.x);
             minY = Math.min(minY, pos.y);
             maxY = Math.max(maxY, pos.y);
           });
 
-          // 计算内容中心和尺寸
-          const contentWidth = maxX - minX + 200; // 加上节点宽度
-          const contentHeight = maxY - minY + 100; // 加上节点高度
+          const contentWidth = maxX - minX + 200;
+          const contentHeight = maxY - minY + 100;
           const contentCenterX = (minX + maxX) / 2;
           const contentCenterY = (minY + maxY) / 2;
 
-          // 计算适合的缩放比例
           const scaleX = rect.width / contentWidth;
           const scaleY = rect.height / contentHeight;
-          const fitScale = Math.min(scaleX, scaleY, 1) * 0.85; // 留一些边距
+          const fitScale = Math.min(scaleX, scaleY, 1) * 0.85;
 
           setScale(fitScale);
           setOffset({
@@ -220,9 +314,9 @@ export default function FocusView({
             y: rect.height / 2 - contentCenterY * fitScale,
           });
         }
-      });
-    }
-  }, [nodes.length, nodePositions]);
+      }, 50);
+    }, 100);
+  }, [nodes, edges]);
 
   // 添加滚轮事件监听器（非 passive，以便 preventDefault 生效）
   useEffect(() => {
@@ -314,79 +408,129 @@ export default function FocusView({
     });
   }, []);
 
-  // 自动布局：以聚焦节点为中心，放射性排列相关节点
+  // 自动布局：使用智能布局算法
   const handleAutoLayout = useCallback(() => {
     if (nodes.length === 0) return;
 
-    const newPositions = new Map<string, NodePosition>();
+    let newPositions: Map<string, NodePosition>;
 
-    if (focusedNodeId && focusInfo) {
-      // 有聚焦节点：以聚焦节点为中心，放射性排列
-      // 聚焦节点放在画布中心
-      newPositions.set(focusedNodeId, { x: CENTER_X, y: CENTER_Y });
+    if (focusedNodeId) {
+      // 有聚焦节点：使用径向布局
+      // 以聚焦节点为中心，根据关系远近排布位置
+      const result = radialLayout(nodes, edges, focusedNodeId, {
+        baseRadius: 180,
+        radiusStep: 140,
+        minAngleSep: 30,
+        maxLayers: 4,
+      });
 
-      // 相邻节点围绕聚焦节点排列
-      const neighbors = focusInfo.neighbors;
-      const neighborCount = neighbors.length;
-
-      if (neighborCount > 0) {
-        const radius = 250; // 第一圈半径
-        neighbors.forEach((neighbor, index) => {
-          const angle = (2 * Math.PI * index) / neighborCount - Math.PI / 2; // 从顶部开始
-          newPositions.set(neighbor.node.id, {
-            x: CENTER_X + radius * Math.cos(angle),
-            y: CENTER_Y + radius * Math.sin(angle),
-          });
-        });
-      }
-
-      // 其他非相关节点放在外圈
-      const otherNodes = nodes.filter(
-        n => n.id !== focusedNodeId && !focusInfo.relatedNodeIds.has(n.id)
-      );
-      if (otherNodes.length > 0) {
-        const outerRadius = 450;
-        otherNodes.forEach((node, index) => {
-          const angle = (2 * Math.PI * index) / otherNodes.length - Math.PI / 2;
-          newPositions.set(node.id, {
-            x: CENTER_X + outerRadius * Math.cos(angle),
-            y: CENTER_Y + outerRadius * Math.sin(angle),
-          });
-        });
-      }
+      // 径向布局已经比较好，只做轻微微调
+      newPositions = forceDirectedRefinement(nodes, edges, result.positions, {
+        iterations: 15,
+        repulsionStrength: 1000,
+        attractionStrength: 0.01,
+        fixedNodeId: focusedNodeId, // 聚焦节点固定在中心
+        maxDisplacement: 10,
+      });
     } else {
-      // 无聚焦节点：网格布局
-      const cols = Math.ceil(Math.sqrt(nodes.length));
-      const spacing = 220;
-      const rowSpacing = 140;
-      const startX = CENTER_X - (cols * spacing) / 2;
-      const rows = Math.ceil(nodes.length / cols);
-      const startY = CENTER_Y - (rows * rowSpacing) / 2;
+      // 无聚焦节点：使用分层布局 (Dagre)
+      // 按逻辑层次排列，最小化边交叉
+      const result = hierarchicalLayout(nodes, edges, {
+        direction: 'LR', // 从左到右，符合因果推理的阅读习惯
+        rankSep: 120,    // 层间距
+        nodeSep: 50,     // 同层节点间距
+      });
 
-      nodes.forEach((node, index) => {
-        const row = Math.floor(index / cols);
-        const col = index % cols;
-        newPositions.set(node.id, {
-          x: startX + col * spacing + spacing / 2,
-          y: startY + row * rowSpacing + rowSpacing / 2,
-        });
+      // 应用力导向微调
+      newPositions = forceDirectedRefinement(nodes, edges, result.positions, {
+        iterations: 20,
       });
     }
 
     setCustomPositions(newPositions);
 
-    // 将视图居中到画布中心
+    // 自动调整视图以显示所有节点
     setTimeout(() => {
-      if (containerRef.current) {
+      if (containerRef.current && newPositions.size > 0) {
         const rect = containerRef.current.getBoundingClientRect();
-        const newScale = 0.8;
-        const newOffsetX = rect.width / 2 - CENTER_X * newScale;
-        const newOffsetY = rect.height / 2 - CENTER_Y * newScale;
-        setScale(newScale);
-        setOffset({ x: newOffsetX, y: newOffsetY });
+
+        // 计算所有节点的边界
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        newPositions.forEach(pos => {
+          minX = Math.min(minX, pos.x);
+          maxX = Math.max(maxX, pos.x);
+          minY = Math.min(minY, pos.y);
+          maxY = Math.max(maxY, pos.y);
+        });
+
+        // 计算内容中心和尺寸
+        const contentWidth = maxX - minX + 200;
+        const contentHeight = maxY - minY + 100;
+        const contentCenterX = (minX + maxX) / 2;
+        const contentCenterY = (minY + maxY) / 2;
+
+        // 计算适合的缩放比例
+        const scaleX = rect.width / contentWidth;
+        const scaleY = rect.height / contentHeight;
+        const fitScale = Math.min(scaleX, scaleY, 1) * 0.85;
+
+        setScale(fitScale);
+        setOffset({
+          x: rect.width / 2 - contentCenterX * fitScale,
+          y: rect.height / 2 - contentCenterY * fitScale,
+        });
       }
     }, 50);
-  }, [nodes, focusedNodeId, focusInfo]);
+  }, [nodes, edges, focusedNodeId]);
+
+  // 保存布局
+  const handleSaveLayout = useCallback(async () => {
+    if (!onSaveLayout || nodes.length === 0) return;
+
+    setIsSaving(true);
+    try {
+      // 收集所有节点的当前位置
+      const positions = nodes.map(node => {
+        const pos = nodePositions.get(node.id);
+        return {
+          id: node.id,
+          x: pos?.x ?? node.positionX,
+          y: pos?.y ?? node.positionY,
+        };
+      });
+
+      await onSaveLayout(positions);
+
+      // 显示保存成功提示
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 2000);
+    } catch (err) {
+      console.error('保存布局失败:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [onSaveLayout, nodes, nodePositions]);
+
+  // Ctrl+S 保存布局快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S 或 Cmd+S 保存布局
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        // 避免在输入框中触发
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+        if (onSaveLayout) {
+          e.preventDefault();
+          handleSaveLayout();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onSaveLayout, handleSaveLayout]);
 
   // 获取SVG坐标
   const getSVGCoords = useCallback((clientX: number, clientY: number) => {
@@ -400,6 +544,10 @@ export default function FocusView({
 
   // 鼠标事件
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // 右键按下不处理
+    if (e.button === 2) {
+      return;
+    }
     if (!draggingNodeId) {
       setIsPanning(true);
       setHasPanned(false); // 重置拖动标记
@@ -438,7 +586,12 @@ export default function FocusView({
     }
   }, [draggingNodeId, dragOffset, isPanning, panStart, offset, getSVGCoords, connectingState, updateConnecting]);
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e?: React.MouseEvent) => {
+    // 右键松开不应该取消连线
+    if (e && e.button === 2) {
+      return;
+    }
+
     // 如果没有拖动画布且有聚焦节点，则取消聚焦
     if (isPanning && !hasPanned && focusedNodeId && !draggingNodeId) {
       onNodeClick(''); // 传空字符串取消聚焦
@@ -450,13 +603,21 @@ export default function FocusView({
       setHasDragged(false);
       setHasPanned(false);
     }, 100);
-    // 如果正在连线但没有目标，取消连线
-    if (connectingState && !pendingTargetNodeId) {
+  }, [isPanning, hasPanned, focusedNodeId, draggingNodeId, onNodeClick]);
+
+  // 点击画布空白处取消连线
+  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    // 只有左键点击空白处才取消连线
+    if (e.button === 0 && connectingState && !pendingTargetNodeId) {
       cancelConnecting();
     }
-  }, [isPanning, hasPanned, focusedNodeId, draggingNodeId, onNodeClick, connectingState, pendingTargetNodeId, cancelConnecting]);
+  }, [connectingState, pendingTargetNodeId, cancelConnecting]);
 
   const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
+    // 右键按下不处理拖拽
+    if (e.button === 2) {
+      return;
+    }
     e.stopPropagation();
     const pos = nodePositions.get(nodeId);
     if (!pos) return;
@@ -491,7 +652,9 @@ export default function FocusView({
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isEditMode) return;
+    if (!isEditMode) {
+      return;
+    }
 
     const pos = nodePositions.get(nodeId);
     if (pos) {
@@ -501,7 +664,9 @@ export default function FocusView({
 
   // 点击节点结束连线
   const handleNodeClickForConnect = useCallback((e: React.MouseEvent, nodeId: string) => {
-    if (!connectingState || connectingState.sourceNodeId === nodeId) return;
+    if (!connectingState || connectingState.sourceNodeId === nodeId) {
+      return;
+    }
 
     e.stopPropagation();
     // 弹出边类型选择器
@@ -513,7 +678,11 @@ export default function FocusView({
   // 选择边类型并创建连线
   const handleSelectEdgeType = useCallback(async (edgeType: EdgeType) => {
     if (pendingTargetNodeId) {
-      await finishConnecting(pendingTargetNodeId, edgeType);
+      try {
+        await finishConnecting(pendingTargetNodeId, edgeType);
+      } catch (err) {
+        console.error('Failed to create edge:', err);
+      }
     }
     setShowEdgeTypeSelector(false);
     setPendingTargetNodeId(null);
@@ -546,7 +715,8 @@ export default function FocusView({
     const isRelated = focusInfo?.relatedNodeIds.has(node.id) ?? false;
     const isUnrelated = focusedNodeId && !isRelated;
     const isConnectSource = connectingState?.sourceNodeId === node.id;
-    const canBeConnectTarget = connectingState && !isConnectSource;
+    const canBeConnectTarget = !!connectingState && !isConnectSource;
+
 
     return (
       <g
@@ -555,10 +725,23 @@ export default function FocusView({
         onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
         onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
         onContextMenu={(e) => handleNodeContextMenu(e, node.id)}
-        onClick={(e) => canBeConnectTarget && handleNodeClickForConnect(e, node.id)}
+        onClick={(e) => {
+          if (canBeConnectTarget) {
+            handleNodeClickForConnect(e, node.id);
+          }
+        }}
         style={{ cursor: isDragging ? 'grabbing' : canBeConnectTarget ? 'crosshair' : 'grab' }}
         opacity={isUnrelated ? 0.3 : 1}
       >
+        {/* 透明背景用于捕获鼠标事件 */}
+        <rect
+          x={-80}
+          y={-35}
+          width={160}
+          height={70}
+          fill="transparent"
+          style={{ pointerEvents: 'all' }}
+        />
         {/* 聚焦高亮光晕 */}
         {isFocused && (
           <rect
@@ -767,17 +950,35 @@ export default function FocusView({
     <div className="flex-1 flex bg-gray-100 relative overflow-hidden">
       {/* 主画布区域 */}
       <div className="flex-1 flex flex-col relative">
-        {/* 左上角：自动布局按钮 */}
-        <div className="absolute top-4 left-4 z-10">
+        {/* 左上角：自动布局和保存布局按钮 */}
+        <div className="absolute top-4 left-4 z-10 flex gap-2">
           <button
             onClick={handleAutoLayout}
             className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
-            title={focusedNodeId ? "以聚焦节点为中心放射性排列" : "重新排列所有节点为网格布局"}
+            title={focusedNodeId ? "径向布局：以聚焦节点为中心，按关系远近排布" : "分层布局：按逻辑层次排列，最小化边交叉"}
           >
             <LayoutGrid size={18} />
             <span className="text-sm">自动布局</span>
           </button>
+          {onSaveLayout && (
+            <button
+              onClick={handleSaveLayout}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+              title="保存当前布局 (Ctrl+S)"
+            >
+              <Save size={18} />
+              <span className="text-sm">{isSaving ? '保存中...' : '保存布局'}</span>
+            </button>
+          )}
         </div>
+
+        {/* 布局保存成功提示 */}
+        {showSaveToast && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-green-500 text-white rounded-lg shadow-lg animate-fade-in">
+            布局已保存
+          </div>
+        )}
 
         {/* 右上角：缩放工具栏 */}
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 bg-white rounded-lg shadow-md p-1">
@@ -822,7 +1023,14 @@ export default function FocusView({
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onMouseLeave={() => handleMouseUp()}
+          onClick={handleCanvasClick}
+          onContextMenu={(e) => {
+            // 阻止默认右键菜单，让节点的右键事件可以正常处理
+            if (isEditMode) {
+              e.preventDefault();
+            }
+          }}
           style={{ overflow: 'hidden' }}
         >
           <svg
