@@ -8,7 +8,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { useGraphStore, EditorMode } from '../store/graphStore';
 import { GraphNode, GraphEdge, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG, EdgeType } from '../types';
-import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, Save, X } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, X } from 'lucide-react';
 import EdgeTypeSelector from './EdgeTypeSelector';
 import { hierarchicalLayout, radialLayout, forceDirectedRefinement } from '../utils/layoutAlgorithms';
 
@@ -238,20 +238,41 @@ export default function FocusView({
     return merged;
   }, [calculatedPositions, customPositions]);
 
-  // 标记是否已完成首次布局（仅在首次加载时自动布局，切换场景不重新布局）
-  const hasInitialLayout = useRef(false);
+  // 记录上一次的节点ID集合，用于检测场景切换
+  const prevNodesRef = useRef<string>('');
+  const customPositionsRef = useRef<Map<string, NodePosition>>(new Map());
 
-  // 首次加载时：如果用户没有保存布局则自动布局，否则调整视图
-  // 切换场景时不执行自动布局
+  // 同步 customPositions 到 ref，用于自动保存
   useEffect(() => {
-    if (nodes.length === 0) return;
+    customPositionsRef.current = customPositions;
+  }, [customPositions]);
 
-    // 如果已经完成过首次布局，不再自动布局
-    if (hasInitialLayout.current) {
-      return;
+  // 自动保存布局：当节点集合变化（切换场景）时，保存当前布局
+  useEffect(() => {
+    const currentNodesKey = nodes.map(n => n.id).sort().join(',');
+    const prevNodesKey = prevNodesRef.current;
+
+    // 如果之前有节点，且节点集合发生了变化，保存之前的布局
+    if (prevNodesKey && prevNodesKey !== currentNodesKey && onSaveLayout && customPositionsRef.current.size > 0) {
+      // 保存之前场景的布局
+      const positions = Array.from(customPositionsRef.current.entries()).map(([id, pos]) => ({
+        id,
+        x: pos.x,
+        y: pos.y,
+      }));
+      // 静默保存，不显示提示
+      onSaveLayout(positions).catch(err => console.error('自动保存布局失败:', err));
     }
 
-    hasInitialLayout.current = true;
+    prevNodesRef.current = currentNodesKey;
+  }, [nodes, onSaveLayout]);
+
+  // 节点变化时加载布局
+  useEffect(() => {
+    if (nodes.length === 0) {
+      setCustomPositions(new Map());
+      return;
+    }
 
     // 检查是否有保存的布局（节点有非零坐标）
     const hasSavedLayout = nodes.some(n => n.positionX !== 0 || n.positionY !== 0);
@@ -950,8 +971,8 @@ export default function FocusView({
     <div className="flex-1 flex bg-gray-100 relative overflow-hidden">
       {/* 主画布区域 */}
       <div className="flex-1 flex flex-col relative">
-        {/* 左上角：自动布局和保存布局按钮 */}
-        <div className="absolute top-4 left-4 z-10 flex gap-2">
+        {/* 左上角：自动布局按钮 */}
+        <div className="absolute top-4 left-4 z-10">
           <button
             onClick={handleAutoLayout}
             className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
@@ -960,20 +981,9 @@ export default function FocusView({
             <LayoutGrid size={18} />
             <span className="text-sm">自动布局</span>
           </button>
-          {onSaveLayout && (
-            <button
-              onClick={handleSaveLayout}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-              title="保存当前布局 (Ctrl+S)"
-            >
-              <Save size={18} />
-              <span className="text-sm">{isSaving ? '保存中...' : '保存布局'}</span>
-            </button>
-          )}
         </div>
 
-        {/* 布局保存成功提示 */}
+        {/* 布局保存成功提示 (Ctrl+S 手动保存时显示) */}
         {showSaveToast && (
           <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-green-500 text-white rounded-lg shadow-lg animate-fade-in">
             布局已保存
