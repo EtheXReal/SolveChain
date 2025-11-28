@@ -58,23 +58,32 @@ SolveChain 帮助用户运用第一性原理进行决策：
 // 枚举类型
 // ============================================
 
-/** 节点类型 */
+/** 节点类型 (v2.1 形式化逻辑系统) */
 enum NodeType {
+  GOAL = 'goal',               // 目标：最终想要达成的状态
+  ACTION = 'action',           // 行动：可执行的操作 (原 DECISION)
   FACT = 'fact',               // 事实：客观、可验证的信息
   ASSUMPTION = 'assumption',   // 假设：主观判断，需要验证
-  INFERENCE = 'inference',     // 推理：由其他节点推导得出
-  DECISION = 'decision',       // 决策：最终的行动选项
-  GOAL = 'goal'               // 目标：想要达成的结果
+  CONSTRAINT = 'constraint',   // 约束：必须满足的条件 (新增)
+  CONCLUSION = 'conclusion',   // 结论：从其他节点推导出的命题 (原 INFERENCE)
+  // 废弃类型（兼容旧数据）
+  DECISION = 'decision',       // 已迁移到 ACTION
+  INFERENCE = 'inference'      // 已迁移到 CONCLUSION
 }
 
-/** 边/关系类型 */
+/** 边/关系类型 (v2.1 形式化逻辑系统) */
 enum EdgeType {
-  SUPPORTS = 'supports',         // 支持：A 是选择 B 的理由
-  OPPOSES = 'opposes',           // 反对：A 是不选 B 的理由
-  PREREQUISITE = 'prerequisite', // 前提：做 B 之前必须满足 A
-  LEADS_TO = 'leads_to',         // 导致：选择 A 会带来 B
-  CONFLICTS = 'conflicts',       // 矛盾：A 和 B 不能同时成立
-  RELATED = 'related'            // 相关：A 和 B 有关联但不是因果
+  DEPENDS = 'depends',         // ← 依赖：B 依赖 A（原 PREREQUISITE，方向反转）
+  SUPPORTS = 'supports',       // → 促成：A 的成立有助于 B 成功
+  ACHIEVES = 'achieves',       // ⊢ 实现：行动 A 满足约束/目标 B (新增)
+  HINDERS = 'hinders',         // ⊣ 阻碍：A 的成立会妨碍 B (原 OPPOSES)
+  CAUSES = 'causes',           // ⇒ 导致：A 成立则 B 必然成立 (原 LEADS_TO)
+  CONFLICTS = 'conflicts',     // ⊥ 矛盾：A 和 B 不能同时成立
+  // 废弃类型（兼容旧数据）
+  PREREQUISITE = 'prerequisite', // 已迁移到 DEPENDS (方向反转)
+  OPPOSES = 'opposes',         // 已迁移到 HINDERS
+  LEADS_TO = 'leads_to',       // 已迁移到 CAUSES
+  RELATED = 'related'          // 已删除（信息量太低）
 }
 
 /** 置信度等级 */

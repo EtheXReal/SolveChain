@@ -7,7 +7,9 @@
 ## 功能特性
 
 - **可视化决策图** - 用节点和边构建决策逻辑链
-- **多种节点类型** - 事实、假设、推理、决策、目标
+- **形式化逻辑系统** (v2.1) - 基于命题逻辑的节点和关系类型
+  - 节点类型：目标、行动、事实、假设、约束、结论
+  - 关系类型：依赖、促成、实现、阻碍、导致、矛盾
 - **权重计算** - 自动计算各决策选项的综合得分
 - **AI 分析** - LLM 帮助分解问题、质疑假设、发现盲点
 - **多 LLM 支持** - 默认通义千问，支持 DeepSeek、OpenAI 等
@@ -155,6 +157,38 @@ SolveChain/
 2. 在数据库枚举类型中添加新值
 
 ## 更新日志
+
+### 2024-11-28 (v2.1) - 形式化逻辑系统重构
+
+**重大变更 - 节点和关系类型重构**
+
+为支持自动推理和状态传播，将系统从松散的"思维导图"升级为基于命题逻辑的形式化系统。
+
+**节点类型变更：**
+| 旧类型 | 新类型 | 说明 |
+|--------|--------|------|
+| GOAL | GOAL | 保持不变 - 最终想要达成的状态 |
+| DECISION | ACTION | 重命名 - 可执行的操作 |
+| FACT | FACT | 保持不变 - 可验证的事实 |
+| ASSUMPTION | ASSUMPTION | 保持不变 - 需要验证的假设 |
+| INFERENCE | CONSTRAINT | 新类型 - 必须满足的条件 |
+| INFERENCE | CONCLUSION | 新类型 - 从其他节点推导的命题 |
+
+**关系类型变更：**
+| 旧类型 | 新类型 | 符号 | 说明 |
+|--------|--------|------|------|
+| PREREQUISITE | DEPENDS | ← | 方向反转：B依赖A |
+| SUPPORTS | SUPPORTS | → | 保持 - A促成B成功 |
+| - | ACHIEVES | ⊢ | 新增 - 行动实现约束/目标 |
+| OPPOSES | HINDERS | ⊣ | 重命名 - A阻碍B |
+| LEADS_TO | CAUSES | ⇒ | 重命名 - A导致B |
+| CONFLICTS | CONFLICTS | ⊥ | 保持 - 逻辑矛盾 |
+| RELATED | (删除) | - | 信息量太低，已移除 |
+
+**数据迁移：**
+- 运行 `npx tsx packages/server/src/database/migrate-v2.1.ts` 自动迁移
+- 所有 DECISION → ACTION, INFERENCE → CONCLUSION
+- PREREQUISITE 关系方向自动反转为 DEPENDS
 
 ### 2024-11-27 (v2)
 
