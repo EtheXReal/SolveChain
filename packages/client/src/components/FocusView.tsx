@@ -26,6 +26,7 @@ interface FocusViewProps {
   onEditNode?: (nodeId: string) => void;
   onEditEdge?: (edgeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
+  onDeleteEdge?: (edgeId: string) => void;
   nodes?: GraphNode[]; // 可选，支持从外部传入
   edges?: GraphEdge[]; // 可选，支持从外部传入
   useScenePosition?: boolean; // 是否使用场景位置
@@ -58,6 +59,7 @@ export default function FocusView({
   onEditNode,
   onEditEdge,
   onDeleteNode,
+  onDeleteEdge,
   nodes: propNodes,
   edges: propEdges,
   useScenePosition = false,
@@ -338,7 +340,10 @@ export default function FocusView({
         }
       }, 50);
     }, 100);
-  }, [nodes, edges, useScenePosition]);
+    // 注意：不依赖 edges，因为删除/添加边不应该触发布局重新计算
+    // 只在 nodes 变化或切换场景模式时重新计算布局
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, useScenePosition]);
 
   // 添加滚轮事件监听器（非 passive，以便 preventDefault 生效）
   useEffect(() => {
@@ -522,10 +527,17 @@ export default function FocusView({
       // 以下快捷键在输入框中不触发
       if (isInputFocused) return;
 
-      // Delete/Backspace 键：删除聚焦的节点（仅编辑模式）
-      if ((e.key === 'Delete' || e.key === 'Backspace') && focusedNodeId && onDeleteNode && isEditMode) {
+      // Delete/Backspace 键：删除选中的边或聚焦的节点（仅编辑模式）
+      if ((e.key === 'Delete' || e.key === 'Backspace') && isEditMode) {
         e.preventDefault();
-        if (window.confirm('确定要删除这个节点吗？相关的连线也会被删除。')) {
+        // 优先删除选中的边
+        if (selectedEdgeId && onDeleteEdge) {
+          onDeleteEdge(selectedEdgeId);
+          setSelectedEdgeId(null);
+          return;
+        }
+        // 删除聚焦的节点
+        if (focusedNodeId && onDeleteNode) {
           onDeleteNode(focusedNodeId);
         }
         return;
@@ -650,10 +662,10 @@ export default function FocusView({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    focusedNodeId, onDeleteNode, onNodeClick, onSaveLayout, handleSaveLayout,
-    isEditMode, onEditNode, handleAutoLayout, handleResetView, handleZoomIn, handleZoomOut,
+    focusedNodeId, onDeleteNode, onDeleteEdge, onNodeClick, onSaveLayout, handleSaveLayout,
+    isEditMode, onEditNode, onEditEdge, handleAutoLayout, handleResetView, handleZoomIn, handleZoomOut,
     zoomAroundCenter, scale, nodePositions, nodes, connectingState, cancelConnecting,
-    showEdgeTypeSelector
+    showEdgeTypeSelector, selectedEdgeId
   ]);
 
   // 获取SVG坐标
@@ -746,6 +758,11 @@ export default function FocusView({
     const pos = nodePositions.get(nodeId);
     if (!pos) return;
 
+    // 单击时聚焦节点（无论是否编辑模式）
+    if (nodeId !== focusedNodeId) {
+      onNodeClick(nodeId);
+    }
+
     const svgCoords = getSVGCoords(e.clientX, e.clientY);
     setDraggingNodeId(nodeId);
     setHasDragged(false);
@@ -753,7 +770,7 @@ export default function FocusView({
       x: svgCoords.x - pos.x,
       y: svgCoords.y - pos.y,
     });
-  }, [nodePositions, getSVGCoords]);
+  }, [nodePositions, getSVGCoords, focusedNodeId, onNodeClick]);
 
   const handleNodeDoubleClick = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
@@ -1116,7 +1133,7 @@ export default function FocusView({
           <div className="text-xs text-gray-500 mb-2 space-y-1">
             <div>
               {isEditMode
-                ? '双击/E: 编辑 | 右键: 连线 | Del: 删除'
+                ? '双击/E: 编辑 | 右键: 连线 | Del: 删除 | Ctrl+Z: 撤销'
                 : '双击: 聚焦 | 拖拽: 调整布局'
               }
             </div>
