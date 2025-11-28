@@ -107,9 +107,14 @@ export const nodeApi = {
       body: JSON.stringify(data),
     }),
 
-  // 删除节点
+  // 删除节点（软删除）
   delete: (id: string) => request<{ deleted: boolean }>(`/nodes/${id}`, {
     method: 'DELETE',
+  }),
+
+  // 恢复软删除的节点
+  restore: (id: string) => request<GraphNode>(`/nodes/${id}/restore`, {
+    method: 'POST',
   }),
 
   // 批量更新位置
@@ -141,9 +146,14 @@ export const edgeApi = {
       body: JSON.stringify(data),
     }),
 
-  // 删除边
+  // 删除边（软删除）
   delete: (id: string) => request<{ deleted: boolean }>(`/edges/${id}`, {
     method: 'DELETE',
+  }),
+
+  // 恢复软删除的边
+  restore: (id: string) => request<GraphEdge>(`/edges/${id}/restore`, {
+    method: 'POST',
   }),
 };
 

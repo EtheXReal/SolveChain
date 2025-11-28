@@ -156,29 +156,34 @@ export const sceneRepository = {
     return true;
   },
 
-  // 获取场景内的所有节点（包含场景内位置）
+  // 获取场景内的所有节点（包含场景内位置，排除软删除）
   async getNodesInScene(sceneId: string) {
     const rows = await query(
       `SELECT n.*, sn.position_x as scene_position_x, sn.position_y as scene_position_y
        FROM nodes n
        INNER JOIN scene_nodes sn ON n.id = sn.node_id
-       WHERE sn.scene_id = $1
+       WHERE sn.scene_id = $1 AND n.deleted_at IS NULL
        ORDER BY n.created_at`,
       [sceneId]
     );
     return rows.map(toNodeWithScenePosition);
   },
 
-  // 获取场景相关的边（源节点和目标节点都在场景中）
+  // 获取场景相关的边（源节点和目标节点都在场景中，排除软删除）
   async getEdgesInScene(sceneId: string) {
     const rows = await query(
       `SELECT e.*
        FROM edges e
-       WHERE e.source_node_id IN (
-         SELECT node_id FROM scene_nodes WHERE scene_id = $1
+       WHERE e.deleted_at IS NULL
+       AND e.source_node_id IN (
+         SELECT sn.node_id FROM scene_nodes sn
+         INNER JOIN nodes n ON sn.node_id = n.id
+         WHERE sn.scene_id = $1 AND n.deleted_at IS NULL
        )
        AND e.target_node_id IN (
-         SELECT node_id FROM scene_nodes WHERE scene_id = $1
+         SELECT sn.node_id FROM scene_nodes sn
+         INNER JOIN nodes n ON sn.node_id = n.id
+         WHERE sn.scene_id = $1 AND n.deleted_at IS NULL
        )
        ORDER BY e.created_at`,
       [sceneId]

@@ -62,12 +62,14 @@ interface ProjectState {
   // 节点操作（项目级）
   createNode: (data: { type: NodeType; title: string; content?: string; positionX?: number; positionY?: number }) => Promise<SceneGraphNode>;
   updateNode: (nodeId: string, data: Partial<SceneGraphNode>) => Promise<void>;
-  deleteNode: (nodeId: string) => Promise<void>;
+  deleteNode: (nodeId: string) => Promise<string[]>; // 返回被删除的边 ID 列表
+  restoreNode: (nodeId: string, edgeIdsToRestore?: string[]) => Promise<SceneGraphNode>;
 
   // 边操作（项目级）
   createEdge: (data: { sourceNodeId: string; targetNodeId: string; type: EdgeType; description?: string }) => Promise<GraphEdge>;
   updateEdge: (edgeId: string, data: Partial<GraphEdge>) => Promise<void>;
   deleteEdge: (edgeId: string) => Promise<void>;
+  restoreEdge: (edgeId: string) => Promise<GraphEdge>;
 
   // 场景-节点操作
   addNodeToScene: (sceneId: string, nodeId: string, positionX?: number, positionY?: number) => Promise<void>;
@@ -359,17 +361,66 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
-  deleteNode: async (nodeId) => {
+  deleteNode: async (nodeId): Promise<string[]> => {
     try {
-      await fetch(`${API_BASE}/nodes/${nodeId}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/nodes/${nodeId}`, { method: 'DELETE' });
+      const result = await res.json();
+      const deletedEdgeIds: string[] = result.success ? (result.data.deletedEdgeIds || []) : [];
+
       set((state) => ({
         nodes: state.nodes.filter((n) => n.id !== nodeId),
         sceneNodes: state.sceneNodes.filter((n) => n.id !== nodeId),
         edges: state.edges.filter((e) => e.sourceNodeId !== nodeId && e.targetNodeId !== nodeId),
         sceneEdges: state.sceneEdges.filter((e) => e.sourceNodeId !== nodeId && e.targetNodeId !== nodeId),
       }));
+
+      return deletedEdgeIds;
     } catch (err: any) {
       set({ error: err.message });
+      return [];
+    }
+  },
+
+  restoreNode: async (nodeId, edgeIdsToRestore) => {
+    try {
+      const res = await fetch(`${API_BASE}/nodes/${nodeId}/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ edgeIds: edgeIdsToRestore }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        const { node, restoredEdges } = result.data;
+        // 恢复节点和相关的边
+        set((state) => ({
+          nodes: [...state.nodes, node],
+          edges: [...state.edges, ...(restoredEdges || [])],
+        }));
+        // 如果当前在场景中，刷新场景数据
+        const { currentSceneId } = get();
+        if (currentSceneId) {
+          get().fetchScene(currentSceneId);
+        } else {
+          // 概览模式下也加入 sceneNodes 和 sceneEdges
+          set((state) => {
+            // 检查恢复的边是否连接到场景中的节点
+            const nodeIds = new Set([...state.sceneNodes.map(n => n.id), node.id]);
+            const edgesToAdd = (restoredEdges || []).filter((e: any) =>
+              nodeIds.has(e.sourceNodeId) && nodeIds.has(e.targetNodeId)
+            );
+            return {
+              sceneNodes: [...state.sceneNodes, node],
+              sceneEdges: [...state.sceneEdges, ...edgesToAdd],
+            };
+          });
+        }
+        return node;
+      } else {
+        throw new Error(result.error?.message || '恢复节点失败');
+      }
+    } catch (err: any) {
+      set({ error: err.message });
+      throw err;
     }
   },
 
@@ -440,6 +491,36 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
     } catch (err: any) {
       set({ error: err.message });
+    }
+  },
+
+  restoreEdge: async (edgeId) => {
+    try {
+      const res = await fetch(`${API_BASE}/edges/${edgeId}/restore`, {
+        method: 'POST',
+      });
+      const result = await res.json();
+      if (result.success) {
+        const edge = result.data;
+        set((state) => ({
+          edges: [...state.edges, edge],
+        }));
+        // 检查边的两端节点是否都在当前场景中
+        const { sceneNodes } = get();
+        const sourceInScene = sceneNodes.some((n) => n.id === edge.sourceNodeId);
+        const targetInScene = sceneNodes.some((n) => n.id === edge.targetNodeId);
+        if (sourceInScene && targetInScene) {
+          set((state) => ({
+            sceneEdges: [...state.sceneEdges, edge],
+          }));
+        }
+        return edge;
+      } else {
+        throw new Error(result.error?.message || '恢复边失败');
+      }
+    } catch (err: any) {
+      set({ error: err.message });
+      throw err;
     }
   },
 

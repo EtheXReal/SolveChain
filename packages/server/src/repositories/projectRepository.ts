@@ -98,7 +98,7 @@ export const projectRepository = {
     return true;
   },
 
-  // 获取项目的完整数据（包含场景、节点、边）
+  // 获取项目的完整数据（包含场景、节点、边，排除软删除）
   async findByIdWithDetails(id: string) {
     const project = await this.findById(id);
     if (!project) return null;
@@ -109,15 +109,15 @@ export const projectRepository = {
       [id]
     );
 
-    // 获取节点（项目级别）
+    // 获取节点（项目级别，排除软删除）
     const nodes = await query(
-      'SELECT * FROM nodes WHERE project_id = $1 ORDER BY created_at',
+      'SELECT * FROM nodes WHERE project_id = $1 AND deleted_at IS NULL ORDER BY created_at',
       [id]
     );
 
-    // 获取边（项目级别）
+    // 获取边（项目级别，排除软删除）
     const edges = await query(
-      'SELECT * FROM edges WHERE project_id = $1 ORDER BY created_at',
+      'SELECT * FROM edges WHERE project_id = $1 AND deleted_at IS NULL ORDER BY created_at',
       [id]
     );
 

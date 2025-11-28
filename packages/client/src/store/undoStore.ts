@@ -23,6 +23,8 @@ export interface UndoAction {
     node?: SceneGraphNode;
     edge?: GraphEdge;
     previousData?: Partial<SceneGraphNode> | Partial<GraphEdge>;
+    // 删除节点时同时被删除的边 ID 列表
+    deletedEdgeIds?: string[];
   };
   // 用于重做的数据
   redoData: {

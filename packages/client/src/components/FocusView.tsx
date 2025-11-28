@@ -136,6 +136,10 @@ export default function FocusView({
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 追踪上一次的节点数量和场景，用于判断是否需要重新布局
+  const prevNodeCountRef = useRef(nodes.length);
+  const prevSceneModeRef = useRef(useScenePosition);
+
   const isEditMode = editorMode === 'edit';
 
   // 获取聚焦节点及其相邻节点信息
@@ -255,9 +259,57 @@ export default function FocusView({
   }, [customPositions, onUpdatePendingPositions]);
 
   // 节点变化时加载布局
+  // 简化逻辑：只在首次加载或切换场景时自动布局
+  // 新增/删除/恢复节点都不触发自动布局
   useEffect(() => {
-    if (nodes.length === 0) {
+    const prevSceneMode = prevSceneModeRef.current;
+    const currentNodeCount = nodes.length;
+    const sceneModeChanged = prevSceneMode !== useScenePosition;
+    const isFirstLoad = prevNodeCountRef.current === 0 && currentNodeCount > 0;
+
+    // 更新 ref
+    prevNodeCountRef.current = currentNodeCount;
+    prevSceneModeRef.current = useScenePosition;
+
+    // 节点清空时清空位置
+    if (currentNodeCount === 0) {
       setCustomPositions(new Map());
+      return;
+    }
+
+    // 只在首次加载或切换场景时重新计算布局
+    if (!isFirstLoad && !sceneModeChanged) {
+      // 非首次加载：只需要确保新增的节点有位置
+      setCustomPositions(prev => {
+        const next = new Map(prev);
+        let hasNewNode = false;
+
+        nodes.forEach((node: any) => {
+          if (!next.has(node.id)) {
+            hasNewNode = true;
+            // 新增或恢复的节点：使用数据库位置，如果没有则放在画布中心附近
+            if (useScenePosition) {
+              const x = node.scenePositionX ?? CENTER_X + (Math.random() - 0.5) * 200;
+              const y = node.scenePositionY ?? CENTER_Y + (Math.random() - 0.5) * 200;
+              next.set(node.id, { x, y });
+            } else {
+              const x = node.positionX !== 0 ? node.positionX : CENTER_X + (Math.random() - 0.5) * 200;
+              const y = node.positionY !== 0 ? node.positionY : CENTER_Y + (Math.random() - 0.5) * 200;
+              next.set(node.id, { x, y });
+            }
+          }
+        });
+
+        // 清理已删除节点的位置
+        const currentNodeIds = new Set(nodes.map(n => n.id));
+        for (const id of next.keys()) {
+          if (!currentNodeIds.has(id)) {
+            next.delete(id);
+          }
+        }
+
+        return hasNewNode || next.size !== prev.size ? next : prev;
+      });
       return;
     }
 
@@ -341,7 +393,6 @@ export default function FocusView({
       }, 50);
     }, 100);
     // 注意：不依赖 edges，因为删除/添加边不应该触发布局重新计算
-    // 只在 nodes 变化或切换场景模式时重新计算布局
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, useScenePosition]);
 

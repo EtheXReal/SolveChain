@@ -28,17 +28,26 @@ function toNode(row: any): NodeWithProject {
 }
 
 export const nodeRepository = {
-  // 获取图的所有节点
+  // 获取图的所有节点（排除软删除）
   async findByGraphId(graphId: string): Promise<Node[]> {
     const rows = await query(
-      'SELECT * FROM nodes WHERE graph_id = $1 ORDER BY created_at',
+      'SELECT * FROM nodes WHERE graph_id = $1 AND deleted_at IS NULL ORDER BY created_at',
       [graphId]
     );
     return rows.map(toNode);
   },
 
-  // 根据 ID 获取节点
+  // 根据 ID 获取节点（排除软删除）
   async findById(id: string): Promise<Node | null> {
+    const row = await queryOne(
+      'SELECT * FROM nodes WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
+    return row ? toNode(row) : null;
+  },
+
+  // 根据 ID 获取节点（包括软删除的，用于恢复）
+  async findByIdIncludeDeleted(id: string): Promise<Node | null> {
     const row = await queryOne(
       'SELECT * FROM nodes WHERE id = $1',
       [id]
@@ -147,16 +156,31 @@ export const nodeRepository = {
     }
   },
 
-  // 删除节点
+  // 软删除节点
   async delete(id: string): Promise<boolean> {
+    await query('UPDATE nodes SET deleted_at = NOW() WHERE id = $1', [id]);
+    return true;
+  },
+
+  // 恢复软删除的节点
+  async restore(id: string): Promise<Node | null> {
+    const row = await queryOne(
+      'UPDATE nodes SET deleted_at = NULL, updated_at = NOW() WHERE id = $1 RETURNING *',
+      [id]
+    );
+    return row ? toNode(row) : null;
+  },
+
+  // 永久删除节点（真删除，谨慎使用）
+  async hardDelete(id: string): Promise<boolean> {
     await query('DELETE FROM nodes WHERE id = $1', [id]);
     return true;
   },
 
-  // 获取特定类型的节点
+  // 获取特定类型的节点（排除软删除）
   async findByType(graphId: string, type: NodeType): Promise<Node[]> {
     const rows = await query(
-      'SELECT * FROM nodes WHERE graph_id = $1 AND type = $2 ORDER BY created_at',
+      'SELECT * FROM nodes WHERE graph_id = $1 AND type = $2 AND deleted_at IS NULL ORDER BY created_at',
       [graphId, type]
     );
     return rows.map(toNode);
@@ -164,10 +188,10 @@ export const nodeRepository = {
 
   // ========== v2.0 项目级操作 ==========
 
-  // 获取项目的所有节点
+  // 获取项目的所有节点（排除软删除）
   async findByProjectId(projectId: string): Promise<NodeWithProject[]> {
     const rows = await query(
-      'SELECT * FROM nodes WHERE project_id = $1 ORDER BY created_at',
+      'SELECT * FROM nodes WHERE project_id = $1 AND deleted_at IS NULL ORDER BY created_at',
       [projectId]
     );
     return rows.map(toNode);

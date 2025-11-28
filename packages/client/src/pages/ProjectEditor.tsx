@@ -39,9 +39,11 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     deleteScene,
     createNode,
     deleteNode,
+    restoreNode,
     createEdge,
     updateEdge,
     deleteEdge,
+    restoreEdge,
     updateNode,
     addNodeToScene,
     setEditorMode,
@@ -156,24 +158,17 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
       const nodeToDelete = displayNodes.find(n => n.id === nodeId);
       if (!nodeToDelete) return;
 
-      // 找到相关的边（用于撤销）
-      const displayEdges = currentSceneId ? sceneEdges : edges;
-      const relatedEdges = displayEdges.filter(
-        e => e.sourceNodeId === nodeId || e.targetNodeId === nodeId
-      );
-
       try {
-        await deleteNode(nodeId);
+        // 删除节点并获取被删除的边 ID 列表
+        const deletedEdgeIds = await deleteNode(nodeId);
 
-        // 记录到撤销栈
+        // 记录到撤销栈，包含被删除的边 ID
         pushAction({
           type: 'DELETE_NODE',
-          undoData: { node: nodeToDelete },
+          undoData: { node: nodeToDelete, deletedEdgeIds },
           redoData: { node: nodeToDelete },
           description: `删除节点: ${nodeToDelete.title}`,
         });
-
-        // 如果有相关的边，也记录（但作为单独的操作记录可能过于复杂，暂时简化处理）
 
         if (focusedNodeId === nodeId) {
           setFocusedNodeId(null);
@@ -183,7 +178,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
         // 错误已在 store 中处理
       }
     },
-    [deleteNode, focusedNodeId, currentSceneId, sceneNodes, nodes, sceneEdges, edges, pushAction]
+    [deleteNode, focusedNodeId, currentSceneId, sceneNodes, nodes, pushAction]
   );
 
   // 删除边（带撤销支持）
@@ -245,30 +240,15 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     try {
       switch (action.type) {
         case 'DELETE_NODE':
-          // 恢复删除的节点
+          // 恢复软删除的节点和指定的边
           if (action.undoData.node) {
-            const node = action.undoData.node;
-            await createNode({
-              type: node.type,
-              title: node.title,
-              content: node.content,
-              positionX: node.positionX,
-              positionY: node.positionY,
-            });
-            // 注意：新创建的节点会有新的 ID，所以相关的边可能无法恢复
-            // 这是简化实现的局限性
+            await restoreNode(action.undoData.node.id, action.undoData.deletedEdgeIds);
           }
           break;
         case 'DELETE_EDGE':
-          // 恢复删除的边
+          // 恢复软删除的边（使用原始 ID）
           if (action.undoData.edge) {
-            const edge = action.undoData.edge;
-            await createEdge({
-              sourceNodeId: edge.sourceNodeId,
-              targetNodeId: edge.targetNodeId,
-              type: edge.type,
-              description: edge.description,
-            });
+            await restoreEdge(action.undoData.edge.id);
           }
           break;
         // 其他操作类型可以后续添加
@@ -276,7 +256,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     } catch (err) {
       console.error('撤销失败:', err);
     }
-  }, [undo, createNode, createEdge]);
+  }, [undo, restoreNode, restoreEdge]);
 
   // 重做操作
   const handleRedo = useCallback(async () => {
@@ -286,19 +266,22 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     try {
       switch (action.type) {
         case 'DELETE_NODE':
-          // 重新删除节点（重做删除）
-          // 注意：由于 ID 可能已经变了，这里的重做比较复杂
-          // 简化实现：暂不支持重做删除节点
+          // 重新软删除节点
+          if (action.redoData.node) {
+            await deleteNode(action.redoData.node.id);
+          }
           break;
         case 'DELETE_EDGE':
-          // 重新删除边（重做删除）
-          // 同样由于 ID 问题，简化处理
+          // 重新软删除边
+          if (action.redoData.edge) {
+            await deleteEdge(action.redoData.edge.id);
+          }
           break;
       }
     } catch (err) {
       console.error('重做失败:', err);
     }
-  }, [redo]);
+  }, [redo, deleteNode, deleteEdge]);
 
   // 键盘快捷键：Ctrl+Z 撤销，Ctrl+Shift+Z 重做
   useEffect(() => {

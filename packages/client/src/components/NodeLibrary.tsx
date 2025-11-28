@@ -112,7 +112,7 @@ export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode
       {/* 新建节点按钮 */}
       <div className="p-3 border-b border-gray-200">
         <div className="grid grid-cols-2 gap-2">
-          {typeOrder.slice(0, 4).map(type => {
+          {typeOrder.map(type => {
             const config = NODE_TYPE_CONFIG[type];
             return (
               <button
