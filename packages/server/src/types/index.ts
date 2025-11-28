@@ -100,6 +100,7 @@ export interface CreateNodeRequest {
 }
 
 export interface UpdateNodeRequest {
+  type?: NodeType;
   title?: string;
   content?: string;
   confidence?: number;

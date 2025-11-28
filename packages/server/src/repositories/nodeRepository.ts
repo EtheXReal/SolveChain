@@ -94,6 +94,10 @@ export const nodeRepository = {
     const values: any[] = [];
     let paramIndex = 1;
 
+    if (data.type !== undefined) {
+      updates.push(`type = $${paramIndex++}`);
+      values.push(data.type);
+    }
     if (data.title !== undefined) {
       updates.push(`title = $${paramIndex++}`);
       values.push(data.title);
