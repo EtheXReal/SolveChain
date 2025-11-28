@@ -1251,11 +1251,11 @@ export default function FocusView({
               <marker
                 id="arrow-conflicts-start"
                 viewBox="0 0 10 10"
-                refX="1"
+                refX="0"
                 refY="5"
                 markerWidth="6"
                 markerHeight="6"
-                orient="auto-start-reverse"
+                orient="auto"
               >
                 <path d="M 10 0 L 0 5 L 10 10 z" fill={EDGE_TYPE_CONFIG[EdgeType.CONFLICTS]?.color || '#dc2626'} />
               </marker>
