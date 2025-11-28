@@ -12,8 +12,19 @@ import FocusView from '../components/FocusView';
 import NodeEditPanel from '../components/NodeEditPanel';
 import EdgeEditPanel from '../components/EdgeEditPanel';
 import SceneTabs from '../components/SceneTabs';
-import { NodeType, EdgeType, SceneGraphNode, GraphEdge } from '../types';
-import { Edit3, Eye, Undo2, Redo2 } from 'lucide-react';
+import ImportDialog from '../components/ImportDialog';
+import { NodeType, EdgeType } from '../types';
+import { Edit3, Eye, Download, Upload } from 'lucide-react';
+import {
+  exportScene,
+  exportProject,
+  downloadJson,
+  ExportedScene,
+  ExportedProject,
+  ConflictResolution,
+  findConflictingNodes,
+  generateNonConflictingTitle,
+} from '../utils/exportImport';
 
 interface ProjectEditorProps {
   projectId: string;
@@ -50,6 +61,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     clearError,
     saveLayout,
     setPendingLayoutPositions,
+    importNodes,
   } = useProjectStore();
 
   // 撤销/重做系统
@@ -61,6 +73,9 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   // 编辑面板状态
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editingEdgeId, setEditingEdgeId] = useState<string | null>(null);
+
+  // 导入对话框状态
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   // 加载项目
   useEffect(() => {
@@ -315,6 +330,159 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   const displayNodes = currentSceneId ? sceneNodes : nodes;
   const displayEdges = currentSceneId ? sceneEdges : edges;
 
+  // 导出当前场景
+  const handleExportScene = useCallback(() => {
+    if (!currentProject) return;
+
+    const currentScene = scenes.find(s => s.id === currentSceneId);
+    const sceneName = currentScene?.name || '概览';
+
+    const data = exportScene(
+      sceneName,
+      currentScene?.description,
+      currentScene?.color,
+      displayNodes,
+      displayEdges
+    );
+
+    const filename = `${currentProject.title}_${sceneName}_${new Date().toISOString().slice(0, 10)}.json`;
+    downloadJson(data, filename);
+  }, [currentProject, scenes, currentSceneId, displayNodes, displayEdges]);
+
+  // 导出整个项目
+  const handleExportProject = useCallback(() => {
+    if (!currentProject) return;
+
+    // 构建场景-节点映射（这里简化处理，实际需要从后端获取）
+    const sceneNodeMapping = new Map<string, string[]>();
+    // 由于当前架构没有直接的场景-节点映射，这里使用当前场景的节点
+    if (currentSceneId) {
+      sceneNodeMapping.set(currentSceneId, sceneNodes.map(n => n.id));
+    }
+
+    const data = exportProject(
+      currentProject.title,
+      currentProject.description,
+      scenes,
+      nodes,
+      edges,
+      sceneNodeMapping
+    );
+
+    const filename = `${currentProject.title}_完整导出_${new Date().toISOString().slice(0, 10)}.json`;
+    downloadJson(data, filename);
+  }, [currentProject, scenes, nodes, edges, currentSceneId, sceneNodes]);
+
+  // 处理导入
+  const handleImport = useCallback(async (
+    data: ExportedScene | ExportedProject,
+    options: {
+      conflictResolution: ConflictResolution;
+      targetSceneId: string | null;
+      newSceneName?: string;
+    }
+  ) => {
+    // 获取目标场景中已存在的节点
+    const targetNodes = options.targetSceneId === currentSceneId
+      ? displayNodes
+      : nodes;
+
+    // 检测冲突
+    const conflicts = findConflictingNodes(data.nodes, targetNodes);
+    const existingTitles = new Set(targetNodes.map(n => n.title.toLowerCase()));
+
+    // 准备要导入的节点（处理冲突）
+    const nodesToImport: Array<{
+      type: NodeType;
+      title: string;
+      content?: string;
+      positionX?: number;
+      positionY?: number;
+      originalId: string;
+    }> = [];
+
+    // 原始 ID 到新索引的映射
+    const idToIndexMap = new Map<string, number>();
+
+    data.nodes.forEach((node) => {
+      const hasConflict = conflicts.has(node.id);
+
+      if (hasConflict) {
+        switch (options.conflictResolution) {
+          case 'skip':
+            // 跳过冲突节点
+            return;
+          case 'replace':
+            // TODO: 实现替换逻辑（需要先删除现有节点）
+            // 暂时按保留两者处理
+            break;
+          case 'keepBoth':
+          default:
+            // 重命名导入的节点
+            const newTitle = generateNonConflictingTitle(node.title, existingTitles);
+            existingTitles.add(newTitle.toLowerCase());
+            nodesToImport.push({
+              type: node.type as NodeType,
+              title: newTitle,
+              content: node.content,
+              positionX: node.positionX,
+              positionY: node.positionY,
+              originalId: node.id,
+            });
+            idToIndexMap.set(node.id, nodesToImport.length - 1);
+            return;
+        }
+      }
+
+      // 无冲突，直接导入
+      nodesToImport.push({
+        type: node.type as NodeType,
+        title: node.title,
+        content: node.content,
+        positionX: node.positionX,
+        positionY: node.positionY,
+        originalId: node.id,
+      });
+      idToIndexMap.set(node.id, nodesToImport.length - 1);
+    });
+
+    // 准备要导入的边（只包含两端节点都在导入列表中的边）
+    const edgesToImport: Array<{
+      sourceIndex: number;
+      targetIndex: number;
+      type: EdgeType;
+      description?: string;
+    }> = [];
+
+    data.edges.forEach(edge => {
+      const sourceIndex = idToIndexMap.get(edge.sourceNodeId);
+      const targetIndex = idToIndexMap.get(edge.targetNodeId);
+
+      if (sourceIndex !== undefined && targetIndex !== undefined) {
+        edgesToImport.push({
+          sourceIndex,
+          targetIndex,
+          type: edge.type as EdgeType,
+          description: edge.description,
+        });
+      }
+    });
+
+    // 执行导入
+    await importNodes(
+      nodesToImport.map(n => ({
+        type: n.type,
+        title: n.title,
+        content: n.content,
+        positionX: n.positionX,
+        positionY: n.positionY,
+      })),
+      edgesToImport,
+      options.targetSceneId,
+      options.newSceneName
+    );
+  }, [currentSceneId, displayNodes, nodes, importNodes]);
+
   if (loading && !currentProject) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -345,28 +513,61 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
       <div className="flex items-center justify-between bg-white border-b border-gray-200 px-4 h-14">
         <Header title={currentProject.title} onBack={onBack} />
 
-        {/* 模式切换按钮 */}
-        <button
-          onClick={toggleEditorMode}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-            editorMode === 'edit'
-              ? 'bg-green-500 text-white hover:bg-green-600'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-          title={editorMode === 'edit' ? '切换到查看模式' : '切换到编辑模式'}
-        >
-          {editorMode === 'edit' ? (
-            <>
-              <Edit3 size={18} />
-              <span>编辑模式</span>
-            </>
-          ) : (
-            <>
-              <Eye size={18} />
-              <span>查看模式</span>
-            </>
-          )}
-        </button>
+        {/* 右侧按钮组 */}
+        <div className="flex items-center gap-2">
+          {/* 导出/导入按钮组 */}
+          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={handleExportScene}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors border-r border-gray-200"
+              title="导出当前场景"
+            >
+              <Download size={16} />
+              <span>导出</span>
+            </button>
+            <button
+              onClick={() => setShowImportDialog(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              title="导入场景"
+            >
+              <Upload size={16} />
+              <span>导入</span>
+            </button>
+          </div>
+
+          {/* 导出整个项目按钮 */}
+          <button
+            onClick={handleExportProject}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+            title="导出整个项目"
+          >
+            <Download size={16} />
+            <span>导出项目</span>
+          </button>
+
+          {/* 模式切换按钮 */}
+          <button
+            onClick={toggleEditorMode}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              editorMode === 'edit'
+                ? 'bg-green-500 text-white hover:bg-green-600'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+            title={editorMode === 'edit' ? '切换到查看模式' : '切换到编辑模式'}
+          >
+            {editorMode === 'edit' ? (
+              <>
+                <Edit3 size={18} />
+                <span>编辑模式</span>
+              </>
+            ) : (
+              <>
+                <Eye size={18} />
+                <span>查看模式</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* 场景标签栏 */}
@@ -444,6 +645,16 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           />
         )}
       </div>
+
+      {/* 导入对话框 */}
+      <ImportDialog
+        isOpen={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImport={handleImport}
+        existingNodes={displayNodes}
+        existingScenes={scenes}
+        currentSceneId={currentSceneId}
+      />
     </div>
   );
 }

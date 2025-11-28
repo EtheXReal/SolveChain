@@ -13,6 +13,9 @@ interface NodeLibraryProps {
   selectedNodeId: string | null;
   onCreateNode: (type: NodeType) => void;
   nodes?: GraphNode[]; // 可选，支持从外部传入
+  allNodes?: GraphNode[]; // 所有节点（用于场景模式下显示可添加的节点）
+  isInScene?: boolean; // 是否在场景中
+  onAddNodeToScene?: (nodeId: string) => void; // 添加节点到场景
 }
 
 export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode, nodes: propNodes }: NodeLibraryProps) {

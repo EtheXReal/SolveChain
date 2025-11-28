@@ -79,6 +79,25 @@ interface ProjectState {
   // 布局操作
   saveLayout: (positions: Array<{ id: string; x: number; y: number }>, sceneId?: string | null) => Promise<void>;
 
+  // 导入操作
+  importNodes: (
+    nodes: Array<{
+      type: NodeType;
+      title: string;
+      content?: string;
+      positionX?: number;
+      positionY?: number;
+    }>,
+    edges: Array<{
+      sourceIndex: number; // 引用 nodes 数组的索引
+      targetIndex: number;
+      type: EdgeType;
+      description?: string;
+    }>,
+    targetSceneId: string | null,
+    newSceneName?: string
+  ) => Promise<{ sceneId: string; nodeIds: string[] }>;
+
   // UI 操作
   setViewMode: (mode: ViewMode) => void;
   setEditorMode: (mode: EditorMode) => void;
@@ -633,6 +652,74 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           }),
         }));
       }
+    } catch (err: any) {
+      set({ error: err.message });
+      throw err;
+    }
+  },
+
+  // ========== 导入操作 ==========
+
+  importNodes: async (nodesToImport, edgesToImport, targetSceneId, newSceneName) => {
+    const { currentProject } = get();
+    if (!currentProject) throw new Error('未选择项目');
+
+    try {
+      let sceneId = targetSceneId;
+
+      // 如果需要创建新场景
+      if (!sceneId && newSceneName) {
+        const scene = await get().createScene({
+          name: newSceneName,
+          description: '从导入创建',
+        });
+        sceneId = scene.id;
+      }
+
+      // 批量创建节点
+      const createdNodeIds: string[] = [];
+      for (const nodeData of nodesToImport) {
+        const node = await get().createNode({
+          type: nodeData.type,
+          title: nodeData.title,
+          content: nodeData.content,
+          positionX: nodeData.positionX ?? 0,
+          positionY: nodeData.positionY ?? 0,
+        });
+        createdNodeIds.push(node.id);
+
+        // 如果有目标场景，将节点添加到场景
+        if (sceneId) {
+          await get().addNodeToScene(
+            sceneId,
+            node.id,
+            nodeData.positionX ?? 0,
+            nodeData.positionY ?? 0
+          );
+        }
+      }
+
+      // 批量创建边（使用新创建的节点 ID）
+      for (const edgeData of edgesToImport) {
+        const sourceNodeId = createdNodeIds[edgeData.sourceIndex];
+        const targetNodeId = createdNodeIds[edgeData.targetIndex];
+
+        if (sourceNodeId && targetNodeId) {
+          await get().createEdge({
+            sourceNodeId,
+            targetNodeId,
+            type: edgeData.type,
+            description: edgeData.description,
+          });
+        }
+      }
+
+      // 刷新场景数据
+      if (sceneId) {
+        await get().fetchScene(sceneId);
+      }
+
+      return { sceneId: sceneId || '', nodeIds: createdNodeIds };
     } catch (err: any) {
       set({ error: err.message });
       throw err;
