@@ -14,7 +14,7 @@ import EdgeEditPanel from '../components/EdgeEditPanel';
 import SceneTabs from '../components/SceneTabs';
 import ImportDialog from '../components/ImportDialog';
 import { NodeType, EdgeType } from '../types';
-import { Edit3, Eye, Download, Upload } from 'lucide-react';
+import { Edit3, Eye, Download, Upload, FileText, Copy, Check } from 'lucide-react';
 import {
   exportScene,
   exportProject,
@@ -24,6 +24,10 @@ import {
   ConflictResolution,
   findConflictingNodes,
   generateNonConflictingTitle,
+  exportSceneAsText,
+  exportProjectAsText,
+  downloadText,
+  copyToClipboard,
 } from '../utils/exportImport';
 
 interface ProjectEditorProps {
@@ -76,6 +80,10 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
   // 导入对话框状态
   const [showImportDialog, setShowImportDialog] = useState(false);
+
+  // 文本导出下拉菜单状态
+  const [showTextExportMenu, setShowTextExportMenu] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // 加载项目
   useEffect(() => {
@@ -326,6 +334,21 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleUndo, handleRedo]);
 
+  // 点击外部关闭文本导出菜单
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showTextExportMenu) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-text-export-menu]')) {
+          setShowTextExportMenu(false);
+        }
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showTextExportMenu]);
+
   // 当前显示的节点和边
   const displayNodes = currentSceneId ? sceneNodes : nodes;
   const displayEdges = currentSceneId ? sceneEdges : edges;
@@ -371,6 +394,70 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
     const filename = `${currentProject.title}_完整导出_${new Date().toISOString().slice(0, 10)}.json`;
     downloadJson(data, filename);
+  }, [currentProject, scenes, nodes, edges, currentSceneId, sceneNodes]);
+
+  // 导出当前场景为文本
+  const handleExportSceneAsText = useCallback(() => {
+    if (!currentProject) return;
+
+    const currentScene = scenes.find(s => s.id === currentSceneId);
+    const sceneName = currentScene?.name || '概览';
+
+    const text = exportSceneAsText(
+      sceneName,
+      currentScene?.description,
+      displayNodes,
+      displayEdges
+    );
+
+    const filename = `${currentProject.title}_${sceneName}_${new Date().toISOString().slice(0, 10)}.txt`;
+    downloadText(text, filename);
+    setShowTextExportMenu(false);
+  }, [currentProject, scenes, currentSceneId, displayNodes, displayEdges]);
+
+  // 复制当前场景文本到剪贴板
+  const handleCopySceneText = useCallback(async () => {
+    if (!currentProject) return;
+
+    const currentScene = scenes.find(s => s.id === currentSceneId);
+    const sceneName = currentScene?.name || '概览';
+
+    const text = exportSceneAsText(
+      sceneName,
+      currentScene?.description,
+      displayNodes,
+      displayEdges
+    );
+
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+    setShowTextExportMenu(false);
+  }, [currentProject, scenes, currentSceneId, displayNodes, displayEdges]);
+
+  // 导出整个项目为文本
+  const handleExportProjectAsText = useCallback(() => {
+    if (!currentProject) return;
+
+    const sceneNodeMapping = new Map<string, string[]>();
+    if (currentSceneId) {
+      sceneNodeMapping.set(currentSceneId, sceneNodes.map(n => n.id));
+    }
+
+    const text = exportProjectAsText(
+      currentProject.title,
+      currentProject.description,
+      scenes,
+      nodes,
+      edges,
+      sceneNodeMapping
+    );
+
+    const filename = `${currentProject.title}_文本导出_${new Date().toISOString().slice(0, 10)}.txt`;
+    downloadText(text, filename);
+    setShowTextExportMenu(false);
   }, [currentProject, scenes, nodes, edges, currentSceneId, sceneNodes]);
 
   // 处理导入
@@ -520,7 +607,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             <button
               onClick={handleExportScene}
               className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors border-r border-gray-200"
-              title="导出当前场景"
+              title="导出当前场景 (JSON)"
             >
               <Download size={16} />
               <span>导出</span>
@@ -535,11 +622,64 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             </button>
           </div>
 
-          {/* 导出整个项目按钮 */}
+          {/* 文本导出按钮（下拉菜单） */}
+          <div className="relative" data-text-export-menu>
+            <button
+              onClick={() => setShowTextExportMenu(!showTextExportMenu)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors border border-gray-200 ${
+                copySuccess
+                  ? 'bg-green-50 text-green-600 border-green-300'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title="导出为文本（AI友好格式）"
+            >
+              {copySuccess ? (
+                <>
+                  <Check size={16} />
+                  <span>已复制</span>
+                </>
+              ) : (
+                <>
+                  <FileText size={16} />
+                  <span>文本</span>
+                </>
+              )}
+            </button>
+
+            {/* 下拉菜单 */}
+            {showTextExportMenu && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                <button
+                  onClick={handleCopySceneText}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Copy size={14} />
+                  <span>复制当前场景</span>
+                </button>
+                <button
+                  onClick={handleExportSceneAsText}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Download size={14} />
+                  <span>下载当前场景 (.txt)</span>
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+                <button
+                  onClick={handleExportProjectAsText}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Download size={14} />
+                  <span>下载整个项目 (.txt)</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 导出整个项目按钮 (JSON) */}
           <button
             onClick={handleExportProject}
             className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-            title="导出整个项目"
+            title="导出整个项目 (JSON)"
           >
             <Download size={16} />
             <span>导出项目</span>

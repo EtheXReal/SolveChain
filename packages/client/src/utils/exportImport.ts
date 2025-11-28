@@ -2,7 +2,7 @@
  * 场景/项目导出导入工具
  */
 
-import { SceneGraphNode, GraphEdge, Scene } from '../types';
+import { SceneGraphNode, GraphEdge, Scene, NodeType, EdgeType, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG } from '../types';
 
 // 导出格式版本
 const EXPORT_VERSION = '1.0';
@@ -268,4 +268,213 @@ export function generateNonConflictingTitle(
   }
 
   return newTitle;
+}
+
+/**
+ * 获取节点类型的中文标签
+ */
+function getNodeTypeLabel(type: string): string {
+  const config = NODE_TYPE_CONFIG[type as NodeType];
+  return config?.label || type;
+}
+
+/**
+ * 获取边类型的中文标签
+ */
+function getEdgeTypeLabel(type: string): string {
+  const config = EDGE_TYPE_CONFIG[type as EdgeType];
+  return config?.label || type;
+}
+
+/**
+ * 导出场景为文本格式（AI友好）
+ * 格式：节点列表 + 关系列表
+ */
+export function exportSceneAsText(
+  sceneName: string,
+  sceneDescription: string | undefined,
+  nodes: SceneGraphNode[],
+  edges: GraphEdge[]
+): string {
+  const lines: string[] = [];
+
+  // 标题
+  lines.push(`# 场景: ${sceneName}`);
+  if (sceneDescription) {
+    lines.push(`> ${sceneDescription}`);
+  }
+  lines.push('');
+
+  // 按类型分组节点
+  const nodesByType = new Map<NodeType, SceneGraphNode[]>();
+  const typeOrder: NodeType[] = [NodeType.GOAL, NodeType.DECISION, NodeType.FACT, NodeType.ASSUMPTION, NodeType.INFERENCE];
+
+  typeOrder.forEach(type => nodesByType.set(type, []));
+  nodes.forEach(node => {
+    const list = nodesByType.get(node.type as NodeType);
+    if (list) {
+      list.push(node);
+    }
+  });
+
+  // 节点部分
+  lines.push('## 节点');
+
+  let hasNodes = false;
+  typeOrder.forEach(type => {
+    const typeNodes = nodesByType.get(type) || [];
+    if (typeNodes.length > 0) {
+      hasNodes = true;
+      typeNodes.forEach(node => {
+        // 构建节点行
+        let nodeLine = `[${getNodeTypeLabel(node.type)}] ${node.title}`;
+
+        // 添加可选属性
+        const attrs: string[] = [];
+        if (node.confidence !== undefined && node.confidence !== 50) {
+          attrs.push(`置信度: ${node.confidence}%`);
+        }
+        if (node.weight !== undefined && node.weight !== 1) {
+          attrs.push(`权重: ${node.weight}`);
+        }
+        if (attrs.length > 0) {
+          nodeLine += ` (${attrs.join(', ')})`;
+        }
+
+        lines.push(nodeLine);
+
+        // 添加内容描述（如果有）
+        if (node.content) {
+          lines.push(`  ${node.content}`);
+        }
+      });
+    }
+  });
+
+  if (!hasNodes) {
+    lines.push('(无节点)');
+  }
+  lines.push('');
+
+  // 关系部分
+  lines.push('## 关系');
+
+  if (edges.length === 0) {
+    lines.push('(无关系)');
+  } else {
+    // 创建节点 ID 到标题的映射
+    const nodeIdToTitle = new Map<string, string>();
+    nodes.forEach(node => nodeIdToTitle.set(node.id, node.title));
+
+    edges.forEach(edge => {
+      const sourceTitle = nodeIdToTitle.get(edge.sourceNodeId) || '未知节点';
+      const targetTitle = nodeIdToTitle.get(edge.targetNodeId) || '未知节点';
+      const edgeLabel = getEdgeTypeLabel(edge.type);
+
+      let edgeLine = `${sourceTitle} --${edgeLabel}-->  ${targetTitle}`;
+
+      // 添加可选属性
+      const attrs: string[] = [];
+      if (edge.strength !== undefined && edge.strength !== 1) {
+        attrs.push(`强度: ${edge.strength}`);
+      }
+      if (edge.description) {
+        attrs.push(edge.description);
+      }
+      if (attrs.length > 0) {
+        edgeLine += ` (${attrs.join(', ')})`;
+      }
+
+      lines.push(edgeLine);
+    });
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * 导出整个项目为文本格式（AI友好）
+ */
+export function exportProjectAsText(
+  projectTitle: string,
+  projectDescription: string | undefined,
+  scenes: Scene[],
+  nodes: SceneGraphNode[],
+  edges: GraphEdge[],
+  sceneNodeMapping: Map<string, string[]>
+): string {
+  const lines: string[] = [];
+
+  // 项目标题
+  lines.push(`# 项目: ${projectTitle}`);
+  if (projectDescription) {
+    lines.push(`> ${projectDescription}`);
+  }
+  lines.push('');
+
+  // 按场景输出
+  if (scenes.length > 0) {
+    scenes.forEach(scene => {
+      const sceneNodeIds = new Set(sceneNodeMapping.get(scene.id) || []);
+      const sceneNodes = nodes.filter(n => sceneNodeIds.has(n.id));
+      const sceneEdges = edges.filter(e =>
+        sceneNodeIds.has(e.sourceNodeId) && sceneNodeIds.has(e.targetNodeId)
+      );
+
+      const sceneText = exportSceneAsText(
+        scene.name,
+        scene.description,
+        sceneNodes,
+        sceneEdges
+      );
+      lines.push(sceneText);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    });
+  }
+
+  // 所有节点概览（不在任何场景中的节点）
+  const allSceneNodeIds = new Set<string>();
+  sceneNodeMapping.forEach(nodeIds => nodeIds.forEach(id => allSceneNodeIds.add(id)));
+
+  const orphanNodes = nodes.filter(n => !allSceneNodeIds.has(n.id));
+  if (orphanNodes.length > 0) {
+    lines.push('## 其他节点（未分配到场景）');
+    orphanNodes.forEach(node => {
+      lines.push(`[${getNodeTypeLabel(node.type)}] ${node.title}`);
+    });
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * 下载文本文件
+ */
+export function downloadText(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * 复制文本到剪贴板
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error('复制到剪贴板失败:', err);
+    return false;
+  }
 }
