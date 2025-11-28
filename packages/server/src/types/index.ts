@@ -1,23 +1,36 @@
 /**
  * 核心类型定义
+ * v2.1 - 形式化逻辑系统重构
  */
 
-// 枚举类型
+// ============ 节点类型 ============
 export enum NodeType {
-  FACT = 'fact',
-  ASSUMPTION = 'assumption',
-  INFERENCE = 'inference',
-  DECISION = 'decision',
-  GOAL = 'goal'
+  GOAL = 'goal',              // 目标：期望达成的终态
+  ACTION = 'action',          // 行动：可执行的操作（原"决策"）
+  FACT = 'fact',              // 事实：已确认为真的命题
+  ASSUMPTION = 'assumption',  // 假设：未经验证、可能为真的命题
+  CONSTRAINT = 'constraint',  // 约束：必须满足的条件（原"推理"拆分）
+  CONCLUSION = 'conclusion',  // 结论：从其他节点推导出的命题（原"推理"拆分）
+
+  // 废弃类型（仅用于数据迁移兼容）
+  DECISION = 'decision',      // @deprecated 使用 ACTION 替代
+  INFERENCE = 'inference',    // @deprecated 使用 CONSTRAINT 或 CONCLUSION 替代
 }
 
+// ============ 关系类型 ============
 export enum EdgeType {
-  SUPPORTS = 'supports',       // 支持：A 是选择 B 的理由
-  OPPOSES = 'opposes',         // 反对：A 是不选 B 的理由
-  PREREQUISITE = 'prerequisite', // 前提：做 B 之前必须满足 A
-  LEADS_TO = 'leads_to',       // 导致：选择 A 会带来 B
-  CONFLICTS = 'conflicts',     // 矛盾：A 和 B 不能同时成立
-  RELATED = 'related'          // 相关：A 和 B 有关联但不是因果
+  DEPENDS = 'depends',        // 依赖：B要成立，必须先有A（A←B）
+  SUPPORTS = 'supports',      // 促成：A成立会帮助B成立（A→B）
+  ACHIEVES = 'achieves',      // 实现：行动A可以满足约束或目标B（A⊢B）
+  HINDERS = 'hinders',        // 阻碍：A成立会妨碍B成立（A⊣B）
+  CAUSES = 'causes',          // 导致：A发生会引起B发生（A⇒B）
+  CONFLICTS = 'conflicts',    // 矛盾：A和B不能同时为真（A⊥B）
+
+  // 废弃类型（仅用于数据迁移兼容）
+  PREREQUISITE = 'prerequisite', // @deprecated 使用 DEPENDS 替代（注意方向反转）
+  OPPOSES = 'opposes',           // @deprecated 使用 HINDERS 替代
+  LEADS_TO = 'leads_to',         // @deprecated 使用 CAUSES 替代
+  RELATED = 'related',           // @deprecated 已删除，信息量太低
 }
 
 export enum NodeStatus {

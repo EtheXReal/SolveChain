@@ -1,22 +1,42 @@
 /**
  * 前端类型定义
+ * v2.1 - 形式化逻辑系统重构
  */
 
+// ============ 节点类型 ============
 export enum NodeType {
-  FACT = 'fact',
-  ASSUMPTION = 'assumption',
-  INFERENCE = 'inference',
+  GOAL = 'goal',              // 目标：期望达成的终态
+  ACTION = 'action',          // 行动：可执行的操作（原"决策"）
+  FACT = 'fact',              // 事实：已确认为真的命题
+  ASSUMPTION = 'assumption',  // 假设：未经验证、可能为真的命题
+  CONSTRAINT = 'constraint',  // 约束：必须满足的条件（原"推理"拆分）
+  CONCLUSION = 'conclusion',  // 结论：从其他节点推导出的命题（原"推理"拆分）
+
+  // 废弃类型（仅用于数据迁移兼容）
+  /** @deprecated 使用 ACTION 替代 */
   DECISION = 'decision',
-  GOAL = 'goal'
+  /** @deprecated 使用 CONSTRAINT 或 CONCLUSION 替代 */
+  INFERENCE = 'inference',
 }
 
+// ============ 关系类型 ============
 export enum EdgeType {
-  SUPPORTS = 'supports',       // 支持：A 是选择 B 的理由
-  OPPOSES = 'opposes',         // 反对：A 是不选 B 的理由
-  PREREQUISITE = 'prerequisite', // 前提：做 B 之前必须满足 A
-  LEADS_TO = 'leads_to',       // 导致：选择 A 会带来 B
-  CONFLICTS = 'conflicts',     // 矛盾：A 和 B 不能同时成立
-  RELATED = 'related'          // 相关：A 和 B 有关联但不是因果
+  DEPENDS = 'depends',        // 依赖：B要成立，必须先有A（A←B）
+  SUPPORTS = 'supports',      // 促成：A成立会帮助B成立（A→B）
+  ACHIEVES = 'achieves',      // 实现：行动A可以满足约束或目标B（A⊢B）
+  HINDERS = 'hinders',        // 阻碍：A成立会妨碍B成立（A⊣B）
+  CAUSES = 'causes',          // 导致：A发生会引起B发生（A⇒B）
+  CONFLICTS = 'conflicts',    // 矛盾：A和B不能同时为真（A⊥B）
+
+  // 废弃类型（仅用于数据迁移兼容）
+  /** @deprecated 使用 DEPENDS 替代（注意方向反转） */
+  PREREQUISITE = 'prerequisite',
+  /** @deprecated 使用 HINDERS 替代 */
+  OPPOSES = 'opposes',
+  /** @deprecated 使用 CAUSES 替代 */
+  LEADS_TO = 'leads_to',
+  /** @deprecated 已删除，信息量太低 */
+  RELATED = 'related',
 }
 
 export enum NodeStatus {
@@ -116,71 +136,150 @@ export interface LLMAnalysisResult {
   followUpQuestions?: string[];
 }
 
-// 节点类型配置
-export const NODE_TYPE_CONFIG = {
+// ============ 节点类型配置 ============
+export const NODE_TYPE_CONFIG: Record<string, {
+  label: string;
+  color: string;
+  bgColor: string;
+  description: string;
+  deprecated?: boolean;
+}> = {
+  [NodeType.GOAL]: {
+    label: '目标',
+    color: '#FF6B6B',
+    bgColor: '#FFE5E5',
+    description: '期望达成的终态'
+  },
+  [NodeType.ACTION]: {
+    label: '行动',
+    color: '#4CAF50',
+    bgColor: '#E8F5E9',
+    description: '可执行的操作'
+  },
   [NodeType.FACT]: {
     label: '事实',
-    color: '#3b82f6',
-    bgColor: '#dbeafe',
-    description: '客观、可验证的信息'
+    color: '#2196F3',
+    bgColor: '#E3F2FD',
+    description: '已确认为真的命题'
   },
   [NodeType.ASSUMPTION]: {
     label: '假设',
-    color: '#f59e0b',
-    bgColor: '#fef3c7',
-    description: '主观判断，需要验证'
+    color: '#FFC107',
+    bgColor: '#FFF8E1',
+    description: '未经验证、可能为真的命题'
+  },
+  [NodeType.CONSTRAINT]: {
+    label: '约束',
+    color: '#9C27B0',
+    bgColor: '#F3E5F5',
+    description: '必须满足的条件'
+  },
+  [NodeType.CONCLUSION]: {
+    label: '结论',
+    color: '#00BCD4',
+    bgColor: '#E0F7FA',
+    description: '从其他节点推导出的命题'
+  },
+  // 废弃类型（兼容旧数据）
+  [NodeType.DECISION]: {
+    label: '决策',
+    color: '#4CAF50',
+    bgColor: '#E8F5E9',
+    description: '（已废弃，请使用"行动"）',
+    deprecated: true
   },
   [NodeType.INFERENCE]: {
     label: '推理',
-    color: '#6366f1',
-    bgColor: '#e0e7ff',
-    description: '由其他节点推导得出'
-  },
-  [NodeType.DECISION]: {
-    label: '决策',
-    color: '#22c55e',
-    bgColor: '#dcfce7',
-    description: '最终的行动选项'
-  },
-  [NodeType.GOAL]: {
-    label: '目标',
-    color: '#ec4899',
-    bgColor: '#fce7f3',
-    description: '想要达成的结果'
+    color: '#9C27B0',
+    bgColor: '#F3E5F5',
+    description: '（已废弃，请使用"约束"或"结论"）',
+    deprecated: true
   }
 };
 
-// 边类型配置
-export const EDGE_TYPE_CONFIG = {
+// ============ 关系类型配置 ============
+export const EDGE_TYPE_CONFIG: Record<string, {
+  label: string;
+  symbol: string;
+  color: string;
+  lineStyle: 'solid' | 'dashed';
+  description: string;
+  deprecated?: boolean;
+}> = {
+  [EdgeType.DEPENDS]: {
+    label: '依赖',
+    symbol: '←',
+    color: '#9E9E9E',
+    lineStyle: 'solid',
+    description: 'B要成立，必须先有A'
+  },
   [EdgeType.SUPPORTS]: {
-    label: '支持',
-    color: '#22c55e',
-    description: 'A 是选择 B 的理由'
+    label: '促成',
+    symbol: '→',
+    color: '#4CAF50',
+    lineStyle: 'solid',
+    description: 'A成立会帮助B成立'
   },
-  [EdgeType.OPPOSES]: {
-    label: '反对',
-    color: '#ef4444',
-    description: 'A 是不选 B 的理由'
+  [EdgeType.ACHIEVES]: {
+    label: '实现',
+    symbol: '⊢',
+    color: '#2196F3',
+    lineStyle: 'solid',
+    description: '行动A可以满足约束或目标B'
   },
-  [EdgeType.PREREQUISITE]: {
-    label: '前提',
-    color: '#6366f1',
-    description: '做 B 之前必须满足 A'
+  [EdgeType.HINDERS]: {
+    label: '阻碍',
+    symbol: '⊣',
+    color: '#F44336',
+    lineStyle: 'solid',
+    description: 'A成立会妨碍B成立'
   },
-  [EdgeType.LEADS_TO]: {
+  [EdgeType.CAUSES]: {
     label: '导致',
-    color: '#06b6d4',
-    description: '选择 A 会带来 B'
+    symbol: '⇒',
+    color: '#FF9800',
+    lineStyle: 'solid',
+    description: 'A发生会引起B发生'
   },
   [EdgeType.CONFLICTS]: {
     label: '矛盾',
-    color: '#f59e0b',
-    description: 'A 和 B 不能同时成立'
+    symbol: '⊥',
+    color: '#000000',
+    lineStyle: 'dashed',
+    description: 'A和B不能同时为真'
+  },
+  // 废弃类型（兼容旧数据）
+  [EdgeType.PREREQUISITE]: {
+    label: '前提',
+    symbol: '←',
+    color: '#9E9E9E',
+    lineStyle: 'solid',
+    description: '（已废弃，请使用"依赖"）',
+    deprecated: true
+  },
+  [EdgeType.OPPOSES]: {
+    label: '反对',
+    symbol: '⊣',
+    color: '#F44336',
+    lineStyle: 'solid',
+    description: '（已废弃，请使用"阻碍"）',
+    deprecated: true
+  },
+  [EdgeType.LEADS_TO]: {
+    label: '导致',
+    symbol: '⇒',
+    color: '#FF9800',
+    lineStyle: 'solid',
+    description: '（已废弃，请使用"导致(causes)"）',
+    deprecated: true
   },
   [EdgeType.RELATED]: {
     label: '相关',
+    symbol: '~',
     color: '#8b5cf6',
-    description: 'A 和 B 有关联但不是因果'
+    lineStyle: 'dashed',
+    description: '（已废弃，信息量太低）',
+    deprecated: true
   }
 };
 

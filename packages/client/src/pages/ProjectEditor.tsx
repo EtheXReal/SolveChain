@@ -113,18 +113,23 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   // 创建节点
   const handleCreateNode = useCallback(
     async (type: NodeType) => {
-      const typeLabels: Record<NodeType, string> = {
+      // v2.1 使用 NODE_TYPE_CONFIG 获取标签
+      const typeLabels: Record<string, string> = {
+        [NodeType.GOAL]: '目标',
+        [NodeType.ACTION]: '行动',
         [NodeType.FACT]: '事实',
         [NodeType.ASSUMPTION]: '假设',
-        [NodeType.INFERENCE]: '推理',
-        [NodeType.DECISION]: '决策',
-        [NodeType.GOAL]: '目标',
+        [NodeType.CONSTRAINT]: '约束',
+        [NodeType.CONCLUSION]: '结论',
+        // 兼容旧类型
+        [NodeType.DECISION]: '行动',
+        [NodeType.INFERENCE]: '结论',
       };
 
       try {
         const newNode = await createNode({
           type,
-          title: `新${typeLabels[type]}`,
+          title: `新${typeLabels[type] || '节点'}`,
           positionX: 0,
           positionY: 0,
         });

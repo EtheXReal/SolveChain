@@ -58,26 +58,26 @@ function getInlineSchema(): string {
 -- 如果表不存在则创建
 
 -- 枚举类型（忽略已存在的错误）
+-- v2.1 节点类型: goal, action, fact, assumption, constraint, conclusion
+-- 兼容旧类型: decision, inference
 DO $$ BEGIN
-  CREATE TYPE node_type AS ENUM ('fact', 'assumption', 'inference', 'decision', 'goal');
+  CREATE TYPE node_type AS ENUM ('goal', 'action', 'fact', 'assumption', 'constraint', 'conclusion', 'decision', 'inference');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- v2.1 关系类型: depends, supports, achieves, hinders, causes, conflicts
+-- 兼容旧类型: prerequisite, opposes, leads_to, related
 DO $$ BEGIN
-  CREATE TYPE edge_type AS ENUM ('supports', 'opposes', 'prerequisite', 'leads_to', 'conflicts', 'related');
+  CREATE TYPE edge_type AS ENUM ('depends', 'supports', 'achieves', 'hinders', 'causes', 'conflicts', 'prerequisite', 'opposes', 'leads_to', 'related');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- 更新已存在的 edge_type 枚举（添加新值，如果不存在）
-DO $$ BEGIN
-  ALTER TYPE edge_type ADD VALUE IF NOT EXISTS 'prerequisite';
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
-  ALTER TYPE edge_type ADD VALUE IF NOT EXISTS 'leads_to';
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
-  ALTER TYPE edge_type ADD VALUE IF NOT EXISTS 'related';
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- 确保所有枚举值都存在（用于升级旧数据库）
+DO $$ BEGIN ALTER TYPE node_type ADD VALUE IF NOT EXISTS 'action'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE node_type ADD VALUE IF NOT EXISTS 'constraint'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE node_type ADD VALUE IF NOT EXISTS 'conclusion'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE edge_type ADD VALUE IF NOT EXISTS 'depends'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE edge_type ADD VALUE IF NOT EXISTS 'achieves'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE edge_type ADD VALUE IF NOT EXISTS 'hinders'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE edge_type ADD VALUE IF NOT EXISTS 'causes'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
   CREATE TYPE node_status AS ENUM ('active', 'archived', 'invalidated');

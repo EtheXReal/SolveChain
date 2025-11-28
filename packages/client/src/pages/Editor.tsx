@@ -68,12 +68,17 @@ export default function Editor({ graphId, onBack }: EditorProps) {
 
   // 创建节点
   const handleCreateNode = useCallback(async (type: NodeType) => {
+    // v2.1 类型标签
     const typeLabels: Record<NodeType, string> = {
+      [NodeType.GOAL]: '目标',
+      [NodeType.ACTION]: '行动',
       [NodeType.FACT]: '事实',
       [NodeType.ASSUMPTION]: '假设',
-      [NodeType.INFERENCE]: '推理',
+      [NodeType.CONSTRAINT]: '约束',
+      [NodeType.CONCLUSION]: '结论',
+      // 废弃类型（兼容）
       [NodeType.DECISION]: '决策',
-      [NodeType.GOAL]: '目标',
+      [NodeType.INFERENCE]: '推理',
     };
 
     try {

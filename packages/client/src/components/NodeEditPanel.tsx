@@ -107,18 +107,17 @@ export default function NodeEditPanel({
             onChange={(e) => setType(e.target.value as NodeType)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {Object.entries(NODE_TYPE_CONFIG).map(([key, cfg]) => (
-              <option key={key} value={key}>
-                {cfg.label}
-              </option>
-            ))}
+            {/* v2.1 只显示新类型，不显示废弃类型 */}
+            {Object.entries(NODE_TYPE_CONFIG)
+              .filter(([, cfg]) => !cfg.deprecated)
+              .map(([key, cfg]) => (
+                <option key={key} value={key}>
+                  {cfg.label}
+                </option>
+              ))}
           </select>
           <p className="mt-1 text-xs text-gray-500">
-            {type === NodeType.FACT && '客观、可验证的信息'}
-            {type === NodeType.ASSUMPTION && '主观判断，需要验证'}
-            {type === NodeType.INFERENCE && '由其他节点推导得出'}
-            {type === NodeType.DECISION && '最终的行动选项'}
-            {type === NodeType.GOAL && '想要达成的结果'}
+            {NODE_TYPE_CONFIG[type]?.description || ''}
           </p>
         </div>
 

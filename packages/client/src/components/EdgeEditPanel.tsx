@@ -149,11 +149,14 @@ export default function EdgeEditPanel({
             onChange={(e) => setType(e.target.value as EdgeType)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {Object.entries(EDGE_TYPE_CONFIG).map(([key, cfg]) => (
-              <option key={key} value={key}>
-                {cfg.label} - {cfg.description}
-              </option>
-            ))}
+            {/* v2.1 只显示新类型，不显示废弃类型 */}
+            {Object.entries(EDGE_TYPE_CONFIG)
+              .filter(([, cfg]) => !cfg.deprecated)
+              .map(([key, cfg]) => (
+                <option key={key} value={key}>
+                  {cfg.symbol} {cfg.label} - {cfg.description}
+                </option>
+              ))}
           </select>
         </div>
 

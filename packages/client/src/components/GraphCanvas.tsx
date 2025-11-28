@@ -48,18 +48,21 @@ function toReactFlowNode(node: GraphNode): Node {
 
 function toReactFlowEdge(edge: GraphEdge): Edge {
   const config = EDGE_TYPE_CONFIG[edge.type as EdgeType];
+  // v2.1: 使用 HINDERS 或 CONFLICTS 来判断是否需要动画（表示负面/冲突关系）
+  const isNegativeRelation = edge.type === EdgeType.HINDERS || edge.type === EdgeType.CONFLICTS ||
+    edge.type === EdgeType.OPPOSES; // 兼容旧数据
   return {
     id: edge.id,
     source: edge.sourceNodeId,
     target: edge.targetNodeId,
     type: 'smoothstep',
-    animated: edge.type === EdgeType.OPPOSES,
+    animated: isNegativeRelation,
     style: {
       stroke: config?.color || '#6b7280',
       strokeWidth: 2,
-      strokeDasharray: config?.style === 'dashed' ? '5,5' : undefined,
+      strokeDasharray: config?.lineStyle === 'dashed' ? '5,5' : undefined,
     },
-    label: `${config?.label || ''} ${edge.strength}%`,
+    label: `${config?.symbol || ''} ${config?.label || ''} ${edge.strength}%`,
     labelStyle: { fontSize: 10, fill: '#6b7280' },
     labelBgStyle: { fill: 'white', fillOpacity: 0.8 },
   };

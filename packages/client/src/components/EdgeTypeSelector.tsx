@@ -33,22 +33,27 @@ export default function EdgeTypeSelector({ position, onSelect, onCancel }: EdgeT
           <p className="text-sm font-medium text-gray-700">选择关系类型</p>
         </div>
         <div className="py-1">
-          {Object.entries(EDGE_TYPE_CONFIG).map(([key, config]) => (
-            <button
-              key={key}
-              onClick={() => onSelect(key as EdgeType)}
-              className="w-full px-3 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
-            >
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: config.color }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800">{config.label}</p>
-                <p className="text-xs text-gray-500 truncate">{config.description}</p>
-              </div>
-            </button>
-          ))}
+          {/* v2.1 只显示新类型，不显示废弃类型 */}
+          {Object.entries(EDGE_TYPE_CONFIG)
+            .filter(([, config]) => !config.deprecated)
+            .map(([key, config]) => (
+              <button
+                key={key}
+                onClick={() => onSelect(key as EdgeType)}
+                className="w-full px-3 py-2 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+              >
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: config.color }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800">
+                    {config.symbol} {config.label}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{config.description}</p>
+                </div>
+              </button>
+            ))}
         </div>
         <div className="px-3 pt-2 border-t border-gray-100">
           <button

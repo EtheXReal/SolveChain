@@ -18,26 +18,43 @@ interface NodeLibraryProps {
   onAddNodeToScene?: (nodeId: string) => void; // 添加节点到场景
 }
 
+// v2.1 节点类型顺序（新类型）
+const NEW_TYPE_ORDER: NodeType[] = [
+  NodeType.GOAL,
+  NodeType.ACTION,
+  NodeType.FACT,
+  NodeType.ASSUMPTION,
+  NodeType.CONSTRAINT,
+  NodeType.CONCLUSION,
+];
+
+// 旧类型到新类型的映射（用于兼容显示）
+const LEGACY_TYPE_MAP: Record<string, NodeType> = {
+  [NodeType.DECISION]: NodeType.ACTION,
+  [NodeType.INFERENCE]: NodeType.CONCLUSION,
+};
+
 export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode, nodes: propNodes }: NodeLibraryProps) {
   const graphStore = useGraphStore();
   const nodes = propNodes ?? graphStore.nodes;
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedTypes, setExpandedTypes] = useState<Set<NodeType>>(
-    new Set([NodeType.DECISION, NodeType.FACT])
+    new Set([NodeType.ACTION, NodeType.FACT])
   );
 
-  // 按类型分组节点
+  // 按类型分组节点（兼容旧类型）
   const groupedNodes = useMemo(() => {
-    const groups: Record<NodeType, GraphNode[]> = {
-      [NodeType.GOAL]: [],
-      [NodeType.DECISION]: [],
-      [NodeType.FACT]: [],
-      [NodeType.ASSUMPTION]: [],
-      [NodeType.INFERENCE]: [],
-    };
+    const groups: Record<string, GraphNode[]> = {};
+    NEW_TYPE_ORDER.forEach(type => {
+      groups[type] = [];
+    });
 
     nodes.forEach(node => {
-      if (groups[node.type]) {
+      // 将旧类型映射到新类型进行分组
+      const displayType = LEGACY_TYPE_MAP[node.type] || node.type;
+      if (groups[displayType]) {
+        groups[displayType].push(node);
+      } else if (groups[node.type]) {
         groups[node.type].push(node);
       }
     });
@@ -50,16 +67,13 @@ export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode
     if (!searchTerm.trim()) return groupedNodes;
 
     const term = searchTerm.toLowerCase();
-    const filtered: Record<NodeType, GraphNode[]> = {
-      [NodeType.GOAL]: [],
-      [NodeType.DECISION]: [],
-      [NodeType.FACT]: [],
-      [NodeType.ASSUMPTION]: [],
-      [NodeType.INFERENCE]: [],
-    };
+    const filtered: Record<string, GraphNode[]> = {};
+    NEW_TYPE_ORDER.forEach(type => {
+      filtered[type] = [];
+    });
 
     Object.entries(groupedNodes).forEach(([type, nodeList]) => {
-      filtered[type as NodeType] = nodeList.filter(
+      filtered[type] = nodeList.filter(
         node =>
           node.title.toLowerCase().includes(term) ||
           node.content?.toLowerCase().includes(term)
@@ -82,14 +96,8 @@ export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode
     });
   };
 
-  // 节点类型顺序
-  const typeOrder: NodeType[] = [
-    NodeType.GOAL,
-    NodeType.DECISION,
-    NodeType.FACT,
-    NodeType.ASSUMPTION,
-    NodeType.INFERENCE,
-  ];
+  // 节点类型顺序（使用新类型）
+  const typeOrder = NEW_TYPE_ORDER;
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">

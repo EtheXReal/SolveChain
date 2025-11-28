@@ -1193,12 +1193,15 @@ export default function FocusView({
             </div>
           </div>
           <div className="flex flex-wrap gap-3 text-xs">
-            {Object.entries(EDGE_TYPE_CONFIG).map(([type, config]) => (
-              <div key={type} className="flex items-center gap-1" title={config.description}>
-                <div className="w-3 h-0.5" style={{ backgroundColor: config.color }}></div>
-                <span>{config.label}</span>
-              </div>
-            ))}
+            {/* v2.1 只显示新类型，不显示废弃类型 */}
+            {Object.entries(EDGE_TYPE_CONFIG)
+              .filter(([, config]) => !config.deprecated)
+              .map(([type, config]) => (
+                <div key={type} className="flex items-center gap-1" title={config.description}>
+                  <div className="w-3 h-0.5" style={{ backgroundColor: config.color }}></div>
+                  <span>{config.symbol} {config.label}</span>
+                </div>
+              ))}
           </div>
         </div>
 
