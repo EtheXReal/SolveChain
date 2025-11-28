@@ -4,9 +4,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { X, Save, Trash2 } from 'lucide-react';
+import { X, Save, Trash2, Zap } from 'lucide-react';
 import { useGraphStore } from '../store/graphStore';
+import { usePropagationStore } from '../store/propagationStore';
 import { GraphNode, NodeType, NODE_TYPE_CONFIG } from '../types';
+import { LogicState, getLogicStateColor, getLogicStateLabel } from '../utils/propagation';
 
 interface NodeEditPanelProps {
   nodeId: string | null;
@@ -25,12 +27,20 @@ export default function NodeEditPanel({
   onUpdateNode: propUpdateNode
 }: NodeEditPanelProps) {
   const graphStore = useGraphStore();
+  const {
+    getNodeLogicState,
+    updateNodeLogicState,
+    getNodeState,
+  } = usePropagationStore();
 
   // 优先使用 props，否则使用 store
   const nodes = propNodes ?? graphStore.nodes;
+  const edges = graphStore.edges;
   const updateNode = propUpdateNode ?? graphStore.updateNode;
 
   const node = nodes.find(n => n.id === nodeId);
+  const nodeLogicState = nodeId ? getNodeLogicState(nodeId) : LogicState.UNKNOWN;
+  const nodeFullState = nodeId ? getNodeState(nodeId) : undefined;
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -186,6 +196,68 @@ export default function NodeEditPanel({
             <span>不重要</span>
             <span>非常重要</span>
           </div>
+        </div>
+
+        {/* 逻辑状态 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <span className="flex items-center gap-1">
+              <Zap size={14} />
+              逻辑状态（状态传播）
+            </span>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {[LogicState.TRUE, LogicState.FALSE, LogicState.UNKNOWN].map((state) => (
+              <button
+                key={state}
+                onClick={() => {
+                  if (nodeId) {
+                    updateNodeLogicState(nodeId, state, nodes, edges);
+                  }
+                }}
+                className={`
+                  px-3 py-2 rounded-lg text-sm font-medium transition-all
+                  ${nodeLogicState === state
+                    ? 'ring-2 ring-offset-1'
+                    : 'hover:opacity-80'
+                  }
+                `}
+                style={{
+                  backgroundColor: getLogicStateColor(state),
+                  color: 'white',
+                  ...(nodeLogicState === state && {
+                    ringColor: getLogicStateColor(state),
+                  }),
+                }}
+              >
+                {getLogicStateLabel(state)}
+              </button>
+            ))}
+          </div>
+
+          {/* 推导来源 */}
+          {nodeFullState?.derivedFrom && nodeFullState.derivedFrom.length > 0 && (
+            <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-600">
+              <span className="font-medium">推导自：</span>
+              <ul className="mt-1 space-y-1">
+                {nodeFullState.derivedFrom.map((sourceId, index) => {
+                  const sourceNode = nodes.find(n => n.id === sourceId);
+                  return (
+                    <li key={index} className="truncate">
+                      {sourceNode?.title || sourceId}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {/* 冲突警告 */}
+          {nodeLogicState === LogicState.CONFLICT && (
+            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+              此节点存在逻辑冲突，请检查相关的约束和依赖关系。
+            </div>
+          )}
         </div>
 
         {/* 预览 */}

@@ -23,7 +23,9 @@ import 'reactflow/dist/style.css';
 
 import DecisionNode from './DecisionNode';
 import { useGraphStore } from '../store/graphStore';
+import { usePropagationStore } from '../store/propagationStore';
 import { EDGE_TYPE_CONFIG, EdgeType, GraphNode, GraphEdge } from '../types';
+import { LogicState } from '../utils/propagation';
 
 // 自定义节点类型
 const nodeTypes = {
@@ -31,7 +33,7 @@ const nodeTypes = {
 };
 
 // 将后端数据转换为 ReactFlow 格式
-function toReactFlowNode(node: GraphNode): Node {
+function toReactFlowNode(node: GraphNode, logicState?: LogicState): Node {
   return {
     id: node.id,
     type: 'decision',
@@ -43,6 +45,7 @@ function toReactFlowNode(node: GraphNode): Node {
       confidence: node.confidence,
       weight: node.weight,
       calculatedScore: node.calculatedScore,
+      logicState,
     },
   };
 }
@@ -89,8 +92,25 @@ export default function GraphCanvas({ onNodeClick, onEdgeClick, onPaneClick }: G
     selectNode,
   } = useGraphStore();
 
-  // 转换为 ReactFlow 格式
-  const initialNodes = useMemo(() => storeNodes.map(toReactFlowNode), [storeNodes]);
+  const {
+    nodeStates,
+    autoPropagate,
+    runPropagation,
+    getNodeLogicState,
+  } = usePropagationStore();
+
+  // 运行状态传播
+  useEffect(() => {
+    if (autoPropagate && storeNodes.length > 0) {
+      runPropagation(storeNodes, storeEdges);
+    }
+  }, [storeNodes, storeEdges, autoPropagate, runPropagation]);
+
+  // 转换为 ReactFlow 格式，包含逻辑状态
+  const initialNodes = useMemo(
+    () => storeNodes.map((node) => toReactFlowNode(node, getNodeLogicState(node.id))),
+    [storeNodes, nodeStates]
+  );
   const initialEdges = useMemo(() => storeEdges.map(toReactFlowEdge), [storeEdges]);
 
   const [nodes, setNodes] = useNodesState(initialNodes);
@@ -98,8 +118,8 @@ export default function GraphCanvas({ onNodeClick, onEdgeClick, onPaneClick }: G
 
   // 同步 store 变化
   useEffect(() => {
-    setNodes(storeNodes.map(toReactFlowNode));
-  }, [storeNodes, setNodes]);
+    setNodes(storeNodes.map((node) => toReactFlowNode(node, getNodeLogicState(node.id))));
+  }, [storeNodes, nodeStates, setNodes, getNodeLogicState]);
 
   useEffect(() => {
     setEdges(storeEdges.map(toReactFlowEdge));

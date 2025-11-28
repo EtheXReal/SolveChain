@@ -11,10 +11,11 @@ import NodeLibrary from '../components/NodeLibrary';
 import FocusView from '../components/FocusView';
 import NodeEditPanel from '../components/NodeEditPanel';
 import EdgeEditPanel from '../components/EdgeEditPanel';
+import PropagationPanel from '../components/PropagationPanel';
 import SceneTabs from '../components/SceneTabs';
 import ImportDialog from '../components/ImportDialog';
 import { NodeType, EdgeType } from '../types';
-import { Edit3, Eye, Download, Upload, FileText, Copy, Check } from 'lucide-react';
+import { Edit3, Eye, Download, Upload, FileText, Copy, Check, Activity } from 'lucide-react';
 import {
   exportScene,
   exportProject,
@@ -84,6 +85,9 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   // 文本导出下拉菜单状态
   const [showTextExportMenu, setShowTextExportMenu] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // 传播面板状态
+  const [showPropagationPanel, setShowPropagationPanel] = useState(false);
 
   // 加载项目
   useEffect(() => {
@@ -690,6 +694,20 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             <span>导出项目</span>
           </button>
 
+          {/* 状态传播按钮 */}
+          <button
+            onClick={() => setShowPropagationPanel(!showPropagationPanel)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
+              showPropagationPanel
+                ? 'bg-blue-50 text-blue-600 border-blue-300'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
+            }`}
+            title="状态传播面板"
+          >
+            <Activity size={18} />
+            <span>传播</span>
+          </button>
+
           {/* 模式切换按钮 */}
           <button
             onClick={toggleEditorMode}
@@ -788,6 +806,11 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             nodes={displayNodes}
             onUpdateEdge={updateEdge}
           />
+        )}
+
+        {/* 传播面板 */}
+        {showPropagationPanel && !editingNodeId && !editingEdgeId && (
+          <PropagationPanel />
         )}
       </div>
 

@@ -5,6 +5,7 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { NODE_TYPE_CONFIG, NodeType } from '../types';
+import { LogicState, getLogicStateColor, getLogicStateLabel } from '../utils/propagation';
 
 interface NodeData {
   type: NodeType;
@@ -14,6 +15,7 @@ interface NodeData {
   weight: number;
   calculatedScore?: number;
   isSelected?: boolean;
+  logicState?: LogicState;
 }
 
 function DecisionNode({ data, selected }: NodeProps<NodeData>) {
@@ -38,15 +40,31 @@ function DecisionNode({ data, selected }: NodeProps<NodeData>) {
         className="w-3 h-3 !bg-gray-400 border-2 border-white"
       />
 
-      {/* 节点类型标签 */}
-      <div
-        className="text-xs font-medium px-2 py-0.5 rounded-full inline-block mb-2"
-        style={{
-          backgroundColor: config.color,
-          color: 'white'
-        }}
-      >
-        {config.label}
+      {/* 节点类型标签和逻辑状态 */}
+      <div className="flex items-center justify-between mb-2">
+        <div
+          className="text-xs font-medium px-2 py-0.5 rounded-full inline-block"
+          style={{
+            backgroundColor: config.color,
+            color: 'white'
+          }}
+        >
+          {config.label}
+        </div>
+
+        {/* 逻辑状态指示器 */}
+        {data.logicState && data.logicState !== LogicState.UNKNOWN && (
+          <div
+            className="text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: getLogicStateColor(data.logicState),
+              color: 'white'
+            }}
+            title={`逻辑状态: ${getLogicStateLabel(data.logicState)}`}
+          >
+            {getLogicStateLabel(data.logicState)}
+          </div>
+        )}
       </div>
 
       {/* 标题 */}

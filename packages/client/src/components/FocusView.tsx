@@ -7,10 +7,12 @@
 
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { useGraphStore, EditorMode } from '../store/graphStore';
+import { usePropagationStore } from '../store/propagationStore';
 import { GraphNode, GraphEdge, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG, EdgeType } from '../types';
 import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, X } from 'lucide-react';
 import EdgeTypeSelector from './EdgeTypeSelector';
 import { hierarchicalLayout, radialLayout, forceDirectedRefinement } from '../utils/layoutAlgorithms';
+import { LogicState, getLogicStateColor } from '../utils/propagation';
 
 // 连线状态类型
 interface ConnectingState {
@@ -69,6 +71,7 @@ export default function FocusView({
   onUpdatePendingPositions
 }: FocusViewProps) {
   const graphStore = useGraphStore();
+  const { getNodeLogicState } = usePropagationStore();
   const nodes = propNodes ?? graphStore.nodes;
   const edges = propEdges ?? graphStore.edges;
 
@@ -909,6 +912,11 @@ export default function FocusView({
     const isConnectSource = connectingState?.sourceNodeId === node.id;
     const canBeConnectTarget = !!connectingState && !isConnectSource;
 
+    // 获取逻辑状态
+    const logicState = getNodeLogicState(node.id);
+    const hasLogicState = logicState !== LogicState.UNKNOWN;
+    const logicStateColor = getLogicStateColor(logicState);
+
 
     return (
       <g
@@ -1018,6 +1026,30 @@ export default function FocusView({
         >
           {node.title.length > 12 ? node.title.slice(0, 12) + '...' : node.title}
         </text>
+
+        {/* 逻辑状态指示器 */}
+        {hasLogicState && (
+          <g transform="translate(55, -25)">
+            <circle
+              r={8}
+              fill={logicStateColor}
+              stroke="white"
+              strokeWidth={2}
+            />
+            <text
+              textAnchor="middle"
+              dy={4}
+              fontSize={10}
+              fill="white"
+              fontWeight="bold"
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              {logicState === LogicState.TRUE ? 'T' :
+               logicState === LogicState.FALSE ? 'F' :
+               logicState === LogicState.CONFLICT ? '!' : '?'}
+            </text>
+          </g>
+        )}
       </g>
     );
   };
