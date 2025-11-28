@@ -17,6 +17,7 @@ import ReactFlow, {
   EdgeChange,
   applyNodeChanges,
   applyEdgeChanges,
+  MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -51,12 +52,16 @@ function toReactFlowEdge(edge: GraphEdge): Edge {
   // v2.1: 使用 HINDERS 或 CONFLICTS 来判断是否需要动画（表示负面/冲突关系）
   const isNegativeRelation = edge.type === EdgeType.HINDERS || edge.type === EdgeType.CONFLICTS ||
     edge.type === EdgeType.OPPOSES; // 兼容旧数据
+  const isConflict = edge.type === EdgeType.CONFLICTS;
   return {
     id: edge.id,
     source: edge.sourceNodeId,
     target: edge.targetNodeId,
     type: 'smoothstep',
     animated: isNegativeRelation,
+    // CONFLICTS 使用双向箭头
+    markerStart: isConflict ? { type: MarkerType.ArrowClosed, color: config?.color } : undefined,
+    markerEnd: { type: MarkerType.ArrowClosed, color: config?.color },
     style: {
       stroke: config?.color || '#6b7280',
       strokeWidth: 2,
