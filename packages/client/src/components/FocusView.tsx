@@ -369,6 +369,134 @@ export default function FocusView({
     return () => container.removeEventListener('wheel', wheelHandler);
   }, [offset, scale]);
 
+  // 缩放控制 - 围绕屏幕中心缩放
+  const zoomAroundCenter = useCallback((newScale: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const canvasX = (centerX - offset.x) / scale;
+    const canvasY = (centerY - offset.y) / scale;
+
+    setScale(newScale);
+    setOffset({
+      x: centerX - canvasX * newScale,
+      y: centerY - canvasY * newScale,
+    });
+  }, [offset, scale]);
+
+  const handleZoomIn = () => zoomAroundCenter(Math.min(scale * 1.2, 3));
+  const handleZoomOut = () => zoomAroundCenter(Math.max(scale / 1.2, 0.2));
+
+  const handleResetView = useCallback(() => {
+    if (!containerRef.current) return;
+    requestAnimationFrame(() => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const newScale = 0.8;
+        setScale(newScale);
+        setOffset({
+          x: rect.width / 2 - CENTER_X * newScale,
+          y: rect.height / 2 - CENTER_Y * newScale,
+        });
+      }
+    });
+  }, []);
+
+  // 自动布局：使用智能布局算法
+  const handleAutoLayout = useCallback(() => {
+    if (nodes.length === 0) return;
+
+    let newPositions: Map<string, NodePosition>;
+
+    if (focusedNodeId) {
+      // 有聚焦节点：使用聚焦布局（左右展开）
+      // 聚焦节点在中心，上游在左侧，下游在右侧
+      const result = radialLayout(nodes, edges, focusedNodeId, {
+        radiusStep: 220,  // 层间距
+        maxLayers: 4,
+      });
+      newPositions = result.positions;
+    } else {
+      // 无聚焦节点：使用分层布局 (Dagre)
+      // 按逻辑层次排列，最小化边交叉
+      const result = hierarchicalLayout(nodes, edges, {
+        direction: 'LR', // 从左到右，符合因果推理的阅读习惯
+        rankSep: 150,    // 层间距
+        nodeSep: 60,     // 同层节点间距
+      });
+
+      // 应用力导向微调
+      newPositions = forceDirectedRefinement(nodes, edges, result.positions, {
+        iterations: 20,
+      });
+    }
+
+    setCustomPositions(newPositions);
+
+    // 自动调整视图以显示所有节点
+    setTimeout(() => {
+      if (containerRef.current && newPositions.size > 0) {
+        const rect = containerRef.current.getBoundingClientRect();
+
+        // 计算所有节点的边界
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        newPositions.forEach(pos => {
+          minX = Math.min(minX, pos.x);
+          maxX = Math.max(maxX, pos.x);
+          minY = Math.min(minY, pos.y);
+          maxY = Math.max(maxY, pos.y);
+        });
+
+        // 计算内容中心和尺寸
+        const contentWidth = maxX - minX + 200;
+        const contentHeight = maxY - minY + 100;
+        const contentCenterX = (minX + maxX) / 2;
+        const contentCenterY = (minY + maxY) / 2;
+
+        // 计算适合的缩放比例
+        const scaleX = rect.width / contentWidth;
+        const scaleY = rect.height / contentHeight;
+        const fitScale = Math.min(scaleX, scaleY, 1) * 0.85;
+
+        setScale(fitScale);
+        setOffset({
+          x: rect.width / 2 - contentCenterX * fitScale,
+          y: rect.height / 2 - contentCenterY * fitScale,
+        });
+      }
+    }, 50);
+  }, [nodes, edges, focusedNodeId]);
+
+  // 保存布局
+  const handleSaveLayout = useCallback(async () => {
+    if (!onSaveLayout || nodes.length === 0) return;
+
+    setIsSaving(true);
+    try {
+      // 收集所有节点的当前位置
+      const positions = nodes.map(node => {
+        const pos = nodePositions.get(node.id);
+        return {
+          id: node.id,
+          x: pos?.x ?? node.positionX,
+          y: pos?.y ?? node.positionY,
+        };
+      });
+
+      await onSaveLayout(positions);
+
+      // 显示保存成功提示
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 2000);
+    } catch (err) {
+      console.error('保存布局失败:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [onSaveLayout, nodes, nodePositions]);
+
   // 统一的键盘快捷键处理
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -394,8 +522,8 @@ export default function FocusView({
       // 以下快捷键在输入框中不触发
       if (isInputFocused) return;
 
-      // Delete/Backspace 键：删除聚焦的节点
-      if ((e.key === 'Delete' || e.key === 'Backspace') && focusedNodeId && onDeleteNode) {
+      // Delete/Backspace 键：删除聚焦的节点（仅编辑模式）
+      if ((e.key === 'Delete' || e.key === 'Backspace') && focusedNodeId && onDeleteNode && isEditMode) {
         e.preventDefault();
         if (window.confirm('确定要删除这个节点吗？相关的连线也会被删除。')) {
           onDeleteNode(focusedNodeId);
@@ -527,135 +655,6 @@ export default function FocusView({
     zoomAroundCenter, scale, nodePositions, nodes, connectingState, cancelConnecting,
     showEdgeTypeSelector
   ]);
-
-  // 缩放控制 - 围绕屏幕中心缩放
-  const zoomAroundCenter = useCallback((newScale: number) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-
-    const canvasX = (centerX - offset.x) / scale;
-    const canvasY = (centerY - offset.y) / scale;
-
-    setScale(newScale);
-    setOffset({
-      x: centerX - canvasX * newScale,
-      y: centerY - canvasY * newScale,
-    });
-  }, [offset, scale]);
-
-  const handleZoomIn = () => zoomAroundCenter(Math.min(scale * 1.2, 3));
-  const handleZoomOut = () => zoomAroundCenter(Math.max(scale / 1.2, 0.2));
-
-  const handleResetView = useCallback(() => {
-    if (!containerRef.current) return;
-    requestAnimationFrame(() => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const newScale = 0.8;
-        setScale(newScale);
-        setOffset({
-          x: rect.width / 2 - CENTER_X * newScale,
-          y: rect.height / 2 - CENTER_Y * newScale,
-        });
-      }
-    });
-  }, []);
-
-  // 自动布局：使用智能布局算法
-  const handleAutoLayout = useCallback(() => {
-    if (nodes.length === 0) return;
-
-    let newPositions: Map<string, NodePosition>;
-
-    if (focusedNodeId) {
-      // 有聚焦节点：使用聚焦布局（左右展开）
-      // 聚焦节点在中心，上游在左侧，下游在右侧
-      const result = radialLayout(nodes, edges, focusedNodeId, {
-        radiusStep: 220,  // 层间距
-        maxLayers: 4,
-      });
-      newPositions = result.positions;
-    } else {
-      // 无聚焦节点：使用分层布局 (Dagre)
-      // 按逻辑层次排列，最小化边交叉
-      const result = hierarchicalLayout(nodes, edges, {
-        direction: 'LR', // 从左到右，符合因果推理的阅读习惯
-        rankSep: 150,    // 层间距
-        nodeSep: 60,     // 同层节点间距
-      });
-
-      // 应用力导向微调
-      newPositions = forceDirectedRefinement(nodes, edges, result.positions, {
-        iterations: 20,
-      });
-    }
-
-    setCustomPositions(newPositions);
-
-    // 自动调整视图以显示所有节点
-    setTimeout(() => {
-      if (containerRef.current && newPositions.size > 0) {
-        const rect = containerRef.current.getBoundingClientRect();
-
-        // 计算所有节点的边界
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        newPositions.forEach(pos => {
-          minX = Math.min(minX, pos.x);
-          maxX = Math.max(maxX, pos.x);
-          minY = Math.min(minY, pos.y);
-          maxY = Math.max(maxY, pos.y);
-        });
-
-        // 计算内容中心和尺寸
-        const contentWidth = maxX - minX + 200;
-        const contentHeight = maxY - minY + 100;
-        const contentCenterX = (minX + maxX) / 2;
-        const contentCenterY = (minY + maxY) / 2;
-
-        // 计算适合的缩放比例
-        const scaleX = rect.width / contentWidth;
-        const scaleY = rect.height / contentHeight;
-        const fitScale = Math.min(scaleX, scaleY, 1) * 0.85;
-
-        setScale(fitScale);
-        setOffset({
-          x: rect.width / 2 - contentCenterX * fitScale,
-          y: rect.height / 2 - contentCenterY * fitScale,
-        });
-      }
-    }, 50);
-  }, [nodes, edges, focusedNodeId]);
-
-  // 保存布局
-  const handleSaveLayout = useCallback(async () => {
-    if (!onSaveLayout || nodes.length === 0) return;
-
-    setIsSaving(true);
-    try {
-      // 收集所有节点的当前位置
-      const positions = nodes.map(node => {
-        const pos = nodePositions.get(node.id);
-        return {
-          id: node.id,
-          x: pos?.x ?? node.positionX,
-          y: pos?.y ?? node.positionY,
-        };
-      });
-
-      await onSaveLayout(positions);
-
-      // 显示保存成功提示
-      setShowSaveToast(true);
-      setTimeout(() => setShowSaveToast(false), 2000);
-    } catch (err) {
-      console.error('保存布局失败:', err);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [onSaveLayout, nodes, nodePositions]);
-
 
   // 获取SVG坐标
   const getSVGCoords = useCallback((clientX: number, clientY: number) => {
@@ -1118,7 +1117,7 @@ export default function FocusView({
             <div>
               {isEditMode
                 ? '双击/E: 编辑 | 右键: 连线 | Del: 删除'
-                : '双击: 聚焦 | 拖拽: 移动 | Del: 删除'
+                : '双击: 聚焦 | 拖拽: 调整布局'
               }
             </div>
             <div className="text-gray-400">
