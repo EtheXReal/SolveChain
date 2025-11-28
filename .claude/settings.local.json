@@ -23,7 +23,8 @@
       "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT id, title, confidence, weight FROM nodes LIMIT 5;\")",
       "Bash(git tag:*)",
       "Bash(git push:*)",
-      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT type, COUNT(*) FROM edges WHERE deleted_at IS NULL GROUP BY type ORDER BY count DESC;\")"
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT type, COUNT(*) FROM edges WHERE deleted_at IS NULL GROUP BY type ORDER BY count DESC;\")",
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"\\d edges\")"
     ],
     "deny": [],
     "ask": []
