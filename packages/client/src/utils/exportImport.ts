@@ -329,13 +329,15 @@ export function exportSceneAsText(
         // 构建节点行
         let nodeLine = `[${getNodeTypeLabel(node.type)}] ${node.title}`;
 
-        // 添加可选属性
+        // 添加可选属性（只在非默认值时显示）
         const attrs: string[] = [];
+        // confidence 默认值是 50，只在非默认值时显示
         if (node.confidence !== undefined && node.confidence !== 50) {
           attrs.push(`置信度: ${node.confidence}%`);
         }
-        if (node.weight !== undefined && node.weight !== 1) {
-          attrs.push(`权重: ${node.weight}`);
+        // weight 默认值是 50，只在非默认值时显示
+        if (node.weight !== undefined && node.weight !== 50) {
+          attrs.push(`权重: ${node.weight}%`);
         }
         if (attrs.length > 0) {
           nodeLine += ` (${attrs.join(', ')})`;
@@ -373,10 +375,11 @@ export function exportSceneAsText(
 
       let edgeLine = `${sourceTitle} --${edgeLabel}-->  ${targetTitle}`;
 
-      // 添加可选属性
+      // 添加可选属性（只在非默认值时显示）
       const attrs: string[] = [];
-      if (edge.strength !== undefined && edge.strength !== 1) {
-        attrs.push(`强度: ${edge.strength}`);
+      // strength 默认值是 50，只在非默认值时显示
+      if (edge.strength !== undefined && edge.strength !== 50) {
+        attrs.push(`强度: ${edge.strength}%`);
       }
       if (edge.description) {
         attrs.push(edge.description);
