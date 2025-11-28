@@ -369,31 +369,164 @@ export default function FocusView({
     return () => container.removeEventListener('wheel', wheelHandler);
   }, [offset, scale]);
 
-  // 添加键盘事件监听器（Delete 键删除聚焦的节点）
+  // 统一的键盘快捷键处理
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Delete 或 Backspace 键删除聚焦的节点
-      if ((e.key === 'Delete' || e.key === 'Backspace') && focusedNodeId && onDeleteNode) {
-        // 避免在输入框中触发删除
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-          return;
+      // 避免在输入框中触发
+      const target = e.target as HTMLElement;
+      const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // Escape 键：取消聚焦/取消连线/关闭选择器
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (connectingState) {
+          cancelConnecting();
+        } else if (showEdgeTypeSelector) {
+          setShowEdgeTypeSelector(false);
+          setPendingTargetNodeId(null);
+        } else {
+          onNodeClick('');
+          setSelectedEdgeId(null);
         }
+        return;
+      }
+
+      // 以下快捷键在输入框中不触发
+      if (isInputFocused) return;
+
+      // Delete/Backspace 键：删除聚焦的节点
+      if ((e.key === 'Delete' || e.key === 'Backspace') && focusedNodeId && onDeleteNode) {
         e.preventDefault();
         if (window.confirm('确定要删除这个节点吗？相关的连线也会被删除。')) {
           onDeleteNode(focusedNodeId);
         }
+        return;
       }
-      // Escape 键取消聚焦
-      if (e.key === 'Escape') {
+
+      // Ctrl/Cmd + S：保存布局
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && onSaveLayout) {
         e.preventDefault();
-        onNodeClick('');
+        handleSaveLayout();
+        return;
+      }
+
+      // E 键：编辑聚焦的节点（编辑模式下）
+      if (e.key === 'e' && !e.ctrlKey && !e.metaKey && focusedNodeId && isEditMode && onEditNode) {
+        e.preventDefault();
+        onEditNode(focusedNodeId);
+        return;
+      }
+
+      // L 键：自动布局
+      if (e.key === 'l' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleAutoLayout();
+        return;
+      }
+
+      // R 键：重置视图
+      if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleResetView();
+        return;
+      }
+
+      // + 或 = 键：放大
+      if ((e.key === '+' || e.key === '=') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleZoomIn();
+        return;
+      }
+
+      // - 键：缩小
+      if (e.key === '-' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleZoomOut();
+        return;
+      }
+
+      // 0 键：重置缩放到 100%
+      if (e.key === '0' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        zoomAroundCenter(1);
+        return;
+      }
+
+      // F 键：聚焦到选中节点（将选中节点移到视图中心）
+      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && focusedNodeId) {
+        e.preventDefault();
+        const pos = nodePositions.get(focusedNodeId);
+        if (pos && containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          setOffset({
+            x: rect.width / 2 - pos.x * scale,
+            y: rect.height / 2 - pos.y * scale,
+          });
+        }
+        return;
+      }
+
+      // 方向键：在相邻节点之间导航
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && focusedNodeId) {
+        e.preventDefault();
+        const currentPos = nodePositions.get(focusedNodeId);
+        if (!currentPos) return;
+
+        // 找到最近的相邻节点
+        let bestNode: string | null = null;
+        let bestScore = Infinity;
+
+        nodes.forEach(node => {
+          if (node.id === focusedNodeId) return;
+          const pos = nodePositions.get(node.id);
+          if (!pos) return;
+
+          const dx = pos.x - currentPos.x;
+          const dy = pos.y - currentPos.y;
+
+          // 根据方向过滤
+          let isValidDirection = false;
+          let score = 0;
+          switch (e.key) {
+            case 'ArrowUp':
+              isValidDirection = dy < -20;
+              score = Math.abs(dy) + Math.abs(dx) * 2;
+              break;
+            case 'ArrowDown':
+              isValidDirection = dy > 20;
+              score = Math.abs(dy) + Math.abs(dx) * 2;
+              break;
+            case 'ArrowLeft':
+              isValidDirection = dx < -20;
+              score = Math.abs(dx) + Math.abs(dy) * 2;
+              break;
+            case 'ArrowRight':
+              isValidDirection = dx > 20;
+              score = Math.abs(dx) + Math.abs(dy) * 2;
+              break;
+          }
+
+          if (isValidDirection && score < bestScore) {
+            bestScore = score;
+            bestNode = node.id;
+          }
+        });
+
+        if (bestNode) {
+          onNodeClick(bestNode);
+        }
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [focusedNodeId, onDeleteNode, onNodeClick]);
+  }, [
+    focusedNodeId, onDeleteNode, onNodeClick, onSaveLayout, handleSaveLayout,
+    isEditMode, onEditNode, handleAutoLayout, handleResetView, handleZoomIn, handleZoomOut,
+    zoomAroundCenter, scale, nodePositions, nodes, connectingState, cancelConnecting,
+    showEdgeTypeSelector
+  ]);
 
   // 缩放控制 - 围绕屏幕中心缩放
   const zoomAroundCenter = useCallback((newScale: number) => {
@@ -523,26 +656,6 @@ export default function FocusView({
     }
   }, [onSaveLayout, nodes, nodePositions]);
 
-  // Ctrl+S 保存布局快捷键
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S 或 Cmd+S 保存布局
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        // 避免在输入框中触发
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-          return;
-        }
-        if (onSaveLayout) {
-          e.preventDefault();
-          handleSaveLayout();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSaveLayout, handleSaveLayout]);
 
   // 获取SVG坐标
   const getSVGCoords = useCallback((clientX: number, clientY: number) => {
@@ -1001,11 +1114,16 @@ export default function FocusView({
 
         {/* 图例 */}
         <div className="absolute bottom-4 left-4 z-10 bg-white rounded-lg shadow-md p-3">
-          <div className="text-xs text-gray-500 mb-2">
-            {isEditMode
-              ? '双击编辑节点 | 右键创建连线 | 点击边编辑关系 | Delete删除节点'
-              : '拖拽移动节点 | 双击聚焦 | 点击空白/Esc取消聚焦 | Delete删除节点'
-            }
+          <div className="text-xs text-gray-500 mb-2 space-y-1">
+            <div>
+              {isEditMode
+                ? '双击/E: 编辑 | 右键: 连线 | Del: 删除'
+                : '双击: 聚焦 | 拖拽: 移动 | Del: 删除'
+              }
+            </div>
+            <div className="text-gray-400">
+              L: 布局 | R: 重置 | F: 居中 | +/-: 缩放 | 方向键: 导航
+            </div>
           </div>
           <div className="flex flex-wrap gap-3 text-xs">
             {Object.entries(EDGE_TYPE_CONFIG).map(([type, config]) => (

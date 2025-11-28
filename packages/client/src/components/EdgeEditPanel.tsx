@@ -6,16 +6,33 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2, ArrowRight } from 'lucide-react';
 import { useGraphStore } from '../store/graphStore';
-import { EdgeType, EDGE_TYPE_CONFIG, NODE_TYPE_CONFIG } from '../types';
+import { GraphNode, GraphEdge, EdgeType, EDGE_TYPE_CONFIG, NODE_TYPE_CONFIG } from '../types';
 
 interface EdgeEditPanelProps {
   edgeId: string | null;
   onClose: () => void;
   onDelete?: (edgeId: string) => void;
+  // 支持外部传入数据（v2.0 项目模式）
+  edges?: GraphEdge[];
+  nodes?: GraphNode[];
+  onUpdateEdge?: (edgeId: string, data: Partial<GraphEdge>) => Promise<void>;
 }
 
-export default function EdgeEditPanel({ edgeId, onClose, onDelete }: EdgeEditPanelProps) {
-  const { edges, nodes, updateEdge } = useGraphStore();
+export default function EdgeEditPanel({
+  edgeId,
+  onClose,
+  onDelete,
+  edges: propEdges,
+  nodes: propNodes,
+  onUpdateEdge: propUpdateEdge
+}: EdgeEditPanelProps) {
+  const graphStore = useGraphStore();
+
+  // 优先使用 props，否则使用 store
+  const edges = propEdges ?? graphStore.edges;
+  const nodes = propNodes ?? graphStore.nodes;
+  const updateEdge = propUpdateEdge ?? graphStore.updateEdge;
+
   const edge = edges.find(e => e.id === edgeId);
 
   const [type, setType] = useState<EdgeType>(EdgeType.SUPPORTS);

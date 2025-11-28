@@ -6,16 +6,30 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2 } from 'lucide-react';
 import { useGraphStore } from '../store/graphStore';
-import { NodeType, NODE_TYPE_CONFIG } from '../types';
+import { GraphNode, NodeType, NODE_TYPE_CONFIG } from '../types';
 
 interface NodeEditPanelProps {
   nodeId: string | null;
   onClose: () => void;
   onDelete?: (nodeId: string) => void;
+  // 支持外部传入数据（v2.0 项目模式）
+  nodes?: GraphNode[];
+  onUpdateNode?: (nodeId: string, data: Partial<GraphNode>) => Promise<void>;
 }
 
-export default function NodeEditPanel({ nodeId, onClose, onDelete }: NodeEditPanelProps) {
-  const { nodes, updateNode } = useGraphStore();
+export default function NodeEditPanel({
+  nodeId,
+  onClose,
+  onDelete,
+  nodes: propNodes,
+  onUpdateNode: propUpdateNode
+}: NodeEditPanelProps) {
+  const graphStore = useGraphStore();
+
+  // 优先使用 props，否则使用 store
+  const nodes = propNodes ?? graphStore.nodes;
+  const updateNode = propUpdateNode ?? graphStore.updateNode;
+
   const node = nodes.find(n => n.id === nodeId);
 
   const [title, setTitle] = useState('');
