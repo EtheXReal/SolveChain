@@ -7,7 +7,6 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2, Zap, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useGraphStore } from '../store/graphStore';
-import { usePropagationStore } from '../store/propagationStore';
 import {
   GraphNode,
   NodeType,
@@ -15,9 +14,7 @@ import {
   getStatusOptionsForType,
   DEFAULT_BASE_STATUS,
   BaseStatus,
-  ComputedStatus,
 } from '../types';
-import { LogicState, getLogicStateColor, getLogicStateLabel } from '../utils/propagation';
 
 interface NodeEditPanelProps {
   nodeId: string | null;
@@ -36,28 +33,47 @@ export default function NodeEditPanel({
   onUpdateNode: propUpdateNode
 }: NodeEditPanelProps) {
   const graphStore = useGraphStore();
-  const {
-    getNodeLogicState,
-    updateNodeLogicState,
-    getNodeState,
-  } = usePropagationStore();
 
   // 优先使用 props，否则使用 store
   const nodes = propNodes ?? graphStore.nodes;
-  const edges = graphStore.edges;
   const updateNode = propUpdateNode ?? graphStore.updateNode;
 
   const node = nodes.find(n => n.id === nodeId);
-  const nodeLogicState = nodeId ? getNodeLogicState(nodeId) : LogicState.UNKNOWN;
-  const nodeFullState = nodeId ? getNodeState(nodeId) : undefined;
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<NodeType>(NodeType.FACT);
-  const [confidence, setConfidence] = useState(50);
-  const [weight, setWeight] = useState(50);
+  const [confidence, setConfidence] = useState(50);  // 只有假设节点使用
+  const [weight, setWeight] = useState<number | null>(null);  // null 表示使用默认值
   const [baseStatus, setBaseStatus] = useState<string>('');
+  const [autoUpdate, setAutoUpdate] = useState(false);  // 只有约束/结论节点使用
   const [saving, setSaving] = useState(false);
+
+  // 默认权重配置
+  const DEFAULT_WEIGHTS: Record<NodeType, number> = {
+    [NodeType.FACT]: 1.0,
+    [NodeType.ASSUMPTION]: 0.5,
+    [NodeType.CONCLUSION]: 0.8,
+    [NodeType.CONSTRAINT]: 1.0,
+    [NodeType.GOAL]: 1.0,
+    [NodeType.ACTION]: 1.0,
+    [NodeType.DECISION]: 1.0,
+    [NodeType.INFERENCE]: 0.8,
+  };
+
+  // 获取权重显示标签
+  const getWeightLabel = (w: number): string => {
+    if (w <= 0.4) return '很低';
+    if (w <= 0.8) return '较低';
+    if (w <= 1.1) return '标准';
+    if (w <= 1.5) return '较高';
+    return '很高';
+  };
+
+  // 获取实际权重值
+  const getActualWeight = (): number => {
+    return weight !== null ? weight : DEFAULT_WEIGHTS[type];
+  };
 
   // 加载节点数据
   useEffect(() => {
@@ -66,9 +82,18 @@ export default function NodeEditPanel({
       setContent(node.content || '');
       setType(node.type);
       setConfidence(node.confidence);
-      setWeight(node.weight);
+      // 权重：如果节点有自定义权重则使用，否则为 null（使用默认）
+      const nodeWeight = node.weight;
+      // 判断是否是旧版 0-100 的权重，如果是则转换
+      if (nodeWeight > 2) {
+        setWeight(null);  // 旧数据使用默认值
+      } else {
+        setWeight(nodeWeight || null);
+      }
       // v2.2: 加载 baseStatus
       setBaseStatus(node.baseStatus || DEFAULT_BASE_STATUS[node.type]);
+      // 加载 autoUpdate
+      setAutoUpdate(node.autoUpdate ?? false);
     }
   }, [node]);
 
@@ -90,10 +115,16 @@ export default function NodeEditPanel({
         title: title.trim(),
         content: content.trim() || undefined,
         type,
-        confidence,
-        weight,
+        // 只有假设节点保存 confidence
+        confidence: type === NodeType.ASSUMPTION ? confidence : node.confidence,
+        // 权重使用实际值
+        weight: getActualWeight(),
         // v2.2: 保存 baseStatus
         baseStatus: baseStatus as BaseStatus,
+        // 只有约束/结论节点保存 autoUpdate
+        autoUpdate: [NodeType.CONSTRAINT, NodeType.CONCLUSION, NodeType.INFERENCE].includes(type)
+          ? autoUpdate
+          : node.autoUpdate,
       });
       onClose();
     } catch (error) {
@@ -181,43 +212,90 @@ export default function NodeEditPanel({
           />
         </div>
 
-        {/* 置信度 */}
+        {/* 权重 (0.1 - 2.0) */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            置信度: {confidence}%
+            权重: {getActualWeight().toFixed(1)} ({getWeightLabel(getActualWeight())})
+            {weight === null && (
+              <span className="text-gray-400 text-xs ml-2">默认</span>
+            )}
           </label>
           <input
             type="range"
-            min={0}
-            max={100}
-            value={confidence}
-            onChange={(e) => setConfidence(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>不确定</span>
-            <span>非常确定</span>
-          </div>
-        </div>
-
-        {/* 权重 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            重要性: {weight}%
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={weight}
+            min={0.1}
+            max={2.0}
+            step={0.1}
+            value={getActualWeight()}
             onChange={(e) => setWeight(Number(e.target.value))}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
           />
           <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>不重要</span>
-            <span>非常重要</span>
+            <span>0.1 很低</span>
+            <span>1.0 标准</span>
+            <span>2.0 很高</span>
           </div>
+          {weight !== null && (
+            <button
+              onClick={() => setWeight(null)}
+              className="mt-1 text-xs text-blue-500 hover:text-blue-700"
+            >
+              恢复默认 ({DEFAULT_WEIGHTS[type].toFixed(1)})
+            </button>
+          )}
         </div>
+
+        {/* 置信度 - 只有假设节点显示 */}
+        {type === NodeType.ASSUMPTION && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              置信度: {confidence}%
+              <span className="text-gray-400 text-xs ml-2">（认为它为真的概率）</span>
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={confidence}
+              onChange={(e) => setConfidence(Number(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>0% 不可能</span>
+              <span>50% 不确定</span>
+              <span>100% 确定</span>
+            </div>
+          </div>
+        )}
+
+        {/* 自动更新开关 - 只有约束和结论节点显示 */}
+        {[NodeType.CONSTRAINT, NodeType.CONCLUSION, NodeType.INFERENCE].includes(type) && (
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <label className="text-sm font-medium text-gray-700">
+                自动更新
+              </label>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {type === NodeType.CONSTRAINT
+                  ? '由行动状态自动计算'
+                  : '由导致关系自动计算'}
+              </p>
+            </div>
+            <button
+              onClick={() => setAutoUpdate(!autoUpdate)}
+              className={`
+                relative w-11 h-6 rounded-full transition-colors
+                ${autoUpdate ? 'bg-blue-500' : 'bg-gray-300'}
+              `}
+            >
+              <span
+                className={`
+                  absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
+                  ${autoUpdate ? 'translate-x-5' : 'translate-x-0'}
+                `}
+              />
+            </button>
+          </div>
+        )}
 
         {/* v2.2: 基础状态选择器 */}
         <div>
@@ -322,38 +400,6 @@ export default function NodeEditPanel({
             )}
           </div>
         )}
-
-        {/* 旧版逻辑状态（向后兼容） */}
-        <div className="border-t pt-4 mt-4">
-          <label className="block text-sm font-medium text-gray-500 mb-2">
-            旧版逻辑状态（兼容）
-          </label>
-          <div className="grid grid-cols-3 gap-1">
-            {[LogicState.TRUE, LogicState.FALSE, LogicState.UNKNOWN].map((state) => (
-              <button
-                key={state}
-                onClick={() => {
-                  if (nodeId) {
-                    updateNodeLogicState(nodeId, state, nodes, edges);
-                  }
-                }}
-                className={`
-                  px-2 py-1 rounded text-xs font-medium transition-all
-                  ${nodeLogicState === state
-                    ? 'ring-1 ring-offset-1'
-                    : 'hover:opacity-80'
-                  }
-                `}
-                style={{
-                  backgroundColor: getLogicStateColor(state),
-                  color: 'white',
-                }}
-              >
-                {getLogicStateLabel(state)}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* 预览 */}
         <div>
