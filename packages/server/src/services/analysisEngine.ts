@@ -1,8 +1,12 @@
 /**
- * 分析引擎 - 核心算法实现
+ * 分析引擎 - 核心算法实现 (v2.2)
  *
  * 模块一：目标-计划树解读 (getNextAction)
  * 模块二：论证框架解读 (evaluateFeasibility)
+ *
+ * v2.2 更新：
+ * - 使用 baseStatus 和 computedStatus 代替 logicState
+ * - 利用状态传播引擎计算的 computedStatus
  */
 
 import {
@@ -22,6 +26,16 @@ import {
   Risk,
   Prerequisite,
   FeasibilityResult,
+  // v2.2 新增
+  GoalStatus,
+  ActionStatus,
+  FactStatus,
+  AssumptionStatus,
+  ConstraintStatus,
+  ConclusionStatus,
+  isPositiveStatus,
+  isNegativeStatus,
+  STATUS_COEFFICIENT,
 } from '../types/index.js';
 
 /**
@@ -87,10 +101,42 @@ export class AnalysisEngine {
   }
 
   /**
-   * 获取节点的逻辑状态
+   * 获取节点的逻辑状态（兼容旧版）
+   * @deprecated 使用 getNodeBaseStatus 代替
    */
   getNodeLogicState(node: Node): LogicState {
     return (node as any).logicState || LogicState.UNKNOWN;
+  }
+
+  /**
+   * v2.2: 获取节点的基础状态
+   */
+  getNodeBaseStatus(node: Node): string {
+    return (node as any).baseStatus || 'unknown';
+  }
+
+  /**
+   * v2.2: 检查节点是否处于肯定态
+   */
+  isNodePositive(node: Node): boolean {
+    const baseStatus = this.getNodeBaseStatus(node);
+    return isPositiveStatus(baseStatus as any);
+  }
+
+  /**
+   * v2.2: 检查节点是否处于否定态
+   */
+  isNodeNegative(node: Node): boolean {
+    const baseStatus = this.getNodeBaseStatus(node);
+    return isNegativeStatus(baseStatus as any);
+  }
+
+  /**
+   * v2.2: 获取节点的状态系数（用于可行性计算）
+   */
+  getStatusCoefficient(node: Node): number {
+    const baseStatus = this.getNodeBaseStatus(node);
+    return STATUS_COEFFICIENT[baseStatus] ?? 0.5;
   }
 
   // ============================================================
@@ -219,62 +265,103 @@ export class AnalysisEngine {
   }
 
   /**
-   * 计算节点的满足状态
+   * 计算节点的满足状态 (v2.2 更新：使用 baseStatus 和 computedStatus)
    */
   private calculateSatisfactionStatus(node: Node, dependencies: DependencyTreeNode[]): SatisfactionStatus {
-    const logicState = this.getNodeLogicState(node);
-
-    // 如果已明确设置为真/假
-    if (logicState === LogicState.TRUE) {
-      return SatisfactionStatus.SATISFIED;
-    }
-    if (logicState === LogicState.FALSE) {
-      return SatisfactionStatus.UNSATISFIED;
-    }
-    if (logicState === LogicState.CONFLICT) {
-      return SatisfactionStatus.BLOCKED;
-    }
-
-    // 根据节点类型判断
-    switch (node.type) {
-      case NodeType.FACT:
-        // 事实默认已满足（除非明确标记为假）
-        return SatisfactionStatus.SATISFIED;
-
-      case NodeType.ASSUMPTION:
-        // 假设待验证
-        return SatisfactionStatus.PENDING;
-
-      case NodeType.CONSTRAINT:
-      case NodeType.GOAL:
-        // 检查依赖是否都满足
-        if (dependencies.length === 0) {
-          // 无依赖的约束/目标，看是否有行动可实现
-          return SatisfactionStatus.UNSATISFIED;
-        }
-        const allDependenciesSatisfied = dependencies.every(
-          d => d.status === SatisfactionStatus.SATISFIED
-        );
-        if (allDependenciesSatisfied) {
-          return node.type === NodeType.GOAL
-            ? SatisfactionStatus.ACHIEVABLE
-            : SatisfactionStatus.SATISFIED;
-        }
+    // v2.2: 首先检查 computedStatus
+    const computedStatus = (node as any).computedStatus;
+    if (computedStatus) {
+      // 如果有冲突，标记为阻塞
+      if (computedStatus.conflicted) {
         return SatisfactionStatus.BLOCKED;
+      }
+      // 如果被阻塞，标记为阻塞
+      if (computedStatus.blocked) {
+        return SatisfactionStatus.BLOCKED;
+      }
+    }
+
+    // v2.2: 使用 baseStatus 判断
+    const baseStatus = this.getNodeBaseStatus(node);
+
+    // 根据节点类型和基础状态判断
+    switch (node.type) {
+      case NodeType.GOAL:
+        if (baseStatus === GoalStatus.ACHIEVED) {
+          return SatisfactionStatus.SATISFIED;
+        }
+        // 检查是否可达成
+        if (computedStatus?.achievable) {
+          return SatisfactionStatus.ACHIEVABLE;
+        }
+        return dependencies.length === 0
+          ? SatisfactionStatus.UNSATISFIED
+          : SatisfactionStatus.BLOCKED;
 
       case NodeType.ACTION:
-        // 行动：检查其依赖是否满足
+      case NodeType.DECISION:
+        if (baseStatus === ActionStatus.SUCCESS) {
+          return SatisfactionStatus.SATISFIED;
+        }
+        if (baseStatus === ActionStatus.FAILED) {
+          return SatisfactionStatus.UNSATISFIED;
+        }
+        if (baseStatus === ActionStatus.IN_PROGRESS) {
+          return SatisfactionStatus.PENDING;
+        }
+        // pending 状态：检查是否可执行
+        if (computedStatus?.executable) {
+          return SatisfactionStatus.SATISFIED;  // 可执行视为满足
+        }
+        // 检查依赖
         if (dependencies.length === 0) {
-          return SatisfactionStatus.SATISFIED;  // 无依赖的行动可执行
+          return SatisfactionStatus.SATISFIED;  // 无依赖的待执行行动
         }
         const actionDepsOk = dependencies.every(
           d => d.status === SatisfactionStatus.SATISFIED
         );
         return actionDepsOk ? SatisfactionStatus.SATISFIED : SatisfactionStatus.BLOCKED;
 
+      case NodeType.FACT:
+        if (baseStatus === FactStatus.CONFIRMED) {
+          return SatisfactionStatus.SATISFIED;
+        }
+        if (baseStatus === FactStatus.DENIED) {
+          return SatisfactionStatus.UNSATISFIED;
+        }
+        return SatisfactionStatus.PENDING;  // uncertain
+
+      case NodeType.ASSUMPTION:
+        if (baseStatus === AssumptionStatus.POSITIVE) {
+          return SatisfactionStatus.SATISFIED;  // 假设为真
+        }
+        if (baseStatus === AssumptionStatus.NEGATIVE) {
+          return SatisfactionStatus.UNSATISFIED;  // 假设为假
+        }
+        return SatisfactionStatus.PENDING;  // uncertain
+
+      case NodeType.CONSTRAINT:
+        if (baseStatus === ConstraintStatus.SATISFIED) {
+          return SatisfactionStatus.SATISFIED;
+        }
+        // 检查依赖
+        if (dependencies.length === 0) {
+          return SatisfactionStatus.UNSATISFIED;
+        }
+        const constraintDepsOk = dependencies.every(
+          d => d.status === SatisfactionStatus.SATISFIED
+        );
+        return constraintDepsOk ? SatisfactionStatus.SATISFIED : SatisfactionStatus.BLOCKED;
+
       case NodeType.CONCLUSION:
-        // 结论：基于推导
-        return SatisfactionStatus.PENDING;
+      case NodeType.INFERENCE:
+        if (baseStatus === ConclusionStatus.ESTABLISHED) {
+          return SatisfactionStatus.SATISFIED;
+        }
+        if (baseStatus === ConclusionStatus.NOT_ESTABLISHED) {
+          return SatisfactionStatus.UNSATISFIED;
+        }
+        return SatisfactionStatus.PENDING;  // pending
 
       default:
         return SatisfactionStatus.PENDING;
@@ -548,7 +635,7 @@ export class AnalysisEngine {
   }
 
   /**
-   * 收集证据
+   * 收集证据 (v2.2 更新：使用状态系数加权)
    */
   private collectEvidence(nodeId: string, type: 'positive' | 'negative'): Evidence[] {
     const evidence: Evidence[] = [];
@@ -558,12 +645,17 @@ export class AnalysisEngine {
       const sourceNode = this.nodes.get(edge.sourceNodeId);
       if (!sourceNode) continue;
 
+      // v2.2: 计算状态系数加权的权重
+      const nodeWeight = this.getNodeWeight(sourceNode);
+      const statusCoeff = this.getStatusCoefficient(sourceNode);
+      const edgeStrength = (edge.strength || 100) / 100;
+
       // 正向证据：SUPPORTS, ACHIEVES
       if (type === 'positive' && (edge.type === EdgeType.SUPPORTS || edge.type === EdgeType.ACHIEVES)) {
         evidence.push({
           node: sourceNode,
           type: 'positive',
-          weight: this.getNodeWeight(sourceNode) * (edge.strength / 100),
+          weight: nodeWeight * statusCoeff * edgeStrength,
           edgeType: edge.type,
           description: edge.description,
         });
@@ -574,7 +666,7 @@ export class AnalysisEngine {
         evidence.push({
           node: sourceNode,
           type: 'negative',
-          weight: this.getNodeWeight(sourceNode) * (edge.strength / 100),
+          weight: nodeWeight * statusCoeff * edgeStrength,
           edgeType: edge.type,
           description: edge.description,
         });
