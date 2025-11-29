@@ -4,8 +4,8 @@
 
 import { SceneGraphNode, GraphEdge, Scene, NodeType, EdgeType, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG } from '../types';
 
-// 导出格式版本
-const EXPORT_VERSION = '1.0';
+// 导出格式版本（v2.2 支持 baseStatus/autoUpdate）
+const EXPORT_VERSION = '2.2';
 
 // 导出数据类型
 export interface ExportedScene {
@@ -48,6 +48,9 @@ export interface ExportedNode {
   weight?: number;
   positionX: number;
   positionY: number;
+  // v2.2 新增字段
+  baseStatus?: string;
+  autoUpdate?: boolean;
 }
 
 export interface ExportedEdge {
@@ -110,6 +113,9 @@ export function exportScene(
       weight: node.weight,
       positionX: (node as any).scenePositionX ?? node.positionX,
       positionY: (node as any).scenePositionY ?? node.positionY,
+      // v2.2 新增字段
+      baseStatus: node.baseStatus,
+      autoUpdate: node.autoUpdate,
     })),
     edges: edges.map(edge => ({
       sourceNodeId: edge.sourceNodeId,
@@ -155,6 +161,9 @@ export function exportProject(
       weight: node.weight,
       positionX: node.positionX,
       positionY: node.positionY,
+      // v2.2 新增字段
+      baseStatus: node.baseStatus,
+      autoUpdate: node.autoUpdate,
     })),
     edges: edges.map(edge => ({
       sourceNodeId: edge.sourceNodeId,
@@ -305,9 +314,19 @@ export function exportSceneAsText(
   }
   lines.push('');
 
-  // 按类型分组节点
+  // 按类型分组节点（v2.1 使用新节点类型）
   const nodesByType = new Map<NodeType, SceneGraphNode[]>();
-  const typeOrder: NodeType[] = [NodeType.GOAL, NodeType.DECISION, NodeType.FACT, NodeType.ASSUMPTION, NodeType.INFERENCE];
+  const typeOrder: NodeType[] = [
+    NodeType.GOAL,
+    NodeType.ACTION,
+    NodeType.FACT,
+    NodeType.ASSUMPTION,
+    NodeType.CONSTRAINT,
+    NodeType.CONCLUSION,
+    // 废弃类型（兼容旧数据）
+    NodeType.DECISION,
+    NodeType.INFERENCE,
+  ];
 
   typeOrder.forEach(type => nodesByType.set(type, []));
   nodes.forEach(node => {
@@ -316,6 +335,15 @@ export function exportSceneAsText(
       list.push(node);
     }
   });
+
+  // 权重标签转换（v2.2: 0.1-2.0）
+  const getWeightLabel = (w: number): string => {
+    if (w <= 0.4) return '很低';
+    if (w <= 0.8) return '较低';
+    if (w <= 1.1) return '标准';
+    if (w <= 1.5) return '较高';
+    return '很高';
+  };
 
   // 节点部分
   lines.push('## 节点');
@@ -331,13 +359,17 @@ export function exportSceneAsText(
 
         // 添加可选属性（只在非默认值时显示）
         const attrs: string[] = [];
-        // confidence 默认值是 50，只在非默认值时显示
-        if (node.confidence !== undefined && node.confidence !== 50) {
+        // confidence 只对假设节点显示，且非默认值时
+        if (node.type === NodeType.ASSUMPTION && node.confidence !== undefined && node.confidence !== 50) {
           attrs.push(`置信度: ${node.confidence}%`);
         }
-        // weight 默认值是 50，只在非默认值时显示
-        if (node.weight !== undefined && node.weight !== 50) {
-          attrs.push(`权重: ${node.weight}%`);
+        // weight: v2.2 使用 0.1-2.0 范围，默认值是 1.0
+        if (node.weight !== undefined && node.weight !== 1.0 && node.weight <= 2.0) {
+          attrs.push(`权重: ${node.weight.toFixed(1)} (${getWeightLabel(node.weight)})`);
+        }
+        // baseStatus: 如果有设置则显示
+        if (node.baseStatus) {
+          attrs.push(`状态: ${node.baseStatus}`);
         }
         if (attrs.length > 0) {
           nodeLine += ` (${attrs.join(', ')})`;
@@ -445,7 +477,12 @@ export function exportProjectAsText(
   if (orphanNodes.length > 0) {
     lines.push('## 其他节点（未分配到场景）');
     orphanNodes.forEach(node => {
-      lines.push(`[${getNodeTypeLabel(node.type)}] ${node.title}`);
+      let nodeLine = `[${getNodeTypeLabel(node.type)}] ${node.title}`;
+      // 添加状态信息
+      if (node.baseStatus) {
+        nodeLine += ` (状态: ${node.baseStatus})`;
+      }
+      lines.push(nodeLine);
     });
     lines.push('');
   }
