@@ -29,7 +29,8 @@ export class CausesRule implements PropagationRule {
 
     // 规则1：正向传播 - 如果原因(source)为真，结果(target)也为真
     if (sourceState.logicState === LogicState.TRUE) {
-      const strengthFactor = edge.strength / 100;
+      // 边强度：0.1-2.0 范围，1.0 为标准，兼容旧版百分比数据
+      const strengthFactor = edge.strength > 2 ? 1.0 : edge.strength;
       const newConfidence = sourceState.confidence * strengthFactor;
 
       if (targetState.logicState !== LogicState.TRUE) {

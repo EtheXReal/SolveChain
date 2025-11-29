@@ -75,12 +75,16 @@ export default function NodeEditPanel({
     return weight !== null ? weight : DEFAULT_WEIGHTS[type];
   };
 
+  // 记录初始类型，用于判断类型是否由用户改变
+  const [initialType, setInitialType] = useState<NodeType | null>(null);
+
   // 加载节点数据
   useEffect(() => {
     if (node) {
       setTitle(node.title);
       setContent(node.content || '');
       setType(node.type);
+      setInitialType(node.type);  // 记录初始类型
       setConfidence(node.confidence);
       // 权重：如果节点有自定义权重则使用，否则为 null（使用默认）
       const nodeWeight = node.weight;
@@ -98,11 +102,13 @@ export default function NodeEditPanel({
   }, [node]);
 
   // 当类型改变时，重置 baseStatus 为该类型的默认值
+  // 只有当用户主动改变类型时才重置（排除初始加载）
   useEffect(() => {
-    if (type) {
+    if (type && initialType !== null && type !== initialType) {
       setBaseStatus(DEFAULT_BASE_STATUS[type]);
+      setInitialType(type);  // 更新初始类型，防止重复触发
     }
-  }, [type]);
+  }, [type, initialType]);
 
   if (!node) return null;
 

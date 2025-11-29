@@ -648,7 +648,8 @@ export class AnalysisEngine {
       // v2.2: 计算状态系数加权的权重
       const nodeWeight = this.getNodeWeight(sourceNode);
       const statusCoeff = this.getStatusCoefficient(sourceNode);
-      const edgeStrength = (edge.strength || 100) / 100;
+      // 边强度：0.1-2.0 范围，默认 1.0
+      const edgeStrength = edge.strength || 1.0;
 
       // 正向证据：SUPPORTS, ACHIEVES
       if (type === 'positive' && (edge.type === EdgeType.SUPPORTS || edge.type === EdgeType.ACHIEVES)) {

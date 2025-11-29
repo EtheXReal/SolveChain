@@ -178,7 +178,7 @@ interface Node {
 
   // 量化指标
   confidence: number;           // 置信度 0-100
-  weight: number;               // 重要性权重 0-100
+  weight: number;               // 重要性权重 0.1-2.0（默认1.0，语义：很低/较低/标准/较高/很高）
 
   // 计算得分（由系统计算）
   calculatedScore?: number;     // 综合得分
@@ -246,7 +246,7 @@ interface Edge {
 
   // 关系属性
   type: EdgeType;
-  strength: number;             // 关系强度 0-100
+  strength: number;             // 关系强度 0.1-2.0（默认1.0，语义：很弱/较弱/标准/较强/很强）
 
   // 可选描述
   description?: string;         // 解释这个关系

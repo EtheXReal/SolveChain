@@ -256,7 +256,9 @@ export class StatePropagationEngine {
 
   /**
    * 传播 ACHIEVES 关系
-   * 规则：如果行动 A 的状态为 success，且约束/目标 B 开启了 autoUpdate，则 B 变为 satisfied/achieved
+   * 规则：
+   * 1. 如果行动 A 的状态为 success，且约束/目标 B 开启了 autoUpdate，则 B 变为 satisfied/achieved
+   * 2. 如果事实 A 的状态为 confirmed，且约束/目标 B 开启了 autoUpdate，则 B 变为 satisfied/achieved
    */
   private propagateAchieves(): PropagationResult['updatedBaseStatuses'] {
     const updates: PropagationResult['updatedBaseStatuses'] = [];
@@ -266,7 +268,7 @@ export class StatePropagationEngine {
       if (node.type !== NodeType.CONSTRAINT && node.type !== NodeType.GOAL) continue;
       if (!node.autoUpdate) continue;
 
-      // 检查是否有成功的行动实现它
+      // 检查是否有成功的行动或已确认的事实实现它
       const inEdges = this.incomingEdges.get(nodeId) || [];
       let achieved = false;
       let achievedBy = '';
@@ -274,13 +276,29 @@ export class StatePropagationEngine {
       for (const edge of inEdges) {
         if (edge.type === EdgeType.ACHIEVES) {
           const sourceNode = this.nodes.get(edge.sourceNodeId);
-          if (sourceNode && sourceNode.type === NodeType.ACTION) {
-            // 检查行动是否成功
+          if (!sourceNode) continue;
+
+          // 行动节点：检查是否成功
+          if (sourceNode.type === NodeType.ACTION || sourceNode.type === NodeType.DECISION) {
             if (sourceNode.baseStatus === ActionStatus.SUCCESS) {
               achieved = true;
               achievedBy = sourceNode.title;
               break;
             }
+          }
+          // 事实节点：检查是否确认
+          else if (sourceNode.type === NodeType.FACT) {
+            if (sourceNode.baseStatus === FactStatus.CONFIRMED) {
+              achieved = true;
+              achievedBy = sourceNode.title;
+              break;
+            }
+          }
+          // 其他肯定态节点也可以触发
+          else if (isPositiveStatus(sourceNode.baseStatus)) {
+            achieved = true;
+            achievedBy = sourceNode.title;
+            break;
           }
         }
       }

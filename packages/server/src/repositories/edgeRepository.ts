@@ -64,7 +64,7 @@ export const edgeRepository = {
         data.sourceNodeId,
         data.targetNodeId,
         data.type,
-        data.strength ?? 50,
+        data.strength ?? 1.0,
         data.description || '',
         createdBy
       ]
@@ -210,7 +210,7 @@ export const edgeRepository = {
         data.sourceNodeId,
         data.targetNodeId,
         data.type,
-        data.strength ?? 50,
+        data.strength ?? 1.0,
         data.description || '',
         createdBy
       ]

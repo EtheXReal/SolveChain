@@ -30,7 +30,8 @@ export class AchievesRule implements PropagationRule {
 
     // 规则1：如果行动(source)执行，目标(target)被满足
     if (sourceState.logicState === LogicState.TRUE) {
-      const strengthFactor = edge.strength / 100;
+      // 边强度：0.1-2.0 范围，1.0 为标准，兼容旧版百分比数据
+      const strengthFactor = edge.strength > 2 ? 1.0 : edge.strength;
       const newConfidence = sourceState.confidence * strengthFactor;
 
       if (targetState.logicState !== LogicState.TRUE || targetState.confidence < newConfidence) {

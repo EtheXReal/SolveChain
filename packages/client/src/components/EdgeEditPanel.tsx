@@ -36,9 +36,18 @@ export default function EdgeEditPanel({
   const edge = edges.find(e => e.id === edgeId);
 
   const [type, setType] = useState<EdgeType>(EdgeType.SUPPORTS);
-  const [strength, setStrength] = useState(50);
+  const [strength, setStrength] = useState(1.0);
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // 获取强度显示标签
+  const getStrengthLabel = (s: number): string => {
+    if (s <= 0.4) return '很弱';
+    if (s <= 0.8) return '较弱';
+    if (s <= 1.2) return '标准';
+    if (s <= 1.6) return '较强';
+    return '很强';
+  };
 
   // 获取源节点和目标节点
   const sourceNode = edge ? nodes.find(n => n.id === edge.sourceNodeId) : null;
@@ -48,7 +57,9 @@ export default function EdgeEditPanel({
   useEffect(() => {
     if (edge) {
       setType(edge.type);
-      setStrength(edge.strength);
+      // 兼容旧版百分比数据：如果 > 2 则是旧格式，转换为新格式
+      const s = edge.strength > 2 ? 1.0 : edge.strength;
+      setStrength(s || 1.0);
       setDescription(edge.description || '');
     }
   }, [edge]);
@@ -182,19 +193,21 @@ export default function EdgeEditPanel({
         {/* 关系强度 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            关系强度: {strength}%
+            关系强度: {strength.toFixed(1)} ({getStrengthLabel(strength)})
           </label>
           <input
             type="range"
-            min={0}
-            max={100}
+            min={0.1}
+            max={2.0}
+            step={0.1}
             value={strength}
             onChange={(e) => setStrength(Number(e.target.value))}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
           />
           <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>弱关联</span>
-            <span>强关联</span>
+            <span>0.1 很弱</span>
+            <span>1.0 标准</span>
+            <span>2.0 很强</span>
           </div>
         </div>
 

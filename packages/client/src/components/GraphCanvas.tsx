@@ -165,7 +165,7 @@ export default function GraphCanvas({ onNodeClick, onEdgeClick, onPaneClick }: G
             sourceNodeId: connection.source,
             targetNodeId: connection.target,
             type: EdgeType.SUPPORTS,
-            strength: 50,
+            strength: 1.0,
           });
         } catch (error) {
           console.error('Failed to create edge:', error);

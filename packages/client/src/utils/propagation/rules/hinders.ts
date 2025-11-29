@@ -29,10 +29,11 @@ export class HindersRule implements PropagationRule {
 
     // 规则1：如果阻碍方(source)为真，被阻碍方(target)受影响
     if (sourceState.logicState === LogicState.TRUE) {
-      const strengthFactor = edge.strength / 100;
+      // 边强度：0.1-2.0 范围，1.0 为标准，兼容旧版百分比数据
+      const strengthFactor = edge.strength > 2 ? 1.0 : edge.strength;
 
-      // 强阻碍（strength > 80）可能直接导致 FALSE
-      if (edge.strength > 80 && sourceState.confidence > 70) {
+      // 强阻碍（strength > 1.6）可能直接导致 FALSE
+      if (edge.strength > 1.6 && sourceState.confidence > 70) {
         return {
           newState: LogicState.FALSE,
           newConfidence: sourceState.confidence * strengthFactor,

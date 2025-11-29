@@ -405,7 +405,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         sourceNodeId: connectingState.sourceNodeId,
         targetNodeId,
         type: edgeType,
-        strength: 50
+        strength: 1.0
       });
 
       set(state => ({

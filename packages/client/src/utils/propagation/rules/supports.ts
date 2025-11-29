@@ -30,7 +30,8 @@ export class SupportsRule implements PropagationRule {
 
     // 规则1：如果支持方(source)为真，提升被支持方(target)的置信度
     if (sourceState.logicState === LogicState.TRUE) {
-      const strengthFactor = edge.strength / 100; // 关系强度 0-1
+      // 边强度：0.1-2.0 范围，1.0 为标准，兼容旧版百分比数据
+      const strengthFactor = edge.strength > 2 ? 1.0 : edge.strength;
       const confidenceBoost = sourceState.confidence * strengthFactor * 0.3;
       const newConfidence = Math.min(100, targetState.confidence + confidenceBoost);
 
@@ -48,7 +49,7 @@ export class SupportsRule implements PropagationRule {
 
     // 规则2：如果支持方(source)为假，轻微降低被支持方(target)的置信度
     if (sourceState.logicState === LogicState.FALSE) {
-      const strengthFactor = edge.strength / 100;
+      const strengthFactor = edge.strength > 2 ? 1.0 : edge.strength;
       const confidenceDrop = sourceState.confidence * strengthFactor * 0.1;
       const newConfidence = Math.max(0, targetState.confidence - confidenceDrop);
 
