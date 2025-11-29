@@ -1,6 +1,16 @@
 import { v4 as uuidv4 } from 'uuid';
 import { query, queryOne } from '../database/db.js';
-import { Node, NodeStatus, NodeType, CreateNodeRequest, UpdateNodeRequest } from '../types/index.js';
+import {
+  Node,
+  NodeStatus,
+  NodeType,
+  CreateNodeRequest,
+  UpdateNodeRequest,
+  BaseStatus,
+  DEFAULT_BASE_STATUS,
+  DEFAULT_WEIGHTS,
+  getDefaultAutoUpdate,
+} from '../types/index.js';
 
 // 扩展 Node 类型以支持 projectId
 interface NodeWithProject extends Node {
@@ -8,15 +18,23 @@ interface NodeWithProject extends Node {
 }
 
 function toNode(row: any): NodeWithProject {
+  const type = row.type as NodeType;
   return {
     id: row.id,
     graphId: row.graph_id,
     projectId: row.project_id,
-    type: row.type as NodeType,
+    type,
     title: row.title,
     content: row.content,
+    // 新字段：baseStatus（如果数据库中没有则使用默认值）
+    baseStatus: (row.base_status as BaseStatus) || DEFAULT_BASE_STATUS[type],
     confidence: parseFloat(row.confidence),
     weight: parseFloat(row.weight),
+    // 新字段：autoUpdate（如果数据库中没有则使用默认值）
+    autoUpdate: row.auto_update ?? getDefaultAutoUpdate(type),
+    // 计算状态（在 API 层计算，这里不处理）
+    computedStatus: undefined,
+    // 旧字段
     calculatedScore: row.calculated_score ? parseFloat(row.calculated_score) : undefined,
     status: row.status as NodeStatus,
     positionX: parseFloat(row.position_x),
@@ -58,18 +76,26 @@ export const nodeRepository = {
   // 创建节点
   async create(graphId: string, data: CreateNodeRequest, createdBy: 'user' | 'llm' = 'user'): Promise<Node> {
     const id = uuidv4();
+    const type = data.type;
+    // 使用提供的值或默认值
+    const baseStatus = data.baseStatus || DEFAULT_BASE_STATUS[type];
+    const weight = data.weight ?? DEFAULT_WEIGHTS[type];
+    const autoUpdate = data.autoUpdate ?? getDefaultAutoUpdate(type);
+
     const row = await queryOne(
-      `INSERT INTO nodes (id, graph_id, type, title, content, confidence, weight, position_x, position_y, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO nodes (id, graph_id, type, title, content, base_status, confidence, weight, auto_update, position_x, position_y, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         id,
         graphId,
-        data.type,
+        type,
         data.title,
         data.content || '',
+        baseStatus,
         data.confidence ?? 50,
-        data.weight ?? 50,
+        weight,
+        autoUpdate,
         data.positionX ?? 0,
         data.positionY ?? 0,
         createdBy
@@ -106,6 +132,11 @@ export const nodeRepository = {
       updates.push(`content = $${paramIndex++}`);
       values.push(data.content);
     }
+    // 新字段：baseStatus
+    if (data.baseStatus !== undefined) {
+      updates.push(`base_status = $${paramIndex++}`);
+      values.push(data.baseStatus);
+    }
     if (data.confidence !== undefined) {
       updates.push(`confidence = $${paramIndex++}`);
       values.push(data.confidence);
@@ -113,6 +144,11 @@ export const nodeRepository = {
     if (data.weight !== undefined) {
       updates.push(`weight = $${paramIndex++}`);
       values.push(data.weight);
+    }
+    // 新字段：autoUpdate
+    if (data.autoUpdate !== undefined) {
+      updates.push(`auto_update = $${paramIndex++}`);
+      values.push(data.autoUpdate);
     }
     if (data.status !== undefined) {
       updates.push(`status = $${paramIndex++}`);
@@ -204,23 +240,53 @@ export const nodeRepository = {
   // 在项目中创建节点
   async createInProject(projectId: string, data: CreateNodeRequest, createdBy: 'user' | 'llm' = 'user'): Promise<NodeWithProject> {
     const id = uuidv4();
+    const type = data.type;
+    // 使用提供的值或默认值
+    const baseStatus = data.baseStatus || DEFAULT_BASE_STATUS[type];
+    const weight = data.weight ?? DEFAULT_WEIGHTS[type];
+    const autoUpdate = data.autoUpdate ?? getDefaultAutoUpdate(type);
+
     const row = await queryOne(
-      `INSERT INTO nodes (id, project_id, type, title, content, confidence, weight, position_x, position_y, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO nodes (id, project_id, type, title, content, base_status, confidence, weight, auto_update, position_x, position_y, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         id,
         projectId,
-        data.type,
+        type,
         data.title,
         data.content || '',
+        baseStatus,
         data.confidence ?? 50,
-        data.weight ?? 50,
+        weight,
+        autoUpdate,
         data.positionX ?? 0,
         data.positionY ?? 0,
         createdBy
       ]
     );
     return toNode(row);
-  }
+  },
+
+  // 更新节点基础状态
+  async updateBaseStatus(id: string, baseStatus: BaseStatus): Promise<Node | null> {
+    const row = await queryOne(
+      `UPDATE nodes SET base_status = $1, updated_at = NOW()
+       WHERE id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [baseStatus, id]
+    );
+    return row ? toNode(row) : null;
+  },
+
+  // 更新节点自动更新开关
+  async updateAutoUpdate(id: string, autoUpdate: boolean): Promise<Node | null> {
+    const row = await queryOne(
+      `UPDATE nodes SET auto_update = $1, updated_at = NOW()
+       WHERE id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [autoUpdate, id]
+    );
+    return row ? toNode(row) : null;
+  },
 };

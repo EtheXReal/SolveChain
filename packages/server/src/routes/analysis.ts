@@ -1,11 +1,13 @@
 /**
- * 分析模块 API 路由
+ * 分析模块 API 路由 (v2.2)
  *
  * POST /api/projects/:projectId/analyze/next-action  - 获取下一步行动建议
  * POST /api/projects/:projectId/analyze/feasibility/:nodeId - 评估节点可行性
  * GET  /api/projects/:projectId/weight-config - 获取权重配置
  * PUT  /api/projects/:projectId/weight-config - 更新权重配置
- * PATCH /api/nodes/:nodeId/logic-state - 更新节点逻辑状态
+ * PATCH /api/nodes/:nodeId/base-status - 更新节点基础状态 (v2.2 新增)
+ * PATCH /api/nodes/:nodeId/auto-update - 更新节点自动更新开关 (v2.2 新增)
+ * PATCH /api/nodes/:nodeId/logic-state - 更新节点逻辑状态 (@deprecated)
  * PATCH /api/nodes/:nodeId/custom-weight - 更新节点自定义权重
  */
 
@@ -18,7 +20,64 @@ import {
   WeightConfig,
   LogicState,
   UpdateWeightConfigRequest,
+  // v2.2 新增类型
+  NodeType,
+  GoalStatus,
+  ActionStatus,
+  FactStatus,
+  AssumptionStatus,
+  ConstraintStatus,
+  ConclusionStatus,
+  BaseStatus,
 } from '../types/index.js';
+
+/**
+ * 验证 baseStatus 是否对应节点类型有效
+ */
+function isValidBaseStatus(type: NodeType, status: string): boolean {
+  switch (type) {
+    case NodeType.GOAL:
+      return Object.values(GoalStatus).includes(status as GoalStatus);
+    case NodeType.ACTION:
+    case NodeType.DECISION:
+      return Object.values(ActionStatus).includes(status as ActionStatus);
+    case NodeType.FACT:
+      return Object.values(FactStatus).includes(status as FactStatus);
+    case NodeType.ASSUMPTION:
+      return Object.values(AssumptionStatus).includes(status as AssumptionStatus);
+    case NodeType.CONSTRAINT:
+      return Object.values(ConstraintStatus).includes(status as ConstraintStatus);
+    case NodeType.CONCLUSION:
+    case NodeType.INFERENCE:
+      return Object.values(ConclusionStatus).includes(status as ConclusionStatus);
+    default:
+      return false;
+  }
+}
+
+/**
+ * 获取节点类型的有效状态列表（用于错误提示）
+ */
+function getValidStatuses(type: NodeType): string[] {
+  switch (type) {
+    case NodeType.GOAL:
+      return Object.values(GoalStatus);
+    case NodeType.ACTION:
+    case NodeType.DECISION:
+      return Object.values(ActionStatus);
+    case NodeType.FACT:
+      return Object.values(FactStatus);
+    case NodeType.ASSUMPTION:
+      return Object.values(AssumptionStatus);
+    case NodeType.CONSTRAINT:
+      return Object.values(ConstraintStatus);
+    case NodeType.CONCLUSION:
+    case NodeType.INFERENCE:
+      return Object.values(ConclusionStatus);
+    default:
+      return [];
+  }
+}
 
 const router = Router();
 
@@ -324,6 +383,133 @@ router.patch('/nodes/:nodeId/custom-weight', async (req: Request, res: Response)
     });
   } catch (error) {
     console.error('更新节点自定义权重失败:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'DB_ERROR', message: (error as Error).message },
+    });
+  }
+});
+
+/**
+ * PATCH /api/nodes/:nodeId/base-status
+ * 更新节点基础状态 (v2.2)
+ */
+router.patch('/nodes/:nodeId/base-status', async (req: Request, res: Response) => {
+  try {
+    const { nodeId } = req.params;
+    const { baseStatus } = req.body;
+
+    if (!baseStatus) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'MISSING_STATUS', message: '缺少 baseStatus 参数' },
+      });
+    }
+
+    // 先获取节点类型
+    const nodeResult = await pool.query(
+      `SELECT type FROM nodes WHERE id = $1 AND deleted_at IS NULL`,
+      [nodeId]
+    );
+
+    if (nodeResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NODE_NOT_FOUND', message: '节点不存在' },
+      });
+    }
+
+    const nodeType = nodeResult.rows[0].type as NodeType;
+
+    // 验证 baseStatus 对应节点类型是否有效
+    if (!isValidBaseStatus(nodeType, baseStatus)) {
+      const validStatuses = getValidStatuses(nodeType);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_STATUS',
+          message: `无效的状态值。${nodeType} 类型节点的有效状态为: ${validStatuses.join(', ')}`,
+        },
+      });
+    }
+
+    // 更新状态
+    const result = await pool.query(
+      `UPDATE nodes SET base_status = $1, updated_at = NOW()
+       WHERE id = $2 AND deleted_at IS NULL
+       RETURNING id, type, base_status as "baseStatus"`,
+      [baseStatus, nodeId]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('更新节点基础状态失败:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'DB_ERROR', message: (error as Error).message },
+    });
+  }
+});
+
+/**
+ * PATCH /api/nodes/:nodeId/auto-update
+ * 更新节点自动更新开关 (v2.2)
+ */
+router.patch('/nodes/:nodeId/auto-update', async (req: Request, res: Response) => {
+  try {
+    const { nodeId } = req.params;
+    const { autoUpdate } = req.body;
+
+    if (typeof autoUpdate !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_VALUE', message: 'autoUpdate 必须是布尔值' },
+      });
+    }
+
+    // 先获取节点类型
+    const nodeResult = await pool.query(
+      `SELECT type FROM nodes WHERE id = $1 AND deleted_at IS NULL`,
+      [nodeId]
+    );
+
+    if (nodeResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NODE_NOT_FOUND', message: '节点不存在' },
+      });
+    }
+
+    const nodeType = nodeResult.rows[0].type as NodeType;
+
+    // 只有约束和结论节点可以设置 autoUpdate
+    if (![NodeType.CONSTRAINT, NodeType.CONCLUSION, NodeType.INFERENCE].includes(nodeType)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_NODE_TYPE',
+          message: '只有约束节点和结论节点支持 autoUpdate 开关',
+        },
+      });
+    }
+
+    // 更新开关
+    const result = await pool.query(
+      `UPDATE nodes SET auto_update = $1, updated_at = NOW()
+       WHERE id = $2 AND deleted_at IS NULL
+       RETURNING id, type, auto_update as "autoUpdate"`,
+      [autoUpdate, nodeId]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('更新节点自动更新开关失败:', error);
     res.status(500).json({
       success: false,
       error: { code: 'DB_ERROR', message: (error as Error).message },

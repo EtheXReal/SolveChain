@@ -1,6 +1,6 @@
 /**
  * 核心类型定义
- * v2.1 - 形式化逻辑系统重构
+ * v2.2 - 基础状态与计算状态分离重构
  */
 
 // ============ 节点类型 ============
@@ -16,6 +16,189 @@ export enum NodeType {
   DECISION = 'decision',      // @deprecated 使用 ACTION 替代
   INFERENCE = 'inference',    // @deprecated 使用 CONSTRAINT 或 CONCLUSION 替代
 }
+
+// ============ 基础状态枚举（每种节点类型专属） ============
+
+/**
+ * 目标节点状态
+ */
+export enum GoalStatus {
+  ACHIEVED = 'achieved',         // 已达成
+  NOT_ACHIEVED = 'notAchieved',  // 未达成（默认）
+}
+
+/**
+ * 行动节点状态
+ */
+export enum ActionStatus {
+  SUCCESS = 'success',       // 成功：执行了且达到预期效果
+  FAILED = 'failed',         // 失败：执行了但没达到预期效果
+  IN_PROGRESS = 'inProgress', // 进行中：正在执行
+  PENDING = 'pending',       // 待执行（默认）
+}
+
+/**
+ * 事实节点状态
+ */
+export enum FactStatus {
+  CONFIRMED = 'confirmed',   // 确认：这是真的（默认）
+  DENIED = 'denied',         // 否定：这是假的（情况已改变）
+  UNCERTAIN = 'uncertain',   // 存疑：还不确定
+}
+
+/**
+ * 假设节点状态
+ */
+export enum AssumptionStatus {
+  POSITIVE = 'positive',     // 当作真的：在规划中假设它成立
+  NEGATIVE = 'negative',     // 当作假的：在规划中假设它不成立
+  UNCERTAIN = 'uncertain',   // 不确定（默认）
+}
+
+/**
+ * 约束节点状态
+ */
+export enum ConstraintStatus {
+  SATISFIED = 'satisfied',     // 已满足
+  UNSATISFIED = 'unsatisfied', // 未满足（默认）
+}
+
+/**
+ * 结论节点状态
+ */
+export enum ConclusionStatus {
+  ESTABLISHED = 'established',       // 成立：根据证据，结论为真
+  NOT_ESTABLISHED = 'notEstablished', // 不成立：根据证据，结论为假
+  PENDING = 'pending',               // 待定：证据不足（默认）
+}
+
+/**
+ * 所有基础状态的联合类型
+ */
+export type BaseStatus =
+  | GoalStatus
+  | ActionStatus
+  | FactStatus
+  | AssumptionStatus
+  | ConstraintStatus
+  | ConclusionStatus;
+
+/**
+ * 节点类型到默认基础状态的映射
+ */
+export const DEFAULT_BASE_STATUS: Record<NodeType, BaseStatus> = {
+  [NodeType.GOAL]: GoalStatus.NOT_ACHIEVED,
+  [NodeType.ACTION]: ActionStatus.PENDING,
+  [NodeType.FACT]: FactStatus.CONFIRMED,
+  [NodeType.ASSUMPTION]: AssumptionStatus.UNCERTAIN,
+  [NodeType.CONSTRAINT]: ConstraintStatus.UNSATISFIED,
+  [NodeType.CONCLUSION]: ConclusionStatus.PENDING,
+  // 废弃类型
+  [NodeType.DECISION]: ActionStatus.PENDING,
+  [NodeType.INFERENCE]: ConclusionStatus.PENDING,
+};
+
+/**
+ * 基础状态到状态系数的映射（用于可行性计算）
+ */
+export const STATUS_COEFFICIENT: Record<string, number> = {
+  // Goal
+  [GoalStatus.ACHIEVED]: 1.0,
+  [GoalStatus.NOT_ACHIEVED]: 0.0,
+  // Action
+  [ActionStatus.SUCCESS]: 1.0,
+  [ActionStatus.FAILED]: 0.0,
+  [ActionStatus.IN_PROGRESS]: 0.5,
+  [ActionStatus.PENDING]: 0.0,
+  // Fact
+  [FactStatus.CONFIRMED]: 1.0,
+  [FactStatus.DENIED]: 0.0,
+  [FactStatus.UNCERTAIN]: 0.5,
+  // Assumption (特殊：需要结合 confidence)
+  [AssumptionStatus.POSITIVE]: 1.0,  // 实际计算时使用 confidence 值
+  [AssumptionStatus.NEGATIVE]: 0.0,
+  [AssumptionStatus.UNCERTAIN]: 0.5, // 实际计算时使用 confidence * 0.5
+  // Constraint
+  [ConstraintStatus.SATISFIED]: 1.0,
+  [ConstraintStatus.UNSATISFIED]: 0.0,
+  // Conclusion
+  [ConclusionStatus.ESTABLISHED]: 1.0,
+  [ConclusionStatus.NOT_ESTABLISHED]: 0.0,
+  [ConclusionStatus.PENDING]: 0.5,
+};
+
+/**
+ * 判断基础状态是否为"肯定态"（用于传播规则）
+ */
+export function isPositiveStatus(status: BaseStatus): boolean {
+  return [
+    GoalStatus.ACHIEVED,
+    ActionStatus.SUCCESS,
+    FactStatus.CONFIRMED,
+    AssumptionStatus.POSITIVE,
+    ConstraintStatus.SATISFIED,
+    ConclusionStatus.ESTABLISHED,
+  ].includes(status as any);
+}
+
+/**
+ * 判断基础状态是否为"否定态"
+ */
+export function isNegativeStatus(status: BaseStatus): boolean {
+  return [
+    GoalStatus.NOT_ACHIEVED,
+    ActionStatus.FAILED,
+    FactStatus.DENIED,
+    AssumptionStatus.NEGATIVE,
+    ConstraintStatus.UNSATISFIED,
+    ConclusionStatus.NOT_ESTABLISHED,
+  ].includes(status as any);
+}
+
+/**
+ * 判断基础状态是否为"中间态"（未决状态）
+ */
+export function isNeutralStatus(status: BaseStatus): boolean {
+  return [
+    ActionStatus.IN_PROGRESS,
+    ActionStatus.PENDING,
+    FactStatus.UNCERTAIN,
+    AssumptionStatus.UNCERTAIN,
+    ConclusionStatus.PENDING,
+  ].includes(status as any);
+}
+
+// ============ 计算状态（系统计算，用户只读） ============
+
+/**
+ * 计算状态结构
+ */
+export interface ComputedStatus {
+  blocked: boolean;           // 是否受阻（有依赖未满足）
+  blockedBy: string[];        // 受阻原因（节点ID列表）
+  threatened: boolean;        // 是否受威胁（可行性得分为负）
+  feasibilityScore: number;   // 可行性得分
+  conflicted: boolean;        // 是否存在矛盾
+  conflictWith: string[];     // 矛盾对象（节点ID列表）
+  executable: boolean;        // 是否可执行（仅行动节点有效）
+  achievable: boolean;        // 是否可达成（仅目标节点有效）
+  statusSource?: string;      // 状态来源说明（如"由XX节点导致"）
+}
+
+/**
+ * 默认计算状态
+ */
+export const DEFAULT_COMPUTED_STATUS: ComputedStatus = {
+  blocked: false,
+  blockedBy: [],
+  threatened: false,
+  feasibilityScore: 0,
+  conflicted: false,
+  conflictWith: [],
+  executable: false,
+  achievable: false,
+  statusSource: undefined,
+};
 
 // ============ 关系类型 ============
 export enum EdgeType {
@@ -69,10 +252,29 @@ export interface Node {
   type: NodeType;
   title: string;
   content?: string;
+
+  // 基础状态（用户可设置，或由自动更新计算）
+  baseStatus: BaseStatus;
+
+  // 仅假设节点使用：置信度 0-100%，表示认为它为真的概率
   confidence: number;
+
+  // 权重（影响力）：0.1-2.0，基准值1.0
   weight: number;
+
+  // 自动更新开关：
+  // - 约束节点：默认 false，开启后由"实现"关系自动更新
+  // - 结论节点：默认 true，开启后由"导致"关系自动更新
+  // - 其他节点：固定 false，无效果
+  autoUpdate: boolean;
+
+  // 计算状态（系统计算，只读）
+  computedStatus?: ComputedStatus;
+
+  // 旧字段（向后兼容，将逐步废弃）
   calculatedScore?: number;
   status: NodeStatus;
+
   positionX: number;
   positionY: number;
   createdBy: 'user' | 'llm';
@@ -106,8 +308,10 @@ export interface CreateNodeRequest {
   type: NodeType;
   title: string;
   content?: string;
-  confidence?: number;
-  weight?: number;
+  baseStatus?: BaseStatus;  // 不提供则使用节点类型的默认状态
+  confidence?: number;      // 仅假设节点有效，默认 50
+  weight?: number;          // 0.1-2.0，不提供则使用节点类型的默认权重
+  autoUpdate?: boolean;     // 约束默认 false，结论默认 true，其他固定 false
   positionX?: number;
   positionY?: number;
 }
@@ -116,9 +320,11 @@ export interface UpdateNodeRequest {
   type?: NodeType;
   title?: string;
   content?: string;
+  baseStatus?: BaseStatus;
   confidence?: number;
   weight?: number;
-  status?: NodeStatus;
+  autoUpdate?: boolean;
+  status?: NodeStatus;      // 旧字段，向后兼容
   positionX?: number;
   positionY?: number;
 }
@@ -248,17 +454,18 @@ export interface SceneWithNodes {
   edges: Edge[];
 }
 
-// ============ v2.1.1 分析模块类型 ============
+// ============ v2.2 分析模块类型 ============
 
 /**
- * 逻辑状态枚举
+ * @deprecated 使用 baseStatus + computedStatus 替代
+ * 逻辑状态枚举（仅用于数据迁移兼容）
  */
 export enum LogicState {
-  TRUE = 'true',           // 已确认为真
-  FALSE = 'false',         // 已确认为假
-  UNKNOWN = 'unknown',     // 未知/待定
-  BLOCKED = 'blocked',     // 被阻塞（依赖未满足）
-  CONFLICT = 'conflict',   // 存在冲突
+  TRUE = 'true',           // 已确认为真 → 对应各类型的肯定态
+  FALSE = 'false',         // 已确认为假 → 对应各类型的否定态
+  UNKNOWN = 'unknown',     // 未知/待定 → 对应各类型的中间态
+  BLOCKED = 'blocked',     // 被阻塞 → 移至 computedStatus.blocked
+  CONFLICT = 'conflict',   // 存在冲突 → 移至 computedStatus.conflicted
 }
 
 /**
@@ -409,6 +616,7 @@ export interface UpdateWeightConfigRequest {
 }
 
 /**
+ * @deprecated 使用 UpdateNodeBaseStatusRequest 替代
  * 更新节点逻辑状态请求
  */
 export interface UpdateNodeLogicStateRequest {
@@ -416,8 +624,34 @@ export interface UpdateNodeLogicStateRequest {
 }
 
 /**
+ * 更新节点基础状态请求
+ */
+export interface UpdateNodeBaseStatusRequest {
+  baseStatus: BaseStatus;
+}
+
+/**
+ * 更新节点自动更新开关请求
+ */
+export interface UpdateNodeAutoUpdateRequest {
+  autoUpdate: boolean;
+}
+
+/**
  * 更新节点自定义权重请求
  */
 export interface UpdateNodeWeightRequest {
   customWeight: number | null;  // null 表示使用默认权重
+}
+
+/**
+ * 获取节点类型的默认 autoUpdate 值
+ */
+export function getDefaultAutoUpdate(type: NodeType): boolean {
+  // 结论节点默认开启自动更新
+  if (type === NodeType.CONCLUSION) {
+    return true;
+  }
+  // 其他所有节点默认关闭
+  return false;
 }
