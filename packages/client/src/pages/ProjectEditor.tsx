@@ -12,10 +12,11 @@ import FocusView from '../components/FocusView';
 import NodeEditPanel from '../components/NodeEditPanel';
 import EdgeEditPanel from '../components/EdgeEditPanel';
 import PropagationPanel from '../components/PropagationPanel';
+import AnalysisPanel from '../components/AnalysisPanel';
 import SceneTabs from '../components/SceneTabs';
 import ImportDialog from '../components/ImportDialog';
 import { NodeType, EdgeType } from '../types';
-import { Edit3, Eye, Download, Upload, FileText, Copy, Check, Activity } from 'lucide-react';
+import { Edit3, Eye, Download, Upload, FileText, Copy, Check, Activity, Brain } from 'lucide-react';
 import {
   exportScene,
   exportProject,
@@ -88,6 +89,9 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
   // 传播面板状态
   const [showPropagationPanel, setShowPropagationPanel] = useState(false);
+
+  // 分析面板状态
+  const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
 
   // 加载项目
   useEffect(() => {
@@ -696,7 +700,10 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
           {/* 状态传播按钮 */}
           <button
-            onClick={() => setShowPropagationPanel(!showPropagationPanel)}
+            onClick={() => {
+              setShowPropagationPanel(!showPropagationPanel);
+              if (!showPropagationPanel) setShowAnalysisPanel(false);
+            }}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
               showPropagationPanel
                 ? 'bg-blue-50 text-blue-600 border-blue-300'
@@ -706,6 +713,23 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           >
             <Activity size={18} />
             <span>传播</span>
+          </button>
+
+          {/* 分析面板按钮 */}
+          <button
+            onClick={() => {
+              setShowAnalysisPanel(!showAnalysisPanel);
+              if (!showAnalysisPanel) setShowPropagationPanel(false);
+            }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
+              showAnalysisPanel
+                ? 'bg-purple-50 text-purple-600 border-purple-300'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
+            }`}
+            title="分析面板 - 获取下一步行动建议和可行性评估"
+          >
+            <Brain size={18} />
+            <span>分析</span>
           </button>
 
           {/* 模式切换按钮 */}
@@ -811,6 +835,15 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
         {/* 传播面板 */}
         {showPropagationPanel && !editingNodeId && !editingEdgeId && (
           <PropagationPanel />
+        )}
+
+        {/* 分析面板 */}
+        {showAnalysisPanel && !editingNodeId && !editingEdgeId && (
+          <AnalysisPanel
+            projectId={projectId}
+            selectedNodeId={focusedNodeId}
+            onNodeClick={handleSelectNode}
+          />
         )}
       </div>
 

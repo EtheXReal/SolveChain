@@ -247,3 +247,177 @@ export interface SceneWithNodes {
   nodes: Array<Node & { scenePositionX: number; scenePositionY: number }>;
   edges: Edge[];
 }
+
+// ============ v2.1.1 分析模块类型 ============
+
+/**
+ * 逻辑状态枚举
+ */
+export enum LogicState {
+  TRUE = 'true',           // 已确认为真
+  FALSE = 'false',         // 已确认为假
+  UNKNOWN = 'unknown',     // 未知/待定
+  BLOCKED = 'blocked',     // 被阻塞（依赖未满足）
+  CONFLICT = 'conflict',   // 存在冲突
+}
+
+/**
+ * 节点满足状态（用于目标树分析）
+ */
+export enum SatisfactionStatus {
+  SATISFIED = 'satisfied',       // 已满足
+  UNSATISFIED = 'unsatisfied',   // 未满足
+  BLOCKED = 'blocked',           // 被阻塞
+  PENDING = 'pending',           // 待验证（假设节点）
+  ACHIEVABLE = 'achievable',     // 可达成（目标节点）
+}
+
+/**
+ * 权重配置
+ */
+export interface WeightConfig {
+  id: string;
+  projectId: string;
+  goalWeight: number;
+  actionWeight: number;
+  factWeight: number;
+  assumptionWeight: number;
+  constraintWeight: number;
+  conclusionWeight: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * 默认权重配置
+ */
+export const DEFAULT_WEIGHTS: Record<NodeType, number> = {
+  [NodeType.GOAL]: 1.0,
+  [NodeType.ACTION]: 1.0,
+  [NodeType.FACT]: 1.0,
+  [NodeType.ASSUMPTION]: 0.5,
+  [NodeType.CONSTRAINT]: 1.0,
+  [NodeType.CONCLUSION]: 0.8,
+  // 废弃类型使用默认权重
+  [NodeType.DECISION]: 1.0,
+  [NodeType.INFERENCE]: 0.8,
+};
+
+/**
+ * 依赖树节点
+ */
+export interface DependencyTreeNode {
+  nodeId: string;
+  node: Node;
+  status: SatisfactionStatus;
+  children: DependencyTreeNode[];
+  achievableBy: Node[];  // 可实现该节点的行动
+}
+
+/**
+ * 阻塞点信息
+ */
+export interface BlockingPoint {
+  node: Node;
+  reason: string;
+  achievableActions: Array<{
+    action: Node;
+    isExecutable: boolean;
+    blockedBy: Node[];
+  }>;
+}
+
+/**
+ * 可执行行动
+ */
+export interface ExecutableAction {
+  action: Node;
+  priority: number;
+  unblocks: Node[];      // 执行后可解除的阻塞
+  reason: string;
+}
+
+/**
+ * 模块一输出：下一步行动建议
+ */
+export interface NextActionResult {
+  rootGoals: Node[];
+  blockingPoints: BlockingPoint[];
+  suggestedAction: ExecutableAction | null;
+  followUpActions: ExecutableAction[];
+  summary: string;
+}
+
+/**
+ * 正向/负向证据
+ */
+export interface Evidence {
+  node: Node;
+  type: 'positive' | 'negative';
+  weight: number;
+  edgeType: EdgeType;
+  description?: string;
+}
+
+/**
+ * 风险信息
+ */
+export interface Risk {
+  type: 'strong_hindrance' | 'dependency_gap' | 'assumption_risk' | 'conflict';
+  severity: 'low' | 'medium' | 'high';
+  node: Node;
+  description: string;
+}
+
+/**
+ * 前置条件状态
+ */
+export interface Prerequisite {
+  node: Node;
+  status: SatisfactionStatus;
+  achievableBy: Node[];
+}
+
+/**
+ * 模块二输出：可行性评估
+ */
+export interface FeasibilityResult {
+  targetNode: Node;
+  feasibilityScore: number;
+  normalizedScore: number;  // 0-100 范围
+
+  positiveEvidence: Evidence[];
+  negativeEvidence: Evidence[];
+  prerequisites: Prerequisite[];
+  risks: Risk[];
+
+  verdict: 'highly_feasible' | 'feasible' | 'uncertain' | 'challenging' | 'infeasible';
+  summary: string;
+  suggestions: string[];
+}
+
+/**
+ * 更新权重配置请求
+ */
+export interface UpdateWeightConfigRequest {
+  goalWeight?: number;
+  actionWeight?: number;
+  factWeight?: number;
+  assumptionWeight?: number;
+  constraintWeight?: number;
+  conclusionWeight?: number;
+}
+
+/**
+ * 更新节点逻辑状态请求
+ */
+export interface UpdateNodeLogicStateRequest {
+  logicState: LogicState;
+}
+
+/**
+ * 更新节点自定义权重请求
+ */
+export interface UpdateNodeWeightRequest {
+  customWeight: number | null;  // null 表示使用默认权重
+}

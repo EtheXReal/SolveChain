@@ -10,6 +10,7 @@ import { edgeRoutes } from './routes/edge.js';
 import { llmRoutes } from './routes/llm.js';
 import { projectRoutes } from './routes/project.js';
 import { sceneRoutes } from './routes/scene.js';
+import analysisRoutes from './routes/analysis.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -42,6 +43,9 @@ app.use('/api/llm', llmRoutes);
 // API 路由 (v2 - 项目-场景模型)
 app.use('/api/projects', projectRoutes);
 app.use('/api/scenes', sceneRoutes);
+
+// API 路由 (v2.1.1 - 分析模块)
+app.use('/api', analysisRoutes);
 
 // 错误处理
 app.use(errorHandler);

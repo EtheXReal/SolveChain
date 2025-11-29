@@ -157,6 +157,118 @@ export const edgeApi = {
   }),
 };
 
+// 分析 API
+export const analysisApi = {
+  // 获取下一步行动建议
+  getNextAction: (projectId: string) =>
+    request<{
+      rootGoals: GraphNode[];
+      blockingPoints: Array<{
+        node: GraphNode;
+        reason: string;
+        achievableActions: Array<{
+          action: GraphNode;
+          isExecutable: boolean;
+          blockedBy: GraphNode[];
+        }>;
+      }>;
+      suggestedAction: {
+        action: GraphNode;
+        priority: number;
+        unblocks: GraphNode[];
+        reason: string;
+      } | null;
+      followUpActions: Array<{
+        action: GraphNode;
+        priority: number;
+        unblocks: GraphNode[];
+        reason: string;
+      }>;
+      summary: string;
+    }>(`/projects/${projectId}/analyze/next-action`, {
+      method: 'POST',
+    }),
+
+  // 评估节点可行性
+  evaluateFeasibility: (projectId: string, nodeId: string) =>
+    request<{
+      targetNode: GraphNode;
+      feasibilityScore: number;
+      normalizedScore: number;
+      positiveEvidence: Array<{
+        node: GraphNode;
+        type: 'positive' | 'negative';
+        weight: number;
+        edgeType: string;
+        description?: string;
+      }>;
+      negativeEvidence: Array<{
+        node: GraphNode;
+        type: 'positive' | 'negative';
+        weight: number;
+        edgeType: string;
+        description?: string;
+      }>;
+      prerequisites: Array<{
+        node: GraphNode;
+        status: string;
+        achievableBy: GraphNode[];
+      }>;
+      risks: Array<{
+        type: string;
+        severity: 'low' | 'medium' | 'high';
+        node: GraphNode;
+        description: string;
+      }>;
+      verdict: 'highly_feasible' | 'feasible' | 'uncertain' | 'challenging' | 'infeasible';
+      summary: string;
+      suggestions: string[];
+    }>(`/projects/${projectId}/analyze/feasibility/${nodeId}`, {
+      method: 'POST',
+    }),
+
+  // 获取权重配置
+  getWeightConfig: (projectId: string) =>
+    request<{
+      id: string;
+      projectId: string;
+      goalWeight: number;
+      actionWeight: number;
+      factWeight: number;
+      assumptionWeight: number;
+      constraintWeight: number;
+      conclusionWeight: number;
+    }>(`/projects/${projectId}/weight-config`),
+
+  // 更新权重配置
+  updateWeightConfig: (projectId: string, config: {
+    goalWeight?: number;
+    actionWeight?: number;
+    factWeight?: number;
+    assumptionWeight?: number;
+    constraintWeight?: number;
+    conclusionWeight?: number;
+  }) =>
+    request<any>(`/projects/${projectId}/weight-config`, {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    }),
+
+  // 更新节点逻辑状态
+  updateNodeLogicState: (nodeId: string, logicState: string) =>
+    request<{ id: string; logicState: string }>(`/nodes/${nodeId}/logic-state`, {
+      method: 'PATCH',
+      body: JSON.stringify({ logicState }),
+    }),
+
+  // 更新节点自定义权重
+  updateNodeCustomWeight: (nodeId: string, customWeight: number | null) =>
+    request<{ id: string; customWeight: number | null }>(`/nodes/${nodeId}/custom-weight`, {
+      method: 'PATCH',
+      body: JSON.stringify({ customWeight }),
+    }),
+};
+
 // LLM API
 export const llmApi = {
   // 分析决策图
