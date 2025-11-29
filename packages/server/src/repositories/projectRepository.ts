@@ -161,7 +161,10 @@ function toNode(row: any) {
     positionY: parseFloat(row.position_y),
     createdBy: row.created_by,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    // v2.2 新增字段
+    baseStatus: row.base_status,
+    autoUpdate: row.auto_update,
   };
 }
 
