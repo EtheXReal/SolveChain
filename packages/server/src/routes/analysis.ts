@@ -3,6 +3,7 @@
  *
  * POST /api/projects/:projectId/analyze/next-action  - 获取下一步行动建议
  * POST /api/projects/:projectId/analyze/feasibility/:nodeId - 评估节点可行性
+ * POST /api/projects/:projectId/analyze/propagate - 执行状态传播 (v2.2 新增)
  * GET  /api/projects/:projectId/weight-config - 获取权重配置
  * PUT  /api/projects/:projectId/weight-config - 更新权重配置
  * PATCH /api/nodes/:nodeId/base-status - 更新节点基础状态 (v2.2 新增)
@@ -14,12 +15,15 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db.js';
 import { AnalysisEngine } from '../services/analysisEngine.js';
+import { StatePropagationEngine, PropagationResult } from '../services/statePropagationEngine.js';
 import {
   Node,
   Edge,
   WeightConfig,
   LogicState,
   UpdateWeightConfigRequest,
+  DEFAULT_BASE_STATUS,
+  getDefaultAutoUpdate,
   // v2.2 新增类型
   NodeType,
   GoalStatus,
@@ -89,11 +93,19 @@ async function getProjectData(projectId: string): Promise<{ nodes: Node[]; edges
     `SELECT id, project_id as "graphId", type, title, content, confidence, weight,
             position_x as "positionX", position_y as "positionY",
             created_by as "createdBy", created_at as "createdAt", updated_at as "updatedAt",
-            logic_state as "logicState", custom_weight as "customWeight"
+            logic_state as "logicState", custom_weight as "customWeight",
+            base_status as "baseStatus", auto_update as "autoUpdate"
      FROM nodes
      WHERE project_id = $1 AND deleted_at IS NULL`,
     [projectId]
   );
+
+  // 转换节点数据，确保 baseStatus 和 autoUpdate 有默认值
+  const nodes = nodesResult.rows.map((row: any) => ({
+    ...row,
+    baseStatus: row.baseStatus || DEFAULT_BASE_STATUS[row.type as NodeType],
+    autoUpdate: row.autoUpdate ?? getDefaultAutoUpdate(row.type as NodeType),
+  }));
 
   const edgesResult = await pool.query(
     `SELECT id, project_id as "graphId", source_node_id as "sourceNodeId",
@@ -105,7 +117,7 @@ async function getProjectData(projectId: string): Promise<{ nodes: Node[]; edges
   );
 
   return {
-    nodes: nodesResult.rows,
+    nodes,
     edges: edgesResult.rows,
   };
 }
@@ -151,16 +163,28 @@ router.post('/projects/:projectId/analyze/next-action', async (req: Request, res
       });
     }
 
+    // v2.2: 先执行状态传播，计算 computedStatus
+    const propagationEngine = new StatePropagationEngine(nodes, edges);
+    const propagationResult = propagationEngine.propagate();
+    const propagatedNodes = propagationResult.nodes;
+
     // 获取权重配置
     const weightConfig = await getWeightConfig(projectId);
 
-    // 创建分析引擎并执行分析
-    const engine = new AnalysisEngine(nodes, edges, weightConfig || undefined);
+    // 创建分析引擎并执行分析（使用传播后的节点）
+    const engine = new AnalysisEngine(propagatedNodes, edges, weightConfig || undefined);
     const result = engine.getNextAction();
 
+    // 将传播信息添加到响应中
     res.json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        propagation: {
+          conflicts: propagationResult.conflicts,
+          cyclicDependencies: propagationResult.cyclicDependencies,
+        },
+      },
     });
   } catch (error) {
     console.error('分析下一步行动失败:', error);
@@ -191,22 +215,97 @@ router.post('/projects/:projectId/analyze/feasibility/:nodeId', async (req: Requ
       });
     }
 
+    // v2.2: 先执行状态传播，计算 computedStatus
+    const propagationEngine = new StatePropagationEngine(nodes, edges);
+    const propagationResult = propagationEngine.propagate();
+    const propagatedNodes = propagationResult.nodes;
+
     // 获取权重配置
     const weightConfig = await getWeightConfig(projectId);
 
-    // 创建分析引擎并执行分析
-    const engine = new AnalysisEngine(nodes, edges, weightConfig || undefined);
+    // 创建分析引擎并执行分析（使用传播后的节点）
+    const engine = new AnalysisEngine(propagatedNodes, edges, weightConfig || undefined);
     const result = engine.evaluateFeasibility(nodeId);
+
+    // 获取目标节点的 computedStatus
+    const propagatedTarget = propagatedNodes.find(n => n.id === nodeId);
 
     res.json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        computedStatus: propagatedTarget?.computedStatus,
+        propagation: {
+          conflicts: propagationResult.conflicts.filter(
+            c => c.nodeA === nodeId || c.nodeB === nodeId
+          ),
+        },
+      },
     });
   } catch (error) {
     console.error('评估可行性失败:', error);
     res.status(500).json({
       success: false,
       error: { code: 'ANALYSIS_ERROR', message: (error as Error).message },
+    });
+  }
+});
+
+/**
+ * POST /api/projects/:projectId/analyze/propagate
+ * 执行状态传播 (v2.2 新增)
+ *
+ * 功能：
+ * 1. 计算所有节点的 computedStatus
+ * 2. 自动更新启用了 autoUpdate 的节点的 baseStatus
+ * 3. 检测循环依赖和冲突
+ * 4. 计算可行性评分
+ */
+router.post('/projects/:projectId/analyze/propagate', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const { persist = false } = req.body;  // 是否持久化 baseStatus 更新
+
+    // 获取项目数据
+    const { nodes, edges } = await getProjectData(projectId);
+
+    if (nodes.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          nodes: [],
+          updatedBaseStatuses: [],
+          cyclicDependencies: [],
+          conflicts: [],
+          logs: ['项目中没有节点'],
+        },
+      });
+    }
+
+    // 创建状态传播引擎并执行传播
+    const engine = new StatePropagationEngine(nodes, edges);
+    const result = engine.propagate();
+
+    // 如果需要持久化 baseStatus 更新
+    if (persist && result.updatedBaseStatuses.length > 0) {
+      for (const update of result.updatedBaseStatuses) {
+        await pool.query(
+          `UPDATE nodes SET base_status = $1, updated_at = NOW() WHERE id = $2`,
+          [update.newStatus, update.nodeId]
+        );
+      }
+      result.logs.push(`已持久化 ${result.updatedBaseStatuses.length} 个节点的 baseStatus 更新`);
+    }
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error('状态传播失败:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'PROPAGATION_ERROR', message: (error as Error).message },
     });
   }
 });

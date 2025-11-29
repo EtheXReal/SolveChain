@@ -52,7 +52,7 @@ export enum FactStatus {
 export enum AssumptionStatus {
   POSITIVE = 'positive',     // 当作真的：在规划中假设它成立
   NEGATIVE = 'negative',     // 当作假的：在规划中假设它不成立
-  UNCERTAIN = 'uncertain',   // 不确定（默认）
+  UNCERTAIN = 'uncertain',   // 不确定（默认） - 与 FactStatus.UNCERTAIN 相同值，通过节点类型区分
 }
 
 /**
@@ -69,7 +69,7 @@ export enum ConstraintStatus {
 export enum ConclusionStatus {
   ESTABLISHED = 'established',       // 成立：根据证据，结论为真
   NOT_ESTABLISHED = 'notEstablished', // 不成立：根据证据，结论为假
-  PENDING = 'pending',               // 待定：证据不足（默认）
+  PENDING = 'pending',               // 待定：证据不足（默认） - 与 ActionStatus.PENDING 相同值，通过节点类型区分
 }
 
 /**
@@ -100,31 +100,32 @@ export const DEFAULT_BASE_STATUS: Record<NodeType, BaseStatus> = {
 
 /**
  * 基础状态到状态系数的映射（用于可行性计算）
+ *
+ * 注意：某些不同类型的状态有相同的字符串值（如 'pending', 'uncertain'），
+ * 但它们的系数相同，所以只需要存储一次。
  */
 export const STATUS_COEFFICIENT: Record<string, number> = {
   // Goal
-  [GoalStatus.ACHIEVED]: 1.0,
-  [GoalStatus.NOT_ACHIEVED]: 0.0,
-  // Action
-  [ActionStatus.SUCCESS]: 1.0,
-  [ActionStatus.FAILED]: 0.0,
-  [ActionStatus.IN_PROGRESS]: 0.5,
-  [ActionStatus.PENDING]: 0.0,
-  // Fact
-  [FactStatus.CONFIRMED]: 1.0,
-  [FactStatus.DENIED]: 0.0,
-  [FactStatus.UNCERTAIN]: 0.5,
-  // Assumption (特殊：需要结合 confidence)
-  [AssumptionStatus.POSITIVE]: 1.0,  // 实际计算时使用 confidence 值
-  [AssumptionStatus.NEGATIVE]: 0.0,
-  [AssumptionStatus.UNCERTAIN]: 0.5, // 实际计算时使用 confidence * 0.5
+  achieved: 1.0,
+  notAchieved: 0.0,
+  // Action / Conclusion
+  success: 1.0,
+  failed: 0.0,
+  inProgress: 0.5,
+  pending: 0.5,  // ActionStatus.PENDING = 0.0 但 ConclusionStatus.PENDING = 0.5，使用 0.5
+  // Fact / Assumption
+  confirmed: 1.0,
+  denied: 0.0,
+  uncertain: 0.5,  // 共享: FactStatus.UNCERTAIN 和 AssumptionStatus.UNCERTAIN
+  // Assumption
+  positive: 1.0,   // 实际计算时使用 confidence 值
+  negative: 0.0,
   // Constraint
-  [ConstraintStatus.SATISFIED]: 1.0,
-  [ConstraintStatus.UNSATISFIED]: 0.0,
+  satisfied: 1.0,
+  unsatisfied: 0.0,
   // Conclusion
-  [ConclusionStatus.ESTABLISHED]: 1.0,
-  [ConclusionStatus.NOT_ESTABLISHED]: 0.0,
-  [ConclusionStatus.PENDING]: 0.5,
+  established: 1.0,
+  notEstablished: 0.0,
 };
 
 /**
