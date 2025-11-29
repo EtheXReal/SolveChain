@@ -1,13 +1,22 @@
 /**
- * 节点编辑面板
+ * 节点编辑面板 (v2.2)
  * 用于创建和编辑节点的属性
+ * 支持 baseStatus 设置和 computedStatus 显示
  */
 
 import { useState, useEffect } from 'react';
-import { X, Save, Trash2, Zap } from 'lucide-react';
+import { X, Save, Trash2, Zap, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useGraphStore } from '../store/graphStore';
 import { usePropagationStore } from '../store/propagationStore';
-import { GraphNode, NodeType, NODE_TYPE_CONFIG } from '../types';
+import {
+  GraphNode,
+  NodeType,
+  NODE_TYPE_CONFIG,
+  getStatusOptionsForType,
+  DEFAULT_BASE_STATUS,
+  BaseStatus,
+  ComputedStatus,
+} from '../types';
 import { LogicState, getLogicStateColor, getLogicStateLabel } from '../utils/propagation';
 
 interface NodeEditPanelProps {
@@ -47,6 +56,7 @@ export default function NodeEditPanel({
   const [type, setType] = useState<NodeType>(NodeType.FACT);
   const [confidence, setConfidence] = useState(50);
   const [weight, setWeight] = useState(50);
+  const [baseStatus, setBaseStatus] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   // 加载节点数据
@@ -57,8 +67,17 @@ export default function NodeEditPanel({
       setType(node.type);
       setConfidence(node.confidence);
       setWeight(node.weight);
+      // v2.2: 加载 baseStatus
+      setBaseStatus(node.baseStatus || DEFAULT_BASE_STATUS[node.type]);
     }
   }, [node]);
+
+  // 当类型改变时，重置 baseStatus 为该类型的默认值
+  useEffect(() => {
+    if (type) {
+      setBaseStatus(DEFAULT_BASE_STATUS[type]);
+    }
+  }, [type]);
 
   if (!node) return null;
 
@@ -72,7 +91,9 @@ export default function NodeEditPanel({
         content: content.trim() || undefined,
         type,
         confidence,
-        weight
+        weight,
+        // v2.2: 保存 baseStatus
+        baseStatus: baseStatus as BaseStatus,
       });
       onClose();
     } catch (error) {
@@ -198,15 +219,116 @@ export default function NodeEditPanel({
           </div>
         </div>
 
-        {/* 逻辑状态 */}
+        {/* v2.2: 基础状态选择器 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <span className="flex items-center gap-1">
               <Zap size={14} />
-              逻辑状态（状态传播）
+              状态
             </span>
           </label>
           <div className="grid grid-cols-2 gap-2">
+            {getStatusOptionsForType(type).map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setBaseStatus(option.value)}
+                className={`
+                  px-3 py-2 rounded-lg text-sm font-medium transition-all border
+                  ${baseStatus === option.value
+                    ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-300 hover:bg-gray-50 text-gray-700'
+                  }
+                `}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* v2.2: 计算状态显示 */}
+        {node.computedStatus && (
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              系统分析
+            </label>
+
+            {/* 被阻塞 */}
+            {node.computedStatus.blocked && (
+              <div className="flex items-start gap-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-800">
+                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="font-medium">被阻塞</div>
+                  {node.computedStatus.blockedBy.length > 0 && (
+                    <div className="mt-1">
+                      阻塞来源: {node.computedStatus.blockedBy.map(id => {
+                        const n = nodes.find(x => x.id === id);
+                        return n?.title || id;
+                      }).join(', ')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 存在冲突 */}
+            {node.computedStatus.conflicted && (
+              <div className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+                <XCircle size={14} className="mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="font-medium">存在矛盾</div>
+                  {node.computedStatus.conflictWith.length > 0 && (
+                    <div className="mt-1">
+                      冲突节点: {node.computedStatus.conflictWith.map(id => {
+                        const n = nodes.find(x => x.id === id);
+                        return n?.title || id;
+                      }).join(', ')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 可执行 (行动节点) */}
+            {node.type === NodeType.ACTION && node.computedStatus.executable && (
+              <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+                <CheckCircle size={14} />
+                <span className="font-medium">可执行</span>
+              </div>
+            )}
+
+            {/* 可达成 (目标节点) */}
+            {node.type === NodeType.GOAL && node.computedStatus.achievable && (
+              <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+                <CheckCircle size={14} />
+                <span className="font-medium">可达成</span>
+              </div>
+            )}
+
+            {/* 受威胁 */}
+            {node.computedStatus.threatened && (
+              <div className="flex items-center gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+                <AlertTriangle size={14} />
+                <span>可行性得分: {node.computedStatus.feasibilityScore.toFixed(2)}</span>
+              </div>
+            )}
+
+            {/* 状态来源 */}
+            {node.computedStatus.statusSource && (
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-600">
+                <Clock size={14} />
+                <span>{node.computedStatus.statusSource}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 旧版逻辑状态（向后兼容） */}
+        <div className="border-t pt-4 mt-4">
+          <label className="block text-sm font-medium text-gray-500 mb-2">
+            旧版逻辑状态（兼容）
+          </label>
+          <div className="grid grid-cols-3 gap-1">
             {[LogicState.TRUE, LogicState.FALSE, LogicState.UNKNOWN].map((state) => (
               <button
                 key={state}
@@ -216,48 +338,21 @@ export default function NodeEditPanel({
                   }
                 }}
                 className={`
-                  px-3 py-2 rounded-lg text-sm font-medium transition-all
+                  px-2 py-1 rounded text-xs font-medium transition-all
                   ${nodeLogicState === state
-                    ? 'ring-2 ring-offset-1'
+                    ? 'ring-1 ring-offset-1'
                     : 'hover:opacity-80'
                   }
                 `}
                 style={{
                   backgroundColor: getLogicStateColor(state),
                   color: 'white',
-                  ...(nodeLogicState === state && {
-                    ringColor: getLogicStateColor(state),
-                  }),
                 }}
               >
                 {getLogicStateLabel(state)}
               </button>
             ))}
           </div>
-
-          {/* 推导来源 */}
-          {nodeFullState?.derivedFrom && nodeFullState.derivedFrom.length > 0 && (
-            <div className="mt-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-600">
-              <span className="font-medium">推导自：</span>
-              <ul className="mt-1 space-y-1">
-                {nodeFullState.derivedFrom.map((sourceId, index) => {
-                  const sourceNode = nodes.find(n => n.id === sourceId);
-                  return (
-                    <li key={index} className="truncate">
-                      {sourceNode?.title || sourceId}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-
-          {/* 冲突警告 */}
-          {nodeLogicState === LogicState.CONFLICT && (
-            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-              此节点存在逻辑冲突，请检查相关的约束和依赖关系。
-            </div>
-          )}
         </div>
 
         {/* 预览 */}

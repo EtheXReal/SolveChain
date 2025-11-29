@@ -1,6 +1,6 @@
 /**
  * 前端类型定义
- * v2.1 - 形式化逻辑系统重构
+ * v2.2 - baseStatus 与 computedStatus 分离架构
  */
 
 // ============ 节点类型 ============
@@ -17,6 +17,129 @@ export enum NodeType {
   DECISION = 'decision',
   /** @deprecated 使用 CONSTRAINT 或 CONCLUSION 替代 */
   INFERENCE = 'inference',
+}
+
+// ============ 基础状态枚举（v2.2） ============
+
+/** 目标节点状态 */
+export enum GoalStatus {
+  ACHIEVED = 'achieved',         // 已达成
+  NOT_ACHIEVED = 'notAchieved',  // 未达成（默认）
+}
+
+/** 行动节点状态 */
+export enum ActionStatus {
+  SUCCESS = 'success',       // 成功
+  FAILED = 'failed',         // 失败
+  IN_PROGRESS = 'inProgress', // 进行中
+  PENDING = 'pending',       // 待执行（默认）
+}
+
+/** 事实节点状态 */
+export enum FactStatus {
+  CONFIRMED = 'confirmed',   // 确认（默认）
+  DENIED = 'denied',         // 否定
+  UNCERTAIN = 'uncertain',   // 存疑
+}
+
+/** 假设节点状态 */
+export enum AssumptionStatus {
+  POSITIVE = 'positive',     // 假设为真
+  NEGATIVE = 'negative',     // 假设为假
+  UNCERTAIN = 'uncertain',   // 不确定（默认）
+}
+
+/** 约束节点状态 */
+export enum ConstraintStatus {
+  SATISFIED = 'satisfied',     // 已满足
+  UNSATISFIED = 'unsatisfied', // 未满足（默认）
+}
+
+/** 结论节点状态 */
+export enum ConclusionStatus {
+  ESTABLISHED = 'established',       // 成立
+  NOT_ESTABLISHED = 'notEstablished', // 不成立
+  PENDING = 'pending',               // 待定（默认）
+}
+
+/** 所有基础状态的联合类型 */
+export type BaseStatus =
+  | GoalStatus
+  | ActionStatus
+  | FactStatus
+  | AssumptionStatus
+  | ConstraintStatus
+  | ConclusionStatus;
+
+/** 计算状态接口 */
+export interface ComputedStatus {
+  blocked: boolean;           // 是否被阻塞
+  blockedBy: string[];        // 阻塞来源（节点ID列表）
+  threatened: boolean;        // 是否受威胁
+  feasibilityScore: number;   // 可行性得分
+  conflicted: boolean;        // 是否存在矛盾
+  conflictWith: string[];     // 矛盾对象（节点ID列表）
+  executable: boolean;        // 是否可执行（仅行动节点有效）
+  achievable: boolean;        // 是否可达成（仅目标节点有效）
+  statusSource?: string;      // 状态来源说明
+}
+
+/** 节点类型到默认基础状态的映射 */
+export const DEFAULT_BASE_STATUS: Record<NodeType, BaseStatus> = {
+  [NodeType.GOAL]: GoalStatus.NOT_ACHIEVED,
+  [NodeType.ACTION]: ActionStatus.PENDING,
+  [NodeType.FACT]: FactStatus.CONFIRMED,
+  [NodeType.ASSUMPTION]: AssumptionStatus.UNCERTAIN,
+  [NodeType.CONSTRAINT]: ConstraintStatus.UNSATISFIED,
+  [NodeType.CONCLUSION]: ConclusionStatus.PENDING,
+  // 废弃类型
+  [NodeType.DECISION]: ActionStatus.PENDING,
+  [NodeType.INFERENCE]: ConclusionStatus.PENDING,
+};
+
+/** 获取节点类型对应的状态选项 */
+export function getStatusOptionsForType(type: NodeType): { value: string; label: string }[] {
+  switch (type) {
+    case NodeType.GOAL:
+      return [
+        { value: GoalStatus.ACHIEVED, label: '已达成' },
+        { value: GoalStatus.NOT_ACHIEVED, label: '未达成' },
+      ];
+    case NodeType.ACTION:
+    case NodeType.DECISION:
+      return [
+        { value: ActionStatus.PENDING, label: '待执行' },
+        { value: ActionStatus.IN_PROGRESS, label: '进行中' },
+        { value: ActionStatus.SUCCESS, label: '成功' },
+        { value: ActionStatus.FAILED, label: '失败' },
+      ];
+    case NodeType.FACT:
+      return [
+        { value: FactStatus.CONFIRMED, label: '确认' },
+        { value: FactStatus.UNCERTAIN, label: '存疑' },
+        { value: FactStatus.DENIED, label: '否定' },
+      ];
+    case NodeType.ASSUMPTION:
+      return [
+        { value: AssumptionStatus.UNCERTAIN, label: '不确定' },
+        { value: AssumptionStatus.POSITIVE, label: '假设为真' },
+        { value: AssumptionStatus.NEGATIVE, label: '假设为假' },
+      ];
+    case NodeType.CONSTRAINT:
+      return [
+        { value: ConstraintStatus.UNSATISFIED, label: '未满足' },
+        { value: ConstraintStatus.SATISFIED, label: '已满足' },
+      ];
+    case NodeType.CONCLUSION:
+    case NodeType.INFERENCE:
+      return [
+        { value: ConclusionStatus.PENDING, label: '待定' },
+        { value: ConclusionStatus.ESTABLISHED, label: '成立' },
+        { value: ConclusionStatus.NOT_ESTABLISHED, label: '不成立' },
+      ];
+    default:
+      return [];
+  }
 }
 
 // ============ 关系类型 ============
@@ -83,6 +206,10 @@ export interface GraphNode {
   createdBy: 'user' | 'llm';
   createdAt: string;
   updatedAt: string;
+  // v2.2 新增字段
+  baseStatus?: BaseStatus;      // 用户设置的基础状态
+  autoUpdate?: boolean;         // 是否开启自动状态更新
+  computedStatus?: ComputedStatus;  // 系统计算的状态
 }
 
 export interface GraphEdge {
