@@ -295,9 +295,34 @@ function getEdgeTypeLabel(type: string): string {
   return config?.label || type;
 }
 
+// 状态值到中文标签的映射
+const STATUS_LABELS: Record<string, string> = {
+  // 目标
+  achieved: '已达成',
+  notAchieved: '未达成',
+  // 行动
+  success: '成功',
+  failed: '失败',
+  inProgress: '进行中',
+  pending: '待执行',
+  // 事实
+  confirmed: '确认',
+  denied: '否定',
+  uncertain: '存疑',
+  // 假设
+  positive: '假设为真',
+  negative: '假设为假',
+  // 约束
+  satisfied: '已满足',
+  unsatisfied: '未满足',
+  // 结论
+  established: '成立',
+  notEstablished: '不成立',
+};
+
 /**
- * 导出场景为文本格式（AI友好）
- * 格式：节点列表 + 关系列表
+ * 导出场景为文本格式（简洁版）
+ * 格式：类型:标题[状态] + 关系列表
  */
 export function exportSceneAsText(
   sceneName: string,
@@ -308,119 +333,51 @@ export function exportSceneAsText(
   const lines: string[] = [];
 
   // 标题
-  lines.push(`# 场景: ${sceneName}`);
+  lines.push(`# ${sceneName}`);
   if (sceneDescription) {
-    lines.push(`> ${sceneDescription}`);
+    lines.push(sceneDescription);
   }
   lines.push('');
 
-  // 按类型分组节点（v2.1 使用新节点类型）
-  const nodesByType = new Map<NodeType, SceneGraphNode[]>();
-  const typeOrder: NodeType[] = [
-    NodeType.GOAL,
-    NodeType.ACTION,
-    NodeType.FACT,
-    NodeType.ASSUMPTION,
-    NodeType.CONSTRAINT,
-    NodeType.CONCLUSION,
-    // 废弃类型（兼容旧数据）
-    NodeType.DECISION,
-    NodeType.INFERENCE,
-  ];
-
-  typeOrder.forEach(type => nodesByType.set(type, []));
-  nodes.forEach(node => {
-    const list = nodesByType.get(node.type as NodeType);
-    if (list) {
-      list.push(node);
-    }
-  });
-
-  // 权重标签转换（v2.2: 0.1-2.0）
-  const getWeightLabel = (w: number): string => {
-    if (w <= 0.4) return '很低';
-    if (w <= 0.8) return '较低';
-    if (w <= 1.1) return '标准';
-    if (w <= 1.5) return '较高';
-    return '很高';
-  };
-
-  // 节点部分
+  // 节点部分 - 简洁格式：类型:标题[状态]
   lines.push('## 节点');
+  if (nodes.length === 0) {
+    lines.push('(无)');
+  } else {
+    nodes.forEach(node => {
+      const typeLabel = getNodeTypeLabel(node.type);
+      const statusLabel = node.baseStatus ? STATUS_LABELS[node.baseStatus] || node.baseStatus : '';
 
-  let hasNodes = false;
-  typeOrder.forEach(type => {
-    const typeNodes = nodesByType.get(type) || [];
-    if (typeNodes.length > 0) {
-      hasNodes = true;
-      typeNodes.forEach(node => {
-        // 构建节点行
-        let nodeLine = `[${getNodeTypeLabel(node.type)}] ${node.title}`;
+      // 格式：类型:标题[状态]
+      let line = `${typeLabel}:${node.title}`;
+      if (statusLabel) {
+        line += `[${statusLabel}]`;
+      }
+      lines.push(line);
 
-        // 添加可选属性（只在非默认值时显示）
-        const attrs: string[] = [];
-        // confidence 只对假设节点显示，且非默认值时
-        if (node.type === NodeType.ASSUMPTION && node.confidence !== undefined && node.confidence !== 50) {
-          attrs.push(`置信度: ${node.confidence}%`);
-        }
-        // weight: v2.2 使用 0.1-2.0 范围，默认值是 1.0
-        if (node.weight !== undefined && node.weight !== 1.0 && node.weight <= 2.0) {
-          attrs.push(`权重: ${node.weight.toFixed(1)} (${getWeightLabel(node.weight)})`);
-        }
-        // baseStatus: 如果有设置则显示
-        if (node.baseStatus) {
-          attrs.push(`状态: ${node.baseStatus}`);
-        }
-        if (attrs.length > 0) {
-          nodeLine += ` (${attrs.join(', ')})`;
-        }
-
-        lines.push(nodeLine);
-
-        // 添加内容描述（如果有）
-        if (node.content) {
-          lines.push(`  ${node.content}`);
-        }
-      });
-    }
-  });
-
-  if (!hasNodes) {
-    lines.push('(无节点)');
+      // 内容单独一行缩进
+      if (node.content) {
+        lines.push(`  ${node.content}`);
+      }
+    });
   }
   lines.push('');
 
-  // 关系部分
+  // 关系部分 - 简洁格式：A -关系-> B
   lines.push('## 关系');
-
   if (edges.length === 0) {
-    lines.push('(无关系)');
+    lines.push('(无)');
   } else {
-    // 创建节点 ID 到标题的映射
     const nodeIdToTitle = new Map<string, string>();
     nodes.forEach(node => nodeIdToTitle.set(node.id, node.title));
 
     edges.forEach(edge => {
-      const sourceTitle = nodeIdToTitle.get(edge.sourceNodeId) || '未知节点';
-      const targetTitle = nodeIdToTitle.get(edge.targetNodeId) || '未知节点';
-      const edgeLabel = getEdgeTypeLabel(edge.type);
+      const source = nodeIdToTitle.get(edge.sourceNodeId) || '?';
+      const target = nodeIdToTitle.get(edge.targetNodeId) || '?';
+      const relation = getEdgeTypeLabel(edge.type);
 
-      let edgeLine = `${sourceTitle} --${edgeLabel}-->  ${targetTitle}`;
-
-      // 添加可选属性（只在非默认值时显示）
-      const attrs: string[] = [];
-      // strength 默认值是 50，只在非默认值时显示
-      if (edge.strength !== undefined && edge.strength !== 50) {
-        attrs.push(`强度: ${edge.strength}%`);
-      }
-      if (edge.description) {
-        attrs.push(edge.description);
-      }
-      if (attrs.length > 0) {
-        edgeLine += ` (${attrs.join(', ')})`;
-      }
-
-      lines.push(edgeLine);
+      // 格式：A -关系-> B
+      lines.push(`${source} -${relation}-> ${target}`);
     });
   }
 
@@ -428,7 +385,7 @@ export function exportSceneAsText(
 }
 
 /**
- * 导出整个项目为文本格式（AI友好）
+ * 导出整个项目为文本格式（简洁版）
  */
 export function exportProjectAsText(
   projectTitle: string,
@@ -441,9 +398,9 @@ export function exportProjectAsText(
   const lines: string[] = [];
 
   // 项目标题
-  lines.push(`# 项目: ${projectTitle}`);
+  lines.push(`# ${projectTitle}`);
   if (projectDescription) {
-    lines.push(`> ${projectDescription}`);
+    lines.push(projectDescription);
   }
   lines.push('');
 
@@ -463,28 +420,27 @@ export function exportProjectAsText(
         sceneEdges
       );
       lines.push(sceneText);
-      lines.push('');
       lines.push('---');
       lines.push('');
     });
   }
 
-  // 所有节点概览（不在任何场景中的节点）
+  // 不在任何场景中的节点
   const allSceneNodeIds = new Set<string>();
   sceneNodeMapping.forEach(nodeIds => nodeIds.forEach(id => allSceneNodeIds.add(id)));
 
   const orphanNodes = nodes.filter(n => !allSceneNodeIds.has(n.id));
   if (orphanNodes.length > 0) {
-    lines.push('## 其他节点（未分配到场景）');
+    lines.push('## 未分配节点');
     orphanNodes.forEach(node => {
-      let nodeLine = `[${getNodeTypeLabel(node.type)}] ${node.title}`;
-      // 添加状态信息
-      if (node.baseStatus) {
-        nodeLine += ` (状态: ${node.baseStatus})`;
+      const typeLabel = getNodeTypeLabel(node.type);
+      const statusLabel = node.baseStatus ? STATUS_LABELS[node.baseStatus] || node.baseStatus : '';
+      let line = `${typeLabel}:${node.title}`;
+      if (statusLabel) {
+        line += `[${statusLabel}]`;
       }
-      lines.push(nodeLine);
+      lines.push(line);
     });
-    lines.push('');
   }
 
   return lines.join('\n');
