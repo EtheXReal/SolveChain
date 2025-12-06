@@ -76,10 +76,16 @@ export interface ThemeColors {
   glow?: string;
   gradient?: string;
   shadow: string;
+  shadowHover?: string;       // 悬停时的阴影 (光影深度)
+  shadowActive?: string;      // 点击时的阴影
   // 毛玻璃效果
-  glass?: string;           // backdrop-filter 值
-  glassBg?: string;         // 毛玻璃背景色 (半透明)
-  glassBorder?: string;     // 毛玻璃边框色
+  glass?: string;             // backdrop-filter 值
+  glassBg?: string;           // 毛玻璃背景色 (半透明)
+  glassBorder?: string;       // 毛玻璃边框色
+  // 内发光效果 (营造深度感)
+  innerGlow?: string;         // 内部光晕
+  // 顶部高光 (模拟光照)
+  topHighlight?: string;      // 顶部边缘高光
 }
 
 export interface Theme {
@@ -240,14 +246,23 @@ export const midnightTheme: Theme = {
     canvasConnectTarget: '#8b5cf6',
     canvasConnecting: '#4ade80',
 
-    // 流光效果
+    // 流光效果 - 光影与深度
     glow: '0 0 20px rgba(139, 92, 246, 0.3)',
     gradient: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 50%, #ec4899 100%)',
+    // 多层阴影创造深度感 - 外部暗影 + 霓虹光晕
     shadow: '0 4px 24px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.08)',
+    // 悬停时阴影上浮 + 光晕增强 (生命力与反馈)
+    shadowHover: '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 60px rgba(139, 92, 246, 0.15)',
+    // 点击时阴影收缩 (按下感)
+    shadowActive: '0 2px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.1)',
     // 毛玻璃效果
-    glass: 'blur(12px) saturate(180%)',
-    glassBg: 'rgba(18, 18, 26, 0.75)',
-    glassBorder: 'rgba(255, 255, 255, 0.08)',
+    glass: 'blur(16px) saturate(180%)',
+    glassBg: 'rgba(16, 16, 24, 0.72)',
+    glassBorder: 'rgba(255, 255, 255, 0.06)',
+    // 内发光 - 营造玻璃边缘的微妙光晕
+    innerGlow: 'inset 0 1px 0 0 rgba(255, 255, 255, 0.05), inset 0 -1px 0 0 rgba(0, 0, 0, 0.1)',
+    // 顶部高光 - 模拟来自上方的光源
+    topHighlight: 'linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 50%)',
   },
   borderRadius: '12px',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',

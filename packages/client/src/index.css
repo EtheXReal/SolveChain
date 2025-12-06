@@ -94,6 +94,86 @@ body {
   border-color: rgba(108, 92, 231, 0.5);
 }
 
+/* 暗夜主题毛玻璃面板 - 增强光影效果 */
+.theme-midnight .glass-panel {
+  position: relative;
+  backdrop-filter: var(--glass, blur(16px) saturate(180%));
+  -webkit-backdrop-filter: var(--glass, blur(16px) saturate(180%));
+  background: var(--glass-bg, rgba(16, 16, 24, 0.72));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+  box-shadow: var(--shadow);
+  /* 内发光效果 - 营造玻璃质感 */
+  box-shadow:
+    var(--shadow),
+    var(--inner-glow, inset 0 1px 0 0 rgba(255, 255, 255, 0.05));
+}
+
+/* 顶部高光伪元素 - 模拟光照 */
+.theme-midnight .glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: var(--top-highlight, linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%));
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* 暗夜主题按钮交互反馈 */
+.theme-midnight button,
+.theme-midnight .interactive {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-midnight button:hover,
+.theme-midnight .interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover, 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 60px rgba(139, 92, 246, 0.15));
+}
+
+.theme-midnight button:active,
+.theme-midnight .interactive:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: var(--shadow-active, 0 2px 12px rgba(0, 0, 0, 0.4));
+}
+
+/* 暗夜主题卡片悬停效果 */
+.theme-midnight .card-interactive {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-midnight .card-interactive::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(139, 92, 246, 0.05),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.theme-midnight .card-interactive:hover::after {
+  left: 100%;
+}
+
+.theme-midnight .card-interactive:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(139, 92, 246, 0.1),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
 /* 极光主题 */
 .theme-aurora {
   background: linear-gradient(135deg, #fafbff 0%, #f0f4ff 50%, #e5ebff 100%);
@@ -251,6 +331,115 @@ body {
 
 .theme-midnight .animate-glow {
   animation: pulse-glow 2s infinite;
+}
+
+/* 呼吸光效 - 用于聚焦/选中状态 */
+@keyframes breathe-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.4);
+  }
+}
+
+.theme-midnight .animate-breathe {
+  animation: breathe-glow 3s ease-in-out infinite;
+}
+
+/* 流光边框效果 */
+@keyframes border-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.theme-midnight .gradient-border {
+  position: relative;
+}
+
+.theme-midnight .gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4, #ec4899, #8b5cf6);
+  background-size: 300% 300%;
+  animation: border-flow 4s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* 微光扫过效果 */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.theme-midnight .shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-midnight .shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.03),
+    transparent
+  );
+  animation: shimmer 3s infinite;
+}
+
+/* 涟漪点击效果 */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.theme-midnight .ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-midnight .ripple::after {
+  content: '';
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+  transform: scale(0);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.theme-midnight .ripple:active::after {
+  animation: ripple 0.6s ease-out;
 }
 
 @keyframes aurora-shift {

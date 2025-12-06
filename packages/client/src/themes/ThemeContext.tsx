@@ -119,6 +119,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (colors.glassBorder) {
       root.style.setProperty('--glass-border', colors.glassBorder);
     }
+    // 光影与深度效果
+    if (colors.shadowHover) {
+      root.style.setProperty('--shadow-hover', colors.shadowHover);
+    }
+    if (colors.shadowActive) {
+      root.style.setProperty('--shadow-active', colors.shadowActive);
+    }
+    if (colors.innerGlow) {
+      root.style.setProperty('--inner-glow', colors.innerGlow);
+    }
+    if (colors.topHighlight) {
+      root.style.setProperty('--top-highlight', colors.topHighlight);
+    }
 
     // 设置主题类名
     document.body.className = `theme-${themeId}`;
