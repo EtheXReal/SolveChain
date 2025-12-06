@@ -110,6 +110,24 @@ export default function FocusView({
     return colorMap[nodeType] || canvasColors.nodeFact;
   }, [canvasColors]);
 
+  // 根据边类型获取主题感知的颜色
+  const getEdgeColor = useCallback((edgeType: string) => {
+    const colorMap: Record<string, string> = {
+      depends: canvasColors.edgeDepends,
+      supports: canvasColors.edgeSupports,
+      achieves: canvasColors.edgeAchieves,
+      hinders: canvasColors.edgeHinders,
+      causes: canvasColors.edgeCauses,
+      conflicts: canvasColors.edgeConflicts,
+      // 兼容旧类型
+      prerequisite: canvasColors.edgeDepends,
+      opposes: canvasColors.edgeHinders,
+      leads_to: canvasColors.edgeCauses,
+      related: canvasColors.edgeDepends,
+    };
+    return colorMap[edgeType] || canvasColors.edgeDepends;
+  }, [canvasColors]);
+
   // 如果有外部 onCreateEdge，使用本地连线状态；否则使用 graphStore
   const useExternalConnect = !!onCreateEdge;
   const [localConnectingState, setLocalConnectingState] = useState<ConnectingState | null>(null);
@@ -1099,7 +1117,8 @@ export default function FocusView({
     if (!sourcePos || !targetPos) return null;
 
     const config = EDGE_TYPE_CONFIG[edge.type];
-    const color = config?.color || '#999';
+    // 使用主题感知的边颜色
+    const color = getEdgeColor(edge.type);
     const isRelatedToFocus = focusInfo?.relatedEdgeIds.has(edge.id) ?? false;
     const isUnrelated = focusedNodeId && !isRelatedToFocus;
     const isSelected = selectedEdgeId === edge.id;
@@ -1286,7 +1305,7 @@ export default function FocusView({
               .filter(([, config]) => !config.deprecated)
               .map(([type, config]) => (
                 <div key={type} className="flex items-center gap-1" title={config.description}>
-                  <div className="w-3 h-0.5" style={{ backgroundColor: config.color }}></div>
+                  <div className="w-3 h-0.5" style={{ backgroundColor: getEdgeColor(type) }}></div>
                   <span>{config.symbol} {config.label}</span>
                 </div>
               ))}
@@ -1320,7 +1339,8 @@ export default function FocusView({
             }}
           >
             <defs>
-              {Object.entries(EDGE_TYPE_CONFIG).map(([type, config]) => (
+              {/* 使用主题感知的边颜色定义箭头 */}
+              {Object.keys(EDGE_TYPE_CONFIG).map((type) => (
                 <marker
                   key={type}
                   id={`arrow-${type}`}
@@ -1331,7 +1351,7 @@ export default function FocusView({
                   markerHeight="6"
                   orient="auto-start-reverse"
                 >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill={config.color} />
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill={getEdgeColor(type)} />
                 </marker>
               ))}
               {/* CONFLICTS 的起点箭头（用于双向显示） */}
@@ -1344,7 +1364,7 @@ export default function FocusView({
                 markerHeight="6"
                 orient="auto"
               >
-                <path d="M 10 0 L 0 5 L 10 10 z" fill={EDGE_TYPE_CONFIG[EdgeType.CONFLICTS]?.color || '#dc2626'} />
+                <path d="M 10 0 L 0 5 L 10 10 z" fill={getEdgeColor(EdgeType.CONFLICTS)} />
               </marker>
               <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
                 <path d="M 100 0 L 0 0 0 100" fill="none" stroke={canvasColors.canvasGrid} strokeWidth="1" />

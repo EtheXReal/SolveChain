@@ -70,6 +70,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty('--color-node-conclusion', colors.nodeConclusion);
     root.style.setProperty('--color-node-conclusion-bg', colors.nodeConclusionBg);
 
+    // 边/关系颜色
+    root.style.setProperty('--color-edge-depends', colors.edgeDepends);
+    root.style.setProperty('--color-edge-supports', colors.edgeSupports);
+    root.style.setProperty('--color-edge-achieves', colors.edgeAchieves);
+    root.style.setProperty('--color-edge-hinders', colors.edgeHinders);
+    root.style.setProperty('--color-edge-causes', colors.edgeCauses);
+    root.style.setProperty('--color-edge-conflicts', colors.edgeConflicts);
+
     // 状态色
     root.style.setProperty('--color-success', colors.success);
     root.style.setProperty('--color-success-bg', colors.successBg);

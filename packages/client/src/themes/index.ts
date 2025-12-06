@@ -1,5 +1,10 @@
 /**
  * 主题系统 - SolveChain UI Themes
+ *
+ * 设计原则：
+ * 1. 节点颜色需要在画布上清晰可见
+ * 2. 边/线条颜色需要与节点形成对比
+ * 3. 暗色主题需要使用亮色节点背景确保可读性
  */
 
 export type ThemeId = 'classic' | 'midnight' | 'aurora';
@@ -24,7 +29,7 @@ export interface ThemeColors {
   secondary: string;
   accent: string;
 
-  // 节点类型颜色
+  // 节点类型颜色（边框/强调色 + 背景色）
   nodeGoal: string;
   nodeGoalBg: string;
   nodeAction: string;
@@ -37,6 +42,14 @@ export interface ThemeColors {
   nodeConstraintBg: string;
   nodeConclusion: string;
   nodeConclusionBg: string;
+
+  // 边/关系类型颜色
+  edgeDepends: string;      // 依赖 - 中性色
+  edgeSupports: string;     // 促成 - 正向绿
+  edgeAchieves: string;     // 实现 - 蓝色
+  edgeHinders: string;      // 阻碍 - 橙色
+  edgeCauses: string;       // 导致 - 紫色
+  edgeConflicts: string;    // 矛盾 - 红色
 
   // 状态色
   success: string;
@@ -119,6 +132,14 @@ export const classicTheme: Theme = {
     nodeConclusion: '#7c5cf6', // 紫色 - 结论
     nodeConclusionBg: '#f2edff',
 
+    // 边/关系颜色 - 亮色主题用较深的颜色
+    edgeDepends: '#78716c',     // 石灰色 - 依赖
+    edgeSupports: '#16a34a',    // 绿色 - 促成
+    edgeAchieves: '#2563eb',    // 蓝色 - 实现
+    edgeHinders: '#ea580c',     // 橙色 - 阻碍
+    edgeCauses: '#9333ea',      // 紫色 - 导致
+    edgeConflicts: '#dc2626',   // 红色 - 矛盾
+
     success: '#10b981',
     successBg: '#e6f9f1',
     warning: '#f59e0b',
@@ -148,66 +169,74 @@ export const classicTheme: Theme = {
 };
 
 // ============ 暗夜主题 (Midnight) ============
-// 参考 Linear/Notion 暗色模式 - 统一深灰卡片 + 柔和彩色标识
+// 参考 Figma/Miro 暗色画布 - 深色背景 + 亮色卡片确保可读性
 export const midnightTheme: Theme = {
   id: 'midnight',
   name: '暗夜',
-  description: '专业暗色，简洁高效',
+  description: '专业暗色，清晰可读',
   colors: {
-    // 深灰色层次背景
-    background: '#0f0f0f',
-    backgroundSecondary: '#171717',
-    backgroundTertiary: '#1f1f1f',
-    surface: '#1a1a1a',
-    surfaceHover: '#252525',
-    border: '#2e2e2e',
-    borderLight: '#252525',
-    text: '#ebebeb',
-    textSecondary: '#a1a1a1',
-    textMuted: '#5c5c5c',
+    // 深色界面背景
+    background: '#18181b',
+    backgroundSecondary: '#1f1f23',
+    backgroundTertiary: '#27272a',
+    surface: '#27272a',
+    surfaceHover: '#3f3f46',
+    border: '#3f3f46',
+    borderLight: '#2d2d30',
+    text: '#fafafa',
+    textSecondary: '#a1a1aa',
+    textMuted: '#71717a',
 
-    // 主色调 - 柔和的蓝紫
-    primary: '#6366f1',
-    primaryHover: '#818cf8',
-    primaryLight: '#1e1b4b',
-    secondary: '#22c55e',
-    accent: '#f43f5e',
+    // 主色调
+    primary: '#818cf8',
+    primaryHover: '#a5b4fc',
+    primaryLight: '#312e81',
+    secondary: '#34d399',
+    accent: '#fb7185',
 
-    // 节点配色 - 统一深灰背景 + 柔和彩色边框
-    nodeGoal: '#f43f5e',      // 玫红
-    nodeGoalBg: '#1f1f1f',
-    nodeAction: '#22c55e',    // 翠绿
-    nodeActionBg: '#1f1f1f',
-    nodeFact: '#3b82f6',      // 蓝色
-    nodeFactBg: '#1f1f1f',
-    nodeAssumption: '#eab308', // 琥珀
-    nodeAssumptionBg: '#1f1f1f',
-    nodeConstraint: '#a855f7', // 紫色
-    nodeConstraintBg: '#1f1f1f',
-    nodeConclusion: '#06b6d4', // 青色
-    nodeConclusionBg: '#1f1f1f',
+    // 节点配色 - 亮色卡片背景 + 彩色左边框（参考 Notion/Linear）
+    nodeGoal: '#fb7185',      // 玫红
+    nodeGoalBg: '#fef2f2',    // 浅红背景
+    nodeAction: '#34d399',    // 翠绿
+    nodeActionBg: '#ecfdf5',  // 浅绿背景
+    nodeFact: '#60a5fa',      // 天蓝
+    nodeFactBg: '#eff6ff',    // 浅蓝背景
+    nodeAssumption: '#fbbf24', // 琥珀
+    nodeAssumptionBg: '#fffbeb', // 浅黄背景
+    nodeConstraint: '#f87171', // 珊瑚红
+    nodeConstraintBg: '#fef2f2', // 浅红背景
+    nodeConclusion: '#a78bfa', // 紫色
+    nodeConclusionBg: '#f5f3ff', // 浅紫背景
 
-    success: '#22c55e',
-    successBg: '#14532d',
-    warning: '#eab308',
-    warningBg: '#422006',
-    error: '#f43f5e',
-    errorBg: '#4c0519',
-    info: '#3b82f6',
-    infoBg: '#1e3a5f',
+    // 边/关系颜色 - 暗色主题用亮色确保可见
+    edgeDepends: '#a1a1aa',     // 灰色 - 依赖
+    edgeSupports: '#34d399',    // 翠绿 - 促成
+    edgeAchieves: '#60a5fa',    // 天蓝 - 实现
+    edgeHinders: '#fb923c',     // 橙色 - 阻碍
+    edgeCauses: '#c084fc',      // 紫色 - 导致
+    edgeConflicts: '#f87171',   // 珊瑚红 - 矛盾
 
-    // 画布 - 纯净深色
-    canvasBg: '#121212',
-    canvasGrid: '#1e1e1e',
-    canvasBorder: '#333333',
-    canvasNodeBorder: '#3a3a3a',
-    canvasNodeText: '#ebebeb',
-    canvasNodeTextSecondary: '#888888',
-    canvasConnectSource: '#22c55e',
-    canvasConnectTarget: '#6366f1',
-    canvasConnecting: '#22c55e',
+    success: '#34d399',
+    successBg: '#064e3b',
+    warning: '#fbbf24',
+    warningBg: '#78350f',
+    error: '#f87171',
+    errorBg: '#7f1d1d',
+    info: '#60a5fa',
+    infoBg: '#1e3a8a',
 
-    shadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+    // 画布 - 深灰色画布背景
+    canvasBg: '#1a1a1e',
+    canvasGrid: '#2d2d32',
+    canvasBorder: '#52525b',
+    canvasNodeBorder: '#71717a',
+    canvasNodeText: '#27272a',    // 深色文字（因为节点背景是亮色）
+    canvasNodeTextSecondary: '#52525b',
+    canvasConnectSource: '#34d399',
+    canvasConnectTarget: '#818cf8',
+    canvasConnecting: '#34d399',
+
+    shadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
   },
   borderRadius: '8px',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -254,6 +283,14 @@ export const auroraTheme: Theme = {
     nodeConstraintBg: 'rgba(255, 85, 96, 0.12)',
     nodeConclusion: '#9068f0', // 极光紫
     nodeConclusionBg: 'rgba(144, 104, 240, 0.12)',
+
+    // 边/关系颜色 - 极光风格
+    edgeDepends: '#8585a8',     // 灰紫 - 依赖
+    edgeSupports: '#00c9a7',    // 青色 - 促成
+    edgeAchieves: '#4d8dff',    // 蓝色 - 实现
+    edgeHinders: '#ffa040',     // 橙色 - 阻碍
+    edgeCauses: '#9068f0',      // 紫色 - 导致
+    edgeConflicts: '#ff5560',   // 红色 - 矛盾
 
     success: '#00c9a7',
     successBg: 'rgba(0, 201, 167, 0.12)',

@@ -325,6 +325,7 @@ export const NODE_TYPE_CONFIG: Record<string, {
 };
 
 // ============ 关系类型配置 ============
+// 注意：颜色会根据主题动态覆盖，这里定义默认值（适用于亮色主题）
 export const EDGE_TYPE_CONFIG: Record<string, {
   label: string;
   symbol: string;
@@ -336,42 +337,42 @@ export const EDGE_TYPE_CONFIG: Record<string, {
   [EdgeType.DEPENDS]: {
     label: '依赖',
     symbol: '←',
-    color: '#9E9E9E',
+    color: '#78716c',       // 石灰色 - 中性依赖关系
     lineStyle: 'solid',
     description: 'B要成立，必须先有A'
   },
   [EdgeType.SUPPORTS]: {
     label: '促成',
     symbol: '→',
-    color: '#4CAF50',
+    color: '#22c55e',       // 翠绿 - 正向支持
     lineStyle: 'solid',
     description: 'A成立会帮助B成立'
   },
   [EdgeType.ACHIEVES]: {
     label: '实现',
     symbol: '⊢',
-    color: '#2196F3',
+    color: '#3b82f6',       // 蓝色 - 实现目标
     lineStyle: 'solid',
     description: '行动A可以满足约束或目标B'
   },
   [EdgeType.HINDERS]: {
     label: '阻碍',
     symbol: '⊣',
-    color: '#F44336',
+    color: '#f97316',       // 橙色 - 阻碍警告
     lineStyle: 'solid',
     description: 'A成立会妨碍B成立'
   },
   [EdgeType.CAUSES]: {
     label: '导致',
     symbol: '⇒',
-    color: '#FF9800',
+    color: '#a855f7',       // 紫色 - 因果关系
     lineStyle: 'solid',
     description: 'A发生会引起B发生'
   },
   [EdgeType.CONFLICTS]: {
     label: '矛盾',
     symbol: '⊥',
-    color: '#000000',
+    color: '#ef4444',       // 红色 - 冲突警示
     lineStyle: 'dashed',
     description: 'A和B不能同时为真'
   },
@@ -379,7 +380,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
   [EdgeType.PREREQUISITE]: {
     label: '前提',
     symbol: '←',
-    color: '#9E9E9E',
+    color: '#78716c',
     lineStyle: 'solid',
     description: '（已废弃，请使用"依赖"）',
     deprecated: true
@@ -387,7 +388,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
   [EdgeType.OPPOSES]: {
     label: '反对',
     symbol: '⊣',
-    color: '#F44336',
+    color: '#f97316',
     lineStyle: 'solid',
     description: '（已废弃，请使用"阻碍"）',
     deprecated: true
@@ -395,7 +396,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
   [EdgeType.LEADS_TO]: {
     label: '导致',
     symbol: '⇒',
-    color: '#FF9800',
+    color: '#a855f7',
     lineStyle: 'solid',
     description: '（已废弃，请使用"导致(causes)"）',
     deprecated: true
@@ -403,7 +404,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
   [EdgeType.RELATED]: {
     label: '相关',
     symbol: '~',
-    color: '#8b5cf6',
+    color: '#64748b',
     lineStyle: 'dashed',
     description: '（已废弃，信息量太低）',
     deprecated: true
