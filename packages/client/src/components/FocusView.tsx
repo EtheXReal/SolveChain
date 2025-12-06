@@ -1045,8 +1045,22 @@ export default function FocusView({
           />
         )}
 
-        {/* 霓虹发光层 - 仅在 neon 模式下显示 */}
-        {theme.nodeStyle === 'neon' && (isFocused || isRelated) && (
+        {/* 节点阴影层 - 创造深度感 (仅 neon 模式) */}
+        {theme.nodeStyle === 'neon' && !isUnrelated && (
+          <rect
+            x={-75}
+            y={-30}
+            width={150}
+            height={60}
+            rx={8}
+            fill="rgba(0,0,0,0.4)"
+            filter="url(#node-shadow)"
+            transform="translate(0, 2)"
+          />
+        )}
+
+        {/* 霓虹发光层 - 所有节点都有基础光晕 */}
+        {theme.nodeStyle === 'neon' && !isUnrelated && (
           <rect
             x={-77}
             y={-32}
@@ -1055,9 +1069,9 @@ export default function FocusView({
             rx={10}
             fill="none"
             stroke={nodeColor}
-            strokeWidth={2}
-            opacity={0.6}
-            filter="url(#neon-glow-strong)"
+            strokeWidth={isFocused ? 3 : isRelated ? 2 : 1.5}
+            opacity={isFocused ? 0.8 : isRelated ? 0.6 : 0.4}
+            filter={isFocused || isRelated ? "url(#neon-glow-strong)" : "url(#neon-glow)"}
           />
         )}
 
@@ -1069,11 +1083,24 @@ export default function FocusView({
           height={60}
           rx={8}
           fill={nodeBgColor}
-          stroke={isConnectSource ? canvasColors.canvasConnectSource : isFocused ? nodeColor : isRelated ? nodeColor : nodeColor}
-          strokeWidth={isConnectSource ? 3 : isFocused ? 3 : isRelated ? 2 : 1.5}
+          stroke={isConnectSource ? canvasColors.canvasConnectSource : nodeColor}
+          strokeWidth={isConnectSource ? 3 : isFocused ? 2.5 : isRelated ? 2 : 1.5}
           filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#neon-glow)' : isDragging ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' : undefined}
           opacity={isUnrelated ? 0.4 : 1}
         />
+
+        {/* 顶部高光层 - 模拟光照 (仅 neon 模式) */}
+        {theme.nodeStyle === 'neon' && !isUnrelated && (
+          <rect
+            x={-75}
+            y={-30}
+            width={150}
+            height={30}
+            rx={8}
+            fill="url(#node-highlight)"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
 
         {/* 类型标记 */}
         <circle cx={-55} cy={-10} r={5} fill={nodeColor} />
@@ -1172,44 +1199,64 @@ export default function FocusView({
           />
         )}
 
-        {/* 选中高亮 / 霓虹发光层 */}
-        {(isSelected || (theme.nodeStyle === 'neon' && isRelatedToFocus)) && (
+        {/* 霓虹模式 - 所有边都有基础发光 */}
+        {theme.nodeStyle === 'neon' && !isUnrelated && (
           <line
             x1={startX}
             y1={startY}
             x2={endX}
             y2={endY}
             stroke={color}
-            strokeWidth={isSelected ? 6 : 4}
-            opacity={0.4}
-            filter={theme.nodeStyle === 'neon' ? 'url(#neon-glow)' : undefined}
+            strokeWidth={isSelected ? 8 : isRelatedToFocus ? 6 : 4}
+            opacity={isSelected ? 0.5 : isRelatedToFocus ? 0.4 : 0.25}
+            filter={isRelatedToFocus ? 'url(#edge-pulse)' : 'url(#edge-glow)'}
+            strokeLinecap="round"
           />
         )}
 
+        {/* 主边线 */}
         <line
           x1={startX}
           y1={startY}
           x2={endX}
           y2={endY}
           stroke={color}
-          strokeWidth={isSelected ? 4 : isRelatedToFocus ? 2.5 : 1.5}
+          strokeWidth={isSelected ? 3.5 : isRelatedToFocus ? 2.5 : theme.nodeStyle === 'neon' ? 2 : 1.5}
           markerStart={edge.type === EdgeType.CONFLICTS ? 'url(#arrow-conflicts-start)' : undefined}
           markerEnd={`url(#arrow-${edge.type})`}
-          filter={theme.nodeStyle === 'neon' && isRelatedToFocus ? 'url(#neon-glow)' : undefined}
+          filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#edge-glow)' : undefined}
+          strokeLinecap="round"
         />
 
-        {(isRelatedToFocus || isSelected || isEditMode) && (
-          <text
-            x={(startX + endX) / 2}
-            y={(startY + endY) / 2 - 8}
-            textAnchor="middle"
-            fontSize={11}
-            fill={color}
-            fontWeight="bold"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            {config?.label || ''}
-          </text>
+        {/* 边标签 - neon 模式下显示更多 */}
+        {(isRelatedToFocus || isSelected || isEditMode || (theme.nodeStyle === 'neon' && !isUnrelated)) && (
+          <g>
+            {/* 标签背景 (仅 neon 模式) */}
+            {theme.nodeStyle === 'neon' && (
+              <rect
+                x={(startX + endX) / 2 - 20}
+                y={(startY + endY) / 2 - 18}
+                width={40}
+                height={16}
+                rx={4}
+                fill="rgba(10, 10, 15, 0.7)"
+                opacity={isRelatedToFocus || isSelected ? 1 : 0.6}
+              />
+            )}
+            <text
+              x={(startX + endX) / 2}
+              y={(startY + endY) / 2 - 6}
+              textAnchor="middle"
+              fontSize={10}
+              fill={color}
+              fontWeight={isRelatedToFocus || isSelected ? 'bold' : 'normal'}
+              opacity={isRelatedToFocus || isSelected ? 1 : 0.8}
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+              filter={theme.nodeStyle === 'neon' && (isRelatedToFocus || isSelected) ? 'url(#edge-glow)' : undefined}
+            >
+              {config?.label || ''}
+            </text>
+          </g>
         )}
       </g>
     );
@@ -1361,17 +1408,46 @@ export default function FocusView({
               {/* 霓虹发光滤镜 - 用于节点边框发光效果 */}
               {theme.nodeStyle === 'neon' && (
                 <>
+                  {/* 基础霓虹光晕 - 用于所有节点 */}
                   <filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feGaussianBlur stdDeviation="4" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
+                  {/* 强光晕 - 用于聚焦/选中节点 */}
                   <filter id="neon-glow-strong" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="6" result="blur" />
+                    <feGaussianBlur stdDeviation="8" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  {/* 柔和阴影 - 用于节点卡片深度感 */}
+                  <filter id="node-shadow" x="-30%" y="-30%" width="160%" height="180%">
+                    <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="rgba(0,0,0,0.5)" />
+                  </filter>
+                  {/* 内发光效果 - 顶部高光 */}
+                  <linearGradient id="node-highlight" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
+                    <stop offset="50%" stopColor="rgba(255,255,255,0)" />
+                  </linearGradient>
+                  {/* 边线发光滤镜 */}
+                  <filter id="edge-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="2" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  {/* 脉冲动画边滤镜 */}
+                  <filter id="edge-pulse" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="3" result="blur">
+                      <animate attributeName="stdDeviation" values="2;4;2" dur="2s" repeatCount="indefinite" />
+                    </feGaussianBlur>
+                    <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
