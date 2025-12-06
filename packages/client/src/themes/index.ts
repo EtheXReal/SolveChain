@@ -48,6 +48,17 @@ export interface ThemeColors {
   info: string;
   infoBg: string;
 
+  // 画布专用色
+  canvasBg: string;
+  canvasGrid: string;
+  canvasBorder: string;
+  canvasNodeBorder: string;
+  canvasNodeText: string;
+  canvasNodeTextSecondary: string;
+  canvasConnectSource: string;
+  canvasConnectTarget: string;
+  canvasConnecting: string;
+
   // 特殊效果
   glow?: string;
   gradient?: string;
@@ -69,106 +80,135 @@ export interface Theme {
 }
 
 // ============ 经典主题 (Classic) ============
+// 采用柔和的蓝灰色调，专业稳重，适合日常工作
 export const classicTheme: Theme = {
   id: 'classic',
   name: '经典',
   description: '简洁专业的默认主题',
   colors: {
-    background: '#f8fafc',
-    backgroundSecondary: '#f1f5f9',
-    backgroundTertiary: '#e2e8f0',
+    // 背景采用温暖的灰白色，降低视觉疲劳
+    background: '#f7f8fa',
+    backgroundSecondary: '#eef0f4',
+    backgroundTertiary: '#e3e6ec',
     surface: '#ffffff',
-    surfaceHover: '#f8fafc',
-    border: '#e2e8f0',
-    borderLight: '#f1f5f9',
-    text: '#1e293b',
-    textSecondary: '#475569',
-    textMuted: '#94a3b8',
+    surfaceHover: '#f9fafb',
+    border: '#dde1e8',
+    borderLight: '#ebeef3',
+    text: '#1f2937',
+    textSecondary: '#4b5563',
+    textMuted: '#9ca3af',
 
-    primary: '#6366f1',
-    primaryHover: '#4f46e5',
-    primaryLight: '#e0e7ff',
-    secondary: '#8b5cf6',
-    accent: '#ec4899',
+    // 使用沉稳的蓝色作为主色调
+    primary: '#4f6af0',
+    primaryHover: '#3d5ce0',
+    primaryLight: '#e8ecff',
+    secondary: '#7c5cf6',
+    accent: '#e85d8c',
 
-    nodeGoal: '#ec4899',
-    nodeGoalBg: '#fce7f3',
-    nodeAction: '#22c55e',
-    nodeActionBg: '#dcfce7',
-    nodeFact: '#3b82f6',
-    nodeFactBg: '#dbeafe',
-    nodeAssumption: '#f59e0b',
-    nodeAssumptionBg: '#fef3c7',
-    nodeConstraint: '#ef4444',
-    nodeConstraintBg: '#fee2e2',
-    nodeConclusion: '#8b5cf6',
-    nodeConclusionBg: '#f3e8ff',
+    // 节点颜色 - 使用和谐的色彩组合，饱和度适中
+    nodeGoal: '#e85d8c',      // 粉红色 - 目标
+    nodeGoalBg: '#fdeef3',
+    nodeAction: '#10b981',    // 翠绿色 - 行动
+    nodeActionBg: '#e6f9f1',
+    nodeFact: '#3b82f6',      // 天蓝色 - 事实
+    nodeFactBg: '#e8f2ff',
+    nodeAssumption: '#f59e0b', // 琥珀色 - 假设
+    nodeAssumptionBg: '#fef6e6',
+    nodeConstraint: '#ef4444', // 红色 - 约束
+    nodeConstraintBg: '#fee8e8',
+    nodeConclusion: '#7c5cf6', // 紫色 - 结论
+    nodeConclusionBg: '#f2edff',
 
-    success: '#22c55e',
-    successBg: '#dcfce7',
+    success: '#10b981',
+    successBg: '#e6f9f1',
     warning: '#f59e0b',
-    warningBg: '#fef3c7',
+    warningBg: '#fef6e6',
     error: '#ef4444',
-    errorBg: '#fee2e2',
+    errorBg: '#fee8e8',
     info: '#3b82f6',
-    infoBg: '#dbeafe',
+    infoBg: '#e8f2ff',
 
-    shadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+    // 画布配色 - 柔和的灰白色调
+    canvasBg: '#fcfcfd',
+    canvasGrid: '#e5e8ef',
+    canvasBorder: '#c8cdd6',
+    canvasNodeBorder: '#cfd4dc',
+    canvasNodeText: '#374151',
+    canvasNodeTextSecondary: '#6b7280',
+    canvasConnectSource: '#10b981',
+    canvasConnectTarget: '#4f6af0',
+    canvasConnecting: '#10b981',
+
+    shadow: '0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06)',
   },
-  borderRadius: '8px',
-  fontFamily: 'Inter, system-ui, sans-serif',
+  borderRadius: '10px',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   nodeStyle: 'elevated',
   animationIntensity: 'subtle',
 };
 
 // ============ 暗夜主题 (Midnight) ============
+// 深邃的紫蓝色调，霓虹光效，适合夜间工作
 export const midnightTheme: Theme = {
   id: 'midnight',
   name: '暗夜',
   description: '深邃优雅，霓虹点缀',
   colors: {
-    background: '#0f0f1a',
-    backgroundSecondary: '#16162a',
-    backgroundTertiary: '#1e1e3a',
-    surface: '#1a1a2e',
-    surfaceHover: '#252545',
-    border: '#2d2d5a',
-    borderLight: '#3d3d7a',
-    text: '#e4e4f0',
-    textSecondary: '#a0a0c0',
-    textMuted: '#6060a0',
+    // 深邃的蓝紫色渐变背景
+    background: '#0d0d18',
+    backgroundSecondary: '#131325',
+    backgroundTertiary: '#1a1a35',
+    surface: '#181830',
+    surfaceHover: '#222245',
+    border: '#2a2a50',
+    borderLight: '#353565',
+    text: '#e8e8f4',
+    textSecondary: '#a8a8c8',
+    textMuted: '#6868a0',
 
-    primary: '#6c5ce7',
-    primaryHover: '#8075f0',
-    primaryLight: '#2d2d5a',
-    secondary: '#a855f7',
+    // 霓虹紫作为主色，更加鲜明
+    primary: '#7c6cf0',
+    primaryHover: '#9080ff',
+    primaryLight: '#2a2850',
+    secondary: '#a78bfa',
     accent: '#f472b6',
 
-    // 霓虹风格节点颜色
-    nodeGoal: '#ff6b9d',
-    nodeGoalBg: 'rgba(255, 107, 157, 0.15)',
-    nodeAction: '#4ade80',
-    nodeActionBg: 'rgba(74, 222, 128, 0.15)',
-    nodeFact: '#60a5fa',
-    nodeFactBg: 'rgba(96, 165, 250, 0.15)',
-    nodeAssumption: '#fbbf24',
-    nodeAssumptionBg: 'rgba(251, 191, 36, 0.15)',
-    nodeConstraint: '#f87171',
-    nodeConstraintBg: 'rgba(248, 113, 113, 0.15)',
-    nodeConclusion: '#c084fc',
-    nodeConclusionBg: 'rgba(192, 132, 252, 0.15)',
+    // 霓虹风格节点颜色 - 更加鲜艳协调
+    nodeGoal: '#ff6090',      // 霓虹粉
+    nodeGoalBg: 'rgba(255, 96, 144, 0.18)',
+    nodeAction: '#00e5a0',    // 霓虹绿
+    nodeActionBg: 'rgba(0, 229, 160, 0.15)',
+    nodeFact: '#4da8ff',      // 霓虹蓝
+    nodeFactBg: 'rgba(77, 168, 255, 0.15)',
+    nodeAssumption: '#ffb340', // 霓虹橙
+    nodeAssumptionBg: 'rgba(255, 179, 64, 0.15)',
+    nodeConstraint: '#ff5c5c', // 霓虹红
+    nodeConstraintBg: 'rgba(255, 92, 92, 0.15)',
+    nodeConclusion: '#b380ff', // 霓虹紫
+    nodeConclusionBg: 'rgba(179, 128, 255, 0.15)',
 
-    success: '#4ade80',
-    successBg: 'rgba(74, 222, 128, 0.15)',
-    warning: '#fbbf24',
-    warningBg: 'rgba(251, 191, 36, 0.15)',
-    error: '#f87171',
-    errorBg: 'rgba(248, 113, 113, 0.15)',
-    info: '#60a5fa',
-    infoBg: 'rgba(96, 165, 250, 0.15)',
+    success: '#00e5a0',
+    successBg: 'rgba(0, 229, 160, 0.15)',
+    warning: '#ffb340',
+    warningBg: 'rgba(255, 179, 64, 0.15)',
+    error: '#ff5c5c',
+    errorBg: 'rgba(255, 92, 92, 0.15)',
+    info: '#4da8ff',
+    infoBg: 'rgba(77, 168, 255, 0.15)',
 
-    glow: '0 0 20px rgba(108, 92, 231, 0.3)',
-    shadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+    // 画布配色 - 深邃蓝紫色调
+    canvasBg: '#0f0f22',
+    canvasGrid: '#252550',
+    canvasBorder: '#3535a0',
+    canvasNodeBorder: '#404070',
+    canvasNodeText: '#e8e8f8',
+    canvasNodeTextSecondary: '#a8a8d0',
+    canvasConnectSource: '#00e5a0',
+    canvasConnectTarget: '#7c6cf0',
+    canvasConnecting: '#00e5a0',
+
+    glow: '0 0 25px rgba(124, 108, 240, 0.35)',
+    shadow: '0 4px 24px rgba(0, 0, 0, 0.6)',
   },
   borderRadius: '12px',
   fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
@@ -177,56 +217,70 @@ export const midnightTheme: Theme = {
 };
 
 // ============ 极光主题 (Aurora) ============
+// 通透的玻璃质感，渐变色彩，未来感设计
 export const auroraTheme: Theme = {
   id: 'aurora',
   name: '极光',
   description: '流光溢彩，未来感设计',
   colors: {
-    background: '#fafbff',
-    backgroundSecondary: '#f0f4ff',
-    backgroundTertiary: '#e5ebff',
-    surface: 'rgba(255, 255, 255, 0.7)',
+    // 淡紫蓝色调的玻璃质感背景
+    background: '#f5f7ff',
+    backgroundSecondary: '#edf0ff',
+    backgroundTertiary: '#e2e8ff',
+    surface: 'rgba(255, 255, 255, 0.75)',
     surfaceHover: 'rgba(255, 255, 255, 0.9)',
-    border: 'rgba(139, 92, 246, 0.2)',
-    borderLight: 'rgba(139, 92, 246, 0.1)',
-    text: '#1a1a2e',
-    textSecondary: '#4a4a6a',
-    textMuted: '#8a8aaa',
+    border: 'rgba(120, 100, 220, 0.18)',
+    borderLight: 'rgba(120, 100, 220, 0.08)',
+    text: '#1e1e38',
+    textSecondary: '#454568',
+    textMuted: '#8585a8',
 
-    primary: '#8b5cf6',
-    primaryHover: '#7c3aed',
-    primaryLight: 'rgba(139, 92, 246, 0.1)',
-    secondary: '#06b6d4',
-    accent: '#f43f5e',
+    // 极光紫蓝渐变主色
+    primary: '#7c5cf6',
+    primaryHover: '#6b4ce5',
+    primaryLight: 'rgba(124, 92, 246, 0.12)',
+    secondary: '#00c4d8',
+    accent: '#f0457d',
 
-    // 渐变感节点颜色
-    nodeGoal: '#f43f5e',
-    nodeGoalBg: 'linear-gradient(135deg, rgba(244, 63, 94, 0.1), rgba(251, 146, 60, 0.1))',
-    nodeAction: '#10b981',
-    nodeActionBg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1))',
-    nodeFact: '#3b82f6',
-    nodeFactBg: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1))',
-    nodeAssumption: '#f59e0b',
-    nodeAssumptionBg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(244, 63, 94, 0.1))',
-    nodeConstraint: '#ef4444',
-    nodeConstraintBg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(236, 72, 153, 0.1))',
-    nodeConclusion: '#8b5cf6',
-    nodeConclusionBg: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1))',
+    // 极光风格节点颜色 - 更加协调的配色
+    nodeGoal: '#f0457d',      // 极光粉
+    nodeGoalBg: 'rgba(240, 69, 125, 0.12)',
+    nodeAction: '#00c9a7',    // 极光青
+    nodeActionBg: 'rgba(0, 201, 167, 0.12)',
+    nodeFact: '#4d8dff',      // 极光蓝
+    nodeFactBg: 'rgba(77, 141, 255, 0.12)',
+    nodeAssumption: '#ffa040', // 极光橙
+    nodeAssumptionBg: 'rgba(255, 160, 64, 0.12)',
+    nodeConstraint: '#ff5560', // 极光红
+    nodeConstraintBg: 'rgba(255, 85, 96, 0.12)',
+    nodeConclusion: '#9068f0', // 极光紫
+    nodeConclusionBg: 'rgba(144, 104, 240, 0.12)',
 
-    success: '#10b981',
-    successBg: 'rgba(16, 185, 129, 0.1)',
-    warning: '#f59e0b',
-    warningBg: 'rgba(245, 158, 11, 0.1)',
-    error: '#ef4444',
-    errorBg: 'rgba(239, 68, 68, 0.1)',
-    info: '#3b82f6',
-    infoBg: 'rgba(59, 130, 246, 0.1)',
+    success: '#00c9a7',
+    successBg: 'rgba(0, 201, 167, 0.12)',
+    warning: '#ffa040',
+    warningBg: 'rgba(255, 160, 64, 0.12)',
+    error: '#ff5560',
+    errorBg: 'rgba(255, 85, 96, 0.12)',
+    info: '#4d8dff',
+    infoBg: 'rgba(77, 141, 255, 0.12)',
 
-    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
-    shadow: '0 8px 32px rgba(139, 92, 246, 0.15)',
+    // 画布配色 - 玻璃质感的淡紫色调
+    canvasBg: '#f9faff',
+    canvasGrid: 'rgba(120, 100, 220, 0.1)',
+    canvasBorder: 'rgba(120, 100, 220, 0.22)',
+    canvasNodeBorder: 'rgba(120, 100, 220, 0.18)',
+    canvasNodeText: '#2a2a48',
+    canvasNodeTextSecondary: '#666688',
+    canvasConnectSource: '#00c9a7',
+    canvasConnectTarget: '#7c5cf6',
+    canvasConnecting: '#00c9a7',
+
+    gradient: 'linear-gradient(135deg, #7c5cf6 0%, #00c4d8 50%, #f0457d 100%)',
+    shadow: '0 8px 32px rgba(124, 92, 246, 0.18)',
   },
   borderRadius: '16px',
-  fontFamily: '"Plus Jakarta Sans", Inter, sans-serif',
+  fontFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
   nodeStyle: 'glass',
   animationIntensity: 'intense',
 };

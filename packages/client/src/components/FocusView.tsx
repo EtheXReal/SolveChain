@@ -13,6 +13,7 @@ import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, X } from 'lucide-react';
 import EdgeTypeSelector from './EdgeTypeSelector';
 import { hierarchicalLayout, radialLayout, forceDirectedRefinement } from '../utils/layoutAlgorithms';
 import { LogicState, getLogicStateColor } from '../utils/propagation';
+import { useTheme } from '../themes/ThemeContext';
 
 // 连线状态类型
 interface ConnectingState {
@@ -72,6 +73,8 @@ export default function FocusView({
 }: FocusViewProps) {
   const graphStore = useGraphStore();
   const { getNodeLogicState } = usePropagationStore();
+  const { theme } = useTheme();
+  const canvasColors = theme.colors;
   const nodes = propNodes ?? graphStore.nodes;
   const edges = propEdges ?? graphStore.edges;
 
@@ -967,7 +970,7 @@ export default function FocusView({
             height={70}
             rx={12}
             fill="none"
-            stroke="#10b981"
+            stroke={canvasColors.canvasConnectSource}
             strokeWidth={3}
             strokeDasharray="5,5"
             className="animate-pulse"
@@ -983,7 +986,7 @@ export default function FocusView({
             height={66}
             rx={10}
             fill="none"
-            stroke="#3b82f6"
+            stroke={canvasColors.canvasConnectTarget}
             strokeWidth={2}
             opacity={0.5}
           />
@@ -997,7 +1000,7 @@ export default function FocusView({
           height={60}
           rx={8}
           fill={config.bgColor}
-          stroke={isConnectSource ? '#10b981' : isFocused ? config.color : isRelated ? config.color : '#ddd'}
+          stroke={isConnectSource ? canvasColors.canvasConnectSource : isFocused ? config.color : isRelated ? config.color : canvasColors.canvasNodeBorder}
           strokeWidth={isConnectSource ? 3 : isFocused ? 3 : isRelated ? 2 : 1}
           filter={isDragging ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' : undefined}
         />
@@ -1008,7 +1011,7 @@ export default function FocusView({
           x={-45}
           y={-6}
           fontSize={10}
-          fill="#666"
+          fill={canvasColors.canvasNodeTextSecondary}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           {config.label}
@@ -1021,7 +1024,7 @@ export default function FocusView({
           textAnchor="middle"
           fontSize={12}
           fontWeight={isFocused ? 'bold' : 'normal'}
-          fill="#333"
+          fill={canvasColors.canvasNodeText}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           {node.title.length > 12 ? node.title.slice(0, 12) + '...' : node.title}
@@ -1151,7 +1154,7 @@ export default function FocusView({
         y1={sourcePosition.y}
         x2={currentPosition.x}
         y2={currentPosition.y}
-        stroke="#10b981"
+        stroke={canvasColors.canvasConnecting}
         strokeWidth={2}
         strokeDasharray="8,4"
         opacity={0.8}
@@ -1309,12 +1312,12 @@ export default function FocusView({
                 <path d="M 10 0 L 0 5 L 10 10 z" fill={EDGE_TYPE_CONFIG[EdgeType.CONFLICTS]?.color || '#dc2626'} />
               </marker>
               <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
-                <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#e2e8f0" strokeWidth="1" />
+                <path d="M 100 0 L 0 0 0 100" fill="none" stroke={canvasColors.canvasGrid} strokeWidth="1" />
               </pattern>
             </defs>
 
             {/* 画布背景 */}
-            <rect x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill="#ffffff" stroke="#cbd5e1" strokeWidth={3} rx={12} />
+            <rect x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill={canvasColors.canvasBg} stroke={canvasColors.canvasBorder} strokeWidth={3} rx={12} />
             <rect x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill="url(#grid)" />
 
             {/* 渲染边 */}

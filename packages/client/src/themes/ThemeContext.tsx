@@ -80,6 +80,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty('--color-info', colors.info);
     root.style.setProperty('--color-info-bg', colors.infoBg);
 
+    // 画布专用色
+    root.style.setProperty('--color-canvas-bg', colors.canvasBg);
+    root.style.setProperty('--color-canvas-grid', colors.canvasGrid);
+    root.style.setProperty('--color-canvas-border', colors.canvasBorder);
+    root.style.setProperty('--color-canvas-node-border', colors.canvasNodeBorder);
+    root.style.setProperty('--color-canvas-node-text', colors.canvasNodeText);
+    root.style.setProperty('--color-canvas-node-text-secondary', colors.canvasNodeTextSecondary);
+    root.style.setProperty('--color-canvas-connect-source', colors.canvasConnectSource);
+    root.style.setProperty('--color-canvas-connect-target', colors.canvasConnectTarget);
+    root.style.setProperty('--color-canvas-connecting', colors.canvasConnecting);
+
     // 特殊效果
     root.style.setProperty('--shadow', colors.shadow);
     root.style.setProperty('--border-radius', theme.borderRadius);
