@@ -277,69 +277,76 @@ export const auroraTheme: Theme = {
   name: '极光',
   description: '流光溢彩，未来感设计',
   colors: {
-    // 淡紫蓝色调的玻璃质感背景
-    background: '#f5f7ff',
-    backgroundSecondary: '#edf0ff',
-    backgroundTertiary: '#e2e8ff',
-    surface: 'rgba(255, 255, 255, 0.75)',
-    surfaceHover: 'rgba(255, 255, 255, 0.9)',
-    border: 'rgba(120, 100, 220, 0.18)',
-    borderLight: 'rgba(120, 100, 220, 0.08)',
-    text: '#1e1e38',
-    textSecondary: '#454568',
-    textMuted: '#8585a8',
+    // 深邃的紫蓝色背景 - 让极光效果更突出
+    background: '#0f0a1a',
+    backgroundSecondary: 'rgba(18, 12, 32, 0.9)',
+    backgroundTertiary: 'rgba(25, 18, 45, 0.85)',
+    surface: 'rgba(20, 15, 35, 0.9)',
+    surfaceHover: 'rgba(30, 22, 50, 0.95)',
+    border: 'rgba(124, 92, 246, 0.3)',
+    borderLight: 'rgba(124, 92, 246, 0.15)',
+    text: '#f0f0ff',
+    textSecondary: '#b8b8d8',
+    textMuted: '#7a7a9a',
 
     // 极光紫蓝渐变主色
     primary: '#7c5cf6',
-    primaryHover: '#6b4ce5',
-    primaryLight: 'rgba(124, 92, 246, 0.12)',
+    primaryHover: '#9068f0',
+    primaryLight: 'rgba(124, 92, 246, 0.2)',
     secondary: '#00c4d8',
     accent: '#f0457d',
 
-    // 极光风格节点颜色 - 更加协调的配色
+    // 极光风格节点颜色 - 玻璃质感深色背景 + 鲜明边框
     nodeGoal: '#f0457d',      // 极光粉
-    nodeGoalBg: 'rgba(240, 69, 125, 0.12)',
+    nodeGoalBg: 'rgba(240, 69, 125, 0.15)',
     nodeAction: '#00c9a7',    // 极光青
-    nodeActionBg: 'rgba(0, 201, 167, 0.12)',
+    nodeActionBg: 'rgba(0, 201, 167, 0.15)',
     nodeFact: '#4d8dff',      // 极光蓝
-    nodeFactBg: 'rgba(77, 141, 255, 0.12)',
+    nodeFactBg: 'rgba(77, 141, 255, 0.15)',
     nodeAssumption: '#ffa040', // 极光橙
-    nodeAssumptionBg: 'rgba(255, 160, 64, 0.12)',
+    nodeAssumptionBg: 'rgba(255, 160, 64, 0.15)',
     nodeConstraint: '#ff5560', // 极光红
-    nodeConstraintBg: 'rgba(255, 85, 96, 0.12)',
+    nodeConstraintBg: 'rgba(255, 85, 96, 0.15)',
     nodeConclusion: '#9068f0', // 极光紫
-    nodeConclusionBg: 'rgba(144, 104, 240, 0.12)',
+    nodeConclusionBg: 'rgba(144, 104, 240, 0.15)',
 
-    // 边/关系颜色 - 极光风格
-    edgeDepends: '#8585a8',     // 灰紫 - 依赖
-    edgeSupports: '#00c9a7',    // 青色 - 促成
-    edgeAchieves: '#4d8dff',    // 蓝色 - 实现
-    edgeHinders: '#ffa040',     // 橙色 - 阻碍
-    edgeCauses: '#9068f0',      // 紫色 - 导致
-    edgeConflicts: '#ff5560',   // 红色 - 矛盾
+    // 边/关系颜色 - 极光风格，更鲜艳
+    edgeDepends: '#a0a0c8',     // 亮银紫 - 依赖
+    edgeSupports: '#00e5c0',    // 亮青色 - 促成
+    edgeAchieves: '#5a9fff',    // 亮蓝色 - 实现
+    edgeHinders: '#ffb060',     // 亮橙色 - 阻碍
+    edgeCauses: '#a080ff',      // 亮紫色 - 导致
+    edgeConflicts: '#ff6070',   // 亮红色 - 矛盾
 
-    success: '#00c9a7',
-    successBg: 'rgba(0, 201, 167, 0.12)',
-    warning: '#ffa040',
-    warningBg: 'rgba(255, 160, 64, 0.12)',
-    error: '#ff5560',
-    errorBg: 'rgba(255, 85, 96, 0.12)',
-    info: '#4d8dff',
-    infoBg: 'rgba(77, 141, 255, 0.12)',
+    success: '#00e5c0',
+    successBg: 'rgba(0, 229, 192, 0.15)',
+    warning: '#ffb060',
+    warningBg: 'rgba(255, 176, 96, 0.15)',
+    error: '#ff6070',
+    errorBg: 'rgba(255, 96, 112, 0.15)',
+    info: '#5a9fff',
+    infoBg: 'rgba(90, 159, 255, 0.15)',
 
-    // 画布配色 - 玻璃质感的淡紫色调
-    canvasBg: '#f9faff',
-    canvasGrid: 'rgba(120, 100, 220, 0.1)',
-    canvasBorder: 'rgba(120, 100, 220, 0.22)',
-    canvasNodeBorder: 'rgba(120, 100, 220, 0.18)',
-    canvasNodeText: '#2a2a48',
-    canvasNodeTextSecondary: '#666688',
-    canvasConnectSource: '#00c9a7',
+    // 画布配色 - 深邃星空感
+    canvasBg: '#080510',
+    canvasGrid: 'rgba(124, 92, 246, 0.12)',
+    canvasBorder: 'rgba(124, 92, 246, 0.35)',
+    canvasNodeBorder: 'rgba(124, 92, 246, 0.25)',
+    canvasNodeText: '#f0f0ff',
+    canvasNodeTextSecondary: '#b8b8d8',
+    canvasConnectSource: '#00e5c0',
     canvasConnectTarget: '#7c5cf6',
-    canvasConnecting: '#00c9a7',
+    canvasConnecting: '#00e5c0',
 
+    // 极光特效
+    glow: '0 0 30px rgba(124, 92, 246, 0.4)',
     gradient: 'linear-gradient(135deg, #7c5cf6 0%, #00c4d8 50%, #f0457d 100%)',
-    shadow: '0 8px 32px rgba(124, 92, 246, 0.18)',
+    shadow: '0 8px 40px rgba(124, 92, 246, 0.25)',
+    shadowHover: '0 12px 48px rgba(124, 92, 246, 0.35)',
+    // 毛玻璃效果
+    glass: 'blur(20px) saturate(200%)',
+    glassBg: 'rgba(15, 10, 26, 0.75)',
+    glassBorder: 'rgba(124, 92, 246, 0.2)',
   },
   borderRadius: '16px',
   fontFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',

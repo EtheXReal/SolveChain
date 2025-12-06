@@ -1045,7 +1045,8 @@ export default function FocusView({
           />
         )}
 
-        {/* 节点阴影层 - 创造深度感 (仅 neon 模式) */}
+        {/* ============ 暗夜模式(neon)节点效果 ============ */}
+        {/* 节点阴影层 - 创造深度感 */}
         {theme.nodeStyle === 'neon' && !isUnrelated && (
           <rect
             x={-75}
@@ -1059,7 +1060,7 @@ export default function FocusView({
           />
         )}
 
-        {/* 霓虹发光层 - 所有节点都有基础光晕 */}
+        {/* 霓虹发光层 */}
         {theme.nodeStyle === 'neon' && !isUnrelated && (
           <rect
             x={-77}
@@ -1075,21 +1076,56 @@ export default function FocusView({
           />
         )}
 
+        {/* ============ 极光模式(glass)节点效果 ============ */}
+        {/* 外层彩虹光晕 */}
+        {theme.nodeStyle === 'glass' && !isUnrelated && (
+          <rect
+            x={-79}
+            y={-34}
+            width={158}
+            height={68}
+            rx={14}
+            fill="none"
+            stroke="url(#aurora-border)"
+            strokeWidth={isFocused ? 3 : isRelated ? 2.5 : 1.5}
+            opacity={isFocused ? 0.9 : isRelated ? 0.7 : 0.4}
+            filter={isFocused || isRelated ? "url(#aurora-glow-strong)" : "url(#aurora-glow)"}
+          />
+        )}
+
+        {/* 玻璃质感阴影 */}
+        {theme.nodeStyle === 'glass' && !isUnrelated && (
+          <rect
+            x={-75}
+            y={-30}
+            width={150}
+            height={60}
+            rx={12}
+            fill="rgba(124, 92, 246, 0.08)"
+            transform="translate(2, 3)"
+            opacity={0.5}
+          />
+        )}
+
         {/* 节点背景 */}
         <rect
           x={-75}
           y={-30}
           width={150}
           height={60}
-          rx={8}
+          rx={theme.nodeStyle === 'glass' ? 12 : 8}
           fill={nodeBgColor}
-          stroke={isConnectSource ? canvasColors.canvasConnectSource : nodeColor}
+          stroke={isConnectSource ? canvasColors.canvasConnectSource : theme.nodeStyle === 'glass' ? 'url(#aurora-border)' : nodeColor}
           strokeWidth={isConnectSource ? 3 : isFocused ? 2.5 : isRelated ? 2 : 1.5}
-          filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#neon-glow)' : isDragging ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' : undefined}
+          filter={
+            theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#neon-glow)' :
+            theme.nodeStyle === 'glass' && !isUnrelated ? 'url(#aurora-glow)' :
+            isDragging ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' : undefined
+          }
           opacity={isUnrelated ? 0.4 : 1}
         />
 
-        {/* 顶部高光层 - 模拟光照 (仅 neon 模式) */}
+        {/* 顶部高光层 - 暗夜模式 */}
         {theme.nodeStyle === 'neon' && !isUnrelated && (
           <rect
             x={-75}
@@ -1102,8 +1138,38 @@ export default function FocusView({
           />
         )}
 
+        {/* 顶部高光层 - 极光模式：更强的玻璃质感 */}
+        {theme.nodeStyle === 'glass' && !isUnrelated && (
+          <rect
+            x={-75}
+            y={-30}
+            width={150}
+            height={28}
+            rx={12}
+            fill="url(#aurora-node-highlight)"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+
+        {/* 极光模式：底部渐变光带 */}
+        {theme.nodeStyle === 'glass' && !isUnrelated && isFocused && (
+          <rect
+            x={-75}
+            y={18}
+            width={150}
+            height={12}
+            rx={6}
+            fill="url(#aurora-gradient)"
+            opacity={0.15}
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+
         {/* 类型标记 */}
-        <circle cx={-55} cy={-10} r={5} fill={nodeColor} />
+        {theme.nodeStyle === 'glass' && !isUnrelated && (
+          <circle cx={-55} cy={-10} r={7} fill="url(#aurora-gradient)" opacity={0.3} />
+        )}
+        <circle cx={-55} cy={-10} r={5} fill={nodeColor} filter={theme.nodeStyle === 'glass' ? 'url(#aurora-glow)' : undefined} />
         <text
           x={-45}
           y={-6}
@@ -1172,13 +1238,94 @@ export default function FocusView({
     const len = Math.sqrt(dx * dx + dy * dy);
     if (len === 0) return null;
 
+    // 节点尺寸（半宽半高）
+    const nodeHalfWidth = 75;
+    const nodeHalfHeight = 30;
+    const arrowPadding = 5; // 箭头额外间距
+
+    // 计算线条与矩形边缘的交点
+    // 使用射线与矩形边相交的方法
+    const getRectEdgePoint = (
+      centerX: number,
+      centerY: number,
+      dirX: number,
+      dirY: number,
+      halfW: number,
+      halfH: number,
+      padding: number = 0
+    ) => {
+      // 处理方向接近零的情况
+      const absDirX = Math.abs(dirX);
+      const absDirY = Math.abs(dirY);
+
+      if (absDirX < 0.001 && absDirY < 0.001) {
+        return { x: centerX, y: centerY };
+      }
+
+      // 计算与矩形各边的交点参数 t
+      // 线段: P = center + t * dir
+      // 矩形边: x = ±halfW 或 y = ±halfH
+
+      let t = Infinity;
+
+      if (absDirX > 0.001) {
+        // 与左右边的交点
+        const tRight = (halfW + padding) / absDirX;
+        const tLeft = (halfW + padding) / absDirX;
+        const tX = dirX > 0 ? tRight : tLeft;
+        // 检查 y 是否在范围内
+        const yAtT = dirY * tX;
+        if (Math.abs(yAtT) <= halfH + padding + 1) {
+          t = Math.min(t, tX);
+        }
+      }
+
+      if (absDirY > 0.001) {
+        // 与上下边的交点
+        const tBottom = (halfH + padding) / absDirY;
+        const tTop = (halfH + padding) / absDirY;
+        const tY = dirY > 0 ? tBottom : tTop;
+        // 检查 x 是否在范围内
+        const xAtT = dirX * tY;
+        if (Math.abs(xAtT) <= halfW + padding + 1) {
+          t = Math.min(t, tY);
+        }
+      }
+
+      if (t === Infinity) {
+        t = 1; // fallback
+      }
+
+      return {
+        x: centerX + dirX * t,
+        y: centerY + dirY * t
+      };
+    };
+
+    // 单位向量
     const unitX = dx / len;
     const unitY = dy / len;
 
-    const startX = sourcePos.x + unitX * 75;
-    const startY = sourcePos.y + unitY * 30;
-    const endX = targetPos.x - unitX * 80;
-    const endY = targetPos.y - unitY * 35;
+    // 起点：从源节点边缘出发
+    const startPoint = getRectEdgePoint(
+      sourcePos.x, sourcePos.y,
+      unitX, unitY,
+      nodeHalfWidth, nodeHalfHeight,
+      0
+    );
+
+    // 终点：到目标节点边缘（留出箭头空间）
+    const endPoint = getRectEdgePoint(
+      targetPos.x, targetPos.y,
+      -unitX, -unitY,
+      nodeHalfWidth, nodeHalfHeight,
+      arrowPadding
+    );
+
+    const startX = startPoint.x;
+    const startY = startPoint.y;
+    const endX = endPoint.x;
+    const endY = endPoint.y;
 
     // 获取线条样式的 strokeDasharray
     const getStrokeDasharray = (lineStyle: string) => {
@@ -1195,7 +1342,14 @@ export default function FocusView({
     const dashArray = getStrokeDasharray(lineStyle);
     const hasStartMarker = config?.arrowStart && config.arrowStart !== 'none';
     const hasEndMarker = config?.arrowStyle && config.arrowStyle !== 'none';
-    const isAnimated = config?.animated && theme.nodeStyle === 'neon' && !isUnrelated;
+
+    // 主题模式判断
+    const isNeonMode = theme.nodeStyle === 'neon';
+    const isGlassMode = theme.nodeStyle === 'glass'; // 极光模式
+    const isElevatedMode = theme.nodeStyle === 'elevated'; // 经典模式
+
+    // 动画：暗夜和极光模式都启用，经典模式静态
+    const isAnimated = config?.animated && !isUnrelated && (isNeonMode || isGlassMode);
 
     return (
       <g
@@ -1216,8 +1370,8 @@ export default function FocusView({
           />
         )}
 
-        {/* 霓虹模式 - 所有边都有基础发光 */}
-        {theme.nodeStyle === 'neon' && !isUnrelated && (
+        {/* 暗夜模式(neon) - 霓虹发光效果 */}
+        {isNeonMode && !isUnrelated && (
           <line
             x1={startX}
             y1={startY}
@@ -1231,7 +1385,25 @@ export default function FocusView({
           />
         )}
 
-        {/* 双线样式 - 第二条线（略偏移） */}
+        {/* 极光模式(glass) - 彩虹渐变光晕 */}
+        {isGlassMode && !isUnrelated && (
+          <>
+            {/* 外层彩虹光晕 */}
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke="url(#aurora-gradient)"
+              strokeWidth={isSelected ? 12 : isRelatedToFocus ? 10 : 6}
+              opacity={isSelected ? 0.4 : isRelatedToFocus ? 0.35 : 0.15}
+              filter={isRelatedToFocus ? 'url(#aurora-glow-strong)' : 'url(#aurora-glow)'}
+              strokeLinecap="round"
+            />
+          </>
+        )}
+
+        {/* 双线样式 */}
         {isDouble && (
           <>
             <line
@@ -1242,7 +1414,7 @@ export default function FocusView({
               stroke={color}
               strokeWidth={isSelected ? 2 : isRelatedToFocus ? 1.5 : 1}
               strokeLinecap="round"
-              filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#edge-glow)' : undefined}
+              filter={isNeonMode && !isUnrelated ? 'url(#edge-glow)' : isGlassMode && !isUnrelated ? 'url(#aurora-glow)' : undefined}
             />
             <line
               x1={startX}
@@ -1252,101 +1424,165 @@ export default function FocusView({
               stroke={color}
               strokeWidth={isSelected ? 2 : isRelatedToFocus ? 1.5 : 1}
               strokeLinecap="round"
-              filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#edge-glow)' : undefined}
+              filter={isNeonMode && !isUnrelated ? 'url(#edge-glow)' : isGlassMode && !isUnrelated ? 'url(#aurora-glow)' : undefined}
             />
           </>
         )}
 
-        {/* 主边线 */}
-        <line
-          x1={startX}
-          y1={startY}
-          x2={endX}
-          y2={endY}
-          stroke={color}
-          strokeWidth={isDouble ? 0 : (isSelected ? 3 : isRelatedToFocus ? 2.5 : theme.nodeStyle === 'neon' ? 2 : 1.5)}
-          strokeDasharray={dashArray}
-          markerStart={hasStartMarker ? `url(#marker-start-${edge.type})` : undefined}
-          markerEnd={hasEndMarker ? `url(#marker-end-${edge.type})` : undefined}
-          filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#edge-glow)' : undefined}
-          strokeLinecap="round"
-        />
+        {/* 主边线 - 实线和双线类型 */}
+        {(lineStyle === 'solid' || lineStyle === 'double') && (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke={color}
+            strokeWidth={isDouble ? 0 : (isSelected ? 3 : isRelatedToFocus ? 2.5 : (isNeonMode || isGlassMode) ? 2 : 1.5)}
+            markerStart={hasStartMarker ? `url(#marker-start-${edge.type})` : undefined}
+            markerEnd={hasEndMarker ? `url(#marker-end-${edge.type})` : undefined}
+            filter={isNeonMode && !isUnrelated ? 'url(#edge-glow)' : isGlassMode && !isUnrelated ? 'url(#aurora-glow)' : undefined}
+            strokeLinecap="round"
+          />
+        )}
 
-        {/* 流动动画层 (仅 animated 边) - 根据线条类型选择不同动画 */}
-        {isAnimated && (
+        {/* 虚线类型 - 带流动动画 */}
+        {lineStyle === 'dashed' && (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke={color}
+            strokeWidth={isSelected ? 3 : isRelatedToFocus ? 2.5 : (isNeonMode || isGlassMode) ? 2 : 1.5}
+            strokeDasharray="8,4"
+            markerStart={hasStartMarker ? `url(#marker-start-${edge.type})` : undefined}
+            markerEnd={hasEndMarker ? `url(#marker-end-${edge.type})` : undefined}
+            filter={isNeonMode && !isUnrelated ? 'url(#edge-glow)' : isGlassMode && !isUnrelated ? 'url(#aurora-glow)' : undefined}
+            strokeLinecap="round"
+          >
+            {isAnimated && (
+              <animate
+                attributeName="stroke-dashoffset"
+                values="12;0"
+                dur="1s"
+                repeatCount="indefinite"
+              />
+            )}
+          </line>
+        )}
+
+        {/* 点线类型 - 带流动动画 */}
+        {lineStyle === 'dotted' && (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke={color}
+            strokeWidth={isSelected ? 3 : isRelatedToFocus ? 2.5 : (isNeonMode || isGlassMode) ? 2 : 1.5}
+            strokeDasharray="2,6"
+            markerStart={hasStartMarker ? `url(#marker-start-${edge.type})` : undefined}
+            markerEnd={hasEndMarker ? `url(#marker-end-${edge.type})` : undefined}
+            filter={isNeonMode && !isUnrelated ? 'url(#edge-glow)' : isGlassMode && !isUnrelated ? 'url(#aurora-glow)' : undefined}
+            strokeLinecap="round"
+          >
+            {isAnimated && (
+              <animate
+                attributeName="stroke-dashoffset"
+                values="8;0"
+                dur="0.8s"
+                repeatCount="indefinite"
+              />
+            )}
+          </line>
+        )}
+
+        {/* 暗夜模式：单色扫光动画 */}
+        {isAnimated && isNeonMode && (lineStyle === 'solid' || lineStyle === 'double') && (
           <>
-            {/* 实线类型 (solid/double): 流动粒子 */}
-            {(lineStyle === 'solid' || lineStyle === 'double') && (
-              <>
-                <line
-                  x1={startX}
-                  y1={startY}
-                  x2={endX}
-                  y2={endY}
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeDasharray="4,16"
-                  opacity={0.5}
-                >
-                  <animate
-                    attributeName="stroke-dashoffset"
-                    values="20;0"
-                    dur="1.5s"
-                    repeatCount="indefinite"
-                  />
-                </line>
-              </>
-            )}
-            {/* 虚线类型 (dashed): 脉冲效果 */}
-            {lineStyle === 'dashed' && (
-              <line
+            <defs>
+              <linearGradient
+                id={`sweep-${edge.id}`}
+                gradientUnits="userSpaceOnUse"
                 x1={startX}
                 y1={startY}
                 x2={endX}
                 y2={endY}
-                stroke={color}
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeDasharray="8,4"
-                opacity={0.4}
               >
-                <animate
-                  attributeName="opacity"
-                  values="0.2;0.6;0.2"
-                  dur="1.8s"
-                  repeatCount="indefinite"
-                />
-              </line>
-            )}
-            {/* 点线类型 (dotted): 警示效果 */}
-            {lineStyle === 'dotted' && (
-              <line
-                x1={startX}
-                y1={startY}
-                x2={endX}
-                y2={endY}
-                stroke={color}
-                strokeWidth={2}
-                strokeLinecap="round"
-                opacity={0.35}
-              >
-                <animate
-                  attributeName="opacity"
-                  values="0.2;0.5;0.2"
-                  dur="1s"
-                  repeatCount="indefinite"
-                />
-              </line>
-            )}
+                <stop offset="0%" stopColor={color} stopOpacity="0">
+                  <animate attributeName="offset" values="-0.3;1" dur="2s" repeatCount="indefinite" />
+                </stop>
+                <stop offset="15%" stopColor={color} stopOpacity="0.8">
+                  <animate attributeName="offset" values="-0.15;1.15" dur="2s" repeatCount="indefinite" />
+                </stop>
+                <stop offset="30%" stopColor={color} stopOpacity="0">
+                  <animate attributeName="offset" values="0;1.3" dur="2s" repeatCount="indefinite" />
+                </stop>
+              </linearGradient>
+            </defs>
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={`url(#sweep-${edge.id})`}
+              strokeWidth={isDouble ? 6 : 4}
+              strokeLinecap="round"
+              opacity={0.6}
+            />
           </>
         )}
 
-        {/* 边标签 - neon 模式下显示更多 */}
-        {(isRelatedToFocus || isSelected || isEditMode || (theme.nodeStyle === 'neon' && !isUnrelated)) && (
+        {/* 极光模式：彩虹流光动画 - 更激进更大胆 */}
+        {isAnimated && isGlassMode && (lineStyle === 'solid' || lineStyle === 'double') && (
+          <>
+            <defs>
+              {/* 彩虹扫光渐变 */}
+              <linearGradient
+                id={`aurora-sweep-${edge.id}`}
+                gradientUnits="userSpaceOnUse"
+                x1={startX}
+                y1={startY}
+                x2={endX}
+                y2={endY}
+              >
+                <stop offset="0%" stopColor="#7c5cf6" stopOpacity="0">
+                  <animate attributeName="offset" values="-0.4;1" dur="2.5s" repeatCount="indefinite" />
+                </stop>
+                <stop offset="10%" stopColor="#7c5cf6" stopOpacity="0.9">
+                  <animate attributeName="offset" values="-0.3;1.1" dur="2.5s" repeatCount="indefinite" />
+                </stop>
+                <stop offset="25%" stopColor="#00c4d8" stopOpacity="1">
+                  <animate attributeName="offset" values="-0.15;1.25" dur="2.5s" repeatCount="indefinite" />
+                </stop>
+                <stop offset="40%" stopColor="#f0457d" stopOpacity="0.9">
+                  <animate attributeName="offset" values="0;1.4" dur="2.5s" repeatCount="indefinite" />
+                </stop>
+                <stop offset="50%" stopColor="#f0457d" stopOpacity="0">
+                  <animate attributeName="offset" values="0.1;1.5" dur="2.5s" repeatCount="indefinite" />
+                </stop>
+              </linearGradient>
+            </defs>
+            {/* 主流光线 */}
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={`url(#aurora-sweep-${edge.id})`}
+              strokeWidth={isDouble ? 8 : 5}
+              strokeLinecap="round"
+              opacity={0.85}
+              filter="url(#aurora-glow)"
+            />
+          </>
+        )}
+
+        {/* 边标签 */}
+        {(isRelatedToFocus || isSelected || isEditMode || ((isNeonMode || isGlassMode) && !isUnrelated)) && (
           <g>
-            {/* 标签背景 (仅 neon 模式) */}
-            {theme.nodeStyle === 'neon' && (
+            {/* 标签背景 - 暗夜模式 */}
+            {isNeonMode && (
               <rect
                 x={(startX + endX) / 2 - 20}
                 y={(startY + endY) / 2 - 18}
@@ -1359,6 +1595,20 @@ export default function FocusView({
                 opacity={isRelatedToFocus || isSelected ? 1 : 0.6}
               />
             )}
+            {/* 标签背景 - 极光模式：玻璃质感深色 */}
+            {isGlassMode && (
+              <rect
+                x={(startX + endX) / 2 - 22}
+                y={(startY + endY) / 2 - 19}
+                width={44}
+                height={18}
+                rx={6}
+                fill="rgba(15, 10, 26, 0.85)"
+                stroke="url(#aurora-border)"
+                strokeWidth={1}
+                opacity={isRelatedToFocus || isSelected ? 1 : 0.7}
+              />
+            )}
             <text
               x={(startX + endX) / 2}
               y={(startY + endY) / 2 - 6}
@@ -1368,7 +1618,7 @@ export default function FocusView({
               fontWeight={isRelatedToFocus || isSelected ? 'bold' : 'normal'}
               opacity={isRelatedToFocus || isSelected ? 1 : 0.8}
               style={{ pointerEvents: 'none', userSelect: 'none' }}
-              filter={theme.nodeStyle === 'neon' && (isRelatedToFocus || isSelected) ? 'url(#edge-glow)' : undefined}
+              filter={(isNeonMode || isGlassMode) && (isRelatedToFocus || isSelected) ? (isGlassMode ? 'url(#aurora-glow)' : 'url(#edge-glow)') : undefined}
             >
               {config?.label || ''}
             </text>
@@ -1521,10 +1771,10 @@ export default function FocusView({
             }}
           >
             <defs>
-              {/* 霓虹发光滤镜 - 用于节点边框发光效果 */}
+              {/* ============ 暗夜模式(neon)专用滤镜 ============ */}
               {theme.nodeStyle === 'neon' && (
                 <>
-                  {/* 基础霓虹光晕 - 用于所有节点 */}
+                  {/* 基础霓虹光晕 */}
                   <filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="4" result="blur" />
                     <feMerge>
@@ -1532,7 +1782,7 @@ export default function FocusView({
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
-                  {/* 强光晕 - 用于聚焦/选中节点 */}
+                  {/* 强光晕 */}
                   <filter id="neon-glow-strong" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="8" result="blur" />
                     <feMerge>
@@ -1541,25 +1791,25 @@ export default function FocusView({
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
-                  {/* 柔和阴影 - 用于节点卡片深度感 */}
+                  {/* 节点阴影 */}
                   <filter id="node-shadow" x="-30%" y="-30%" width="160%" height="180%">
                     <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="rgba(0,0,0,0.5)" />
                   </filter>
-                  {/* 内发光效果 - 顶部高光 */}
+                  {/* 顶部高光 */}
                   <linearGradient id="node-highlight" x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
                     <stop offset="50%" stopColor="rgba(255,255,255,0)" />
                   </linearGradient>
-                  {/* 边线发光滤镜 */}
-                  <filter id="edge-glow" x="-20%" y="-20%" width="140%" height="140%">
+                  {/* 边线发光 */}
+                  <filter id="edge-glow" filterUnits="userSpaceOnUse" x="-9999" y="-9999" width="19998" height="19998">
                     <feGaussianBlur stdDeviation="2" result="blur" />
                     <feMerge>
                       <feMergeNode in="blur" />
                       <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
-                  {/* 脉冲动画边滤镜 */}
-                  <filter id="edge-pulse" x="-30%" y="-30%" width="160%" height="160%">
+                  {/* 脉冲边滤镜 */}
+                  <filter id="edge-pulse" filterUnits="userSpaceOnUse" x="-9999" y="-9999" width="19998" height="19998">
                     <feGaussianBlur stdDeviation="3" result="blur">
                       <animate attributeName="stdDeviation" values="2;4;2" dur="2s" repeatCount="indefinite" />
                     </feGaussianBlur>
@@ -1570,27 +1820,133 @@ export default function FocusView({
                   </filter>
                 </>
               )}
-              {/* 为每种边类型定义独特的箭头样式 */}
+
+              {/* ============ 极光模式(glass)专用滤镜和渐变 ============ */}
+              {theme.nodeStyle === 'glass' && (
+                <>
+                  {/* 极光彩虹渐变 - 用于边线动画 */}
+                  <linearGradient id="aurora-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#7c5cf6">
+                      <animate attributeName="stop-color" values="#7c5cf6;#00c4d8;#f0457d;#7c5cf6" dur="4s" repeatCount="indefinite" />
+                    </stop>
+                    <stop offset="50%" stopColor="#00c4d8">
+                      <animate attributeName="stop-color" values="#00c4d8;#f0457d;#7c5cf6;#00c4d8" dur="4s" repeatCount="indefinite" />
+                    </stop>
+                    <stop offset="100%" stopColor="#f0457d">
+                      <animate attributeName="stop-color" values="#f0457d;#7c5cf6;#00c4d8;#f0457d" dur="4s" repeatCount="indefinite" />
+                    </stop>
+                  </linearGradient>
+                  {/* 极光光晕滤镜 - 柔和发光 */}
+                  <filter id="aurora-glow" filterUnits="userSpaceOnUse" x="-9999" y="-9999" width="19998" height="19998">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feColorMatrix type="saturate" values="1.5" result="saturated" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  {/* 极光强光晕 - 用于聚焦 */}
+                  <filter id="aurora-glow-strong" filterUnits="userSpaceOnUse" x="-9999" y="-9999" width="19998" height="19998">
+                    <feGaussianBlur stdDeviation="5" result="blur">
+                      <animate attributeName="stdDeviation" values="4;6;4" dur="3s" repeatCount="indefinite" />
+                    </feGaussianBlur>
+                    <feColorMatrix type="saturate" values="2" result="saturated" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  {/* 玻璃折射效果 */}
+                  <filter id="glass-refract" x="-10%" y="-10%" width="120%" height="120%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
+                    <feOffset in="blur" dx="1" dy="1" result="offsetBlur" />
+                    <feFlood floodColor="rgba(255,255,255,0.3)" result="white" />
+                    <feComposite in="white" in2="offsetBlur" operator="in" result="highlight" />
+                    <feMerge>
+                      <feMergeNode in="SourceGraphic" />
+                      <feMergeNode in="highlight" />
+                    </feMerge>
+                  </filter>
+                  {/* 极光节点高光渐变 */}
+                  <linearGradient id="aurora-node-highlight" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="rgba(255,255,255,0.25)" />
+                    <stop offset="30%" stopColor="rgba(255,255,255,0.08)" />
+                    <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                  </linearGradient>
+                  {/* 极光边框渐变 */}
+                  <linearGradient id="aurora-border" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#7c5cf6">
+                      <animate attributeName="stop-color" values="#7c5cf6;#00c4d8;#f0457d;#7c5cf6" dur="6s" repeatCount="indefinite" />
+                    </stop>
+                    <stop offset="100%" stopColor="#00c4d8">
+                      <animate attributeName="stop-color" values="#00c4d8;#f0457d;#7c5cf6;#00c4d8" dur="6s" repeatCount="indefinite" />
+                    </stop>
+                  </linearGradient>
+                </>
+              )}
+              {/* 为每种边类型定义高端箭头样式 */}
               {Object.entries(EDGE_TYPE_CONFIG).map(([type, cfg]) => {
                 const color = getEdgeColor(type);
                 const arrowStyle = cfg.arrowStyle || 'arrow';
 
-                // 根据箭头样式返回不同的 path
-                const getArrowPath = (style: string, isStart = false) => {
+                // 高端箭头路径设计
+                const getArrowMarker = (style: string, isStart = false) => {
                   switch (style) {
                     case 'diamond':
-                      return isStart ? "M 10 5 L 5 0 L 0 5 L 5 10 z" : "M 0 5 L 5 0 L 10 5 L 5 10 z";
+                      // 精致菱形 - 细长优雅
+                      return (
+                        <path
+                          d={isStart ? "M 12 6 L 6 0 L 0 6 L 6 12 Z" : "M 0 6 L 6 0 L 12 6 L 6 12 Z"}
+                          fill={color}
+                          stroke={color}
+                          strokeWidth="0.5"
+                        />
+                      );
                     case 'circle':
-                      return null; // 圆形用 circle 元素
+                      // 优雅圆点 - 带光晕
+                      return (
+                        <>
+                          <circle cx="6" cy="6" r="5" fill={color} opacity="0.3" />
+                          <circle cx="6" cy="6" r="3.5" fill={color} />
+                          <circle cx="5" cy="4.5" r="1" fill="rgba(255,255,255,0.4)" />
+                        </>
+                      );
                     case 'triangle':
-                      return isStart ? "M 10 0 L 0 5 L 10 10 z" : "M 0 0 L 10 5 L 0 10 z";
+                      // 锐利三角 - 警示感
+                      return (
+                        <path
+                          d={isStart ? "M 12 0 L 0 6 L 12 12 L 10 6 Z" : "M 0 0 L 12 6 L 0 12 L 2 6 Z"}
+                          fill={color}
+                          stroke={color}
+                          strokeWidth="0.5"
+                        />
+                      );
                     case 'none':
                       return null;
                     case 'arrow':
                     default:
-                      return isStart ? "M 10 0 L 0 5 L 10 10 L 7 5 z" : "M 0 0 L 10 5 L 0 10 L 3 5 z";
+                      // 流线型箭头 - 现代感
+                      return (
+                        <path
+                          d={isStart
+                            ? "M 14 1 L 2 7 L 14 13 L 11 7 Z"
+                            : "M 0 1 L 12 7 L 0 13 L 3 7 Z"
+                          }
+                          fill={color}
+                          stroke={color}
+                          strokeWidth="0.3"
+                          strokeLinejoin="round"
+                        />
+                      );
                   }
                 };
+
+                const viewBox = arrowStyle === 'circle' ? "0 0 12 12" : "0 0 14 14";
+                const refXEnd = arrowStyle === 'circle' ? 6 : arrowStyle === 'diamond' ? 6 : 10;
+                const refXStart = arrowStyle === 'circle' ? 6 : arrowStyle === 'diamond' ? 6 : 4;
+                const refY = arrowStyle === 'circle' ? 6 : 7;
+                const markerSize = arrowStyle === 'circle' ? 7 : 9;
 
                 return (
                   <React.Fragment key={type}>
@@ -1598,36 +1954,28 @@ export default function FocusView({
                     {arrowStyle !== 'none' && (
                       <marker
                         id={`marker-end-${type}`}
-                        viewBox="0 0 10 10"
-                        refX={arrowStyle === 'circle' ? 5 : 9}
-                        refY="5"
-                        markerWidth={arrowStyle === 'circle' ? 5 : 7}
-                        markerHeight={arrowStyle === 'circle' ? 5 : 7}
+                        viewBox={viewBox}
+                        refX={refXEnd}
+                        refY={refY}
+                        markerWidth={markerSize}
+                        markerHeight={markerSize}
                         orient="auto"
                       >
-                        {arrowStyle === 'circle' ? (
-                          <circle cx="5" cy="5" r="4" fill={color} />
-                        ) : (
-                          <path d={getArrowPath(arrowStyle) || ''} fill={color} />
-                        )}
+                        {getArrowMarker(arrowStyle)}
                       </marker>
                     )}
                     {/* 起点箭头 (如果配置了) */}
                     {cfg.arrowStart && cfg.arrowStart !== 'none' && (
                       <marker
                         id={`marker-start-${type}`}
-                        viewBox="0 0 10 10"
-                        refX={cfg.arrowStart === 'circle' ? 5 : 1}
-                        refY="5"
-                        markerWidth={cfg.arrowStart === 'circle' ? 5 : 7}
-                        markerHeight={cfg.arrowStart === 'circle' ? 5 : 7}
+                        viewBox={viewBox}
+                        refX={refXStart}
+                        refY={refY}
+                        markerWidth={markerSize}
+                        markerHeight={markerSize}
                         orient="auto"
                       >
-                        {cfg.arrowStart === 'circle' ? (
-                          <circle cx="5" cy="5" r="4" fill={color} />
-                        ) : (
-                          <path d={getArrowPath(cfg.arrowStart, true) || ''} fill={color} />
-                        )}
+                        {getArrowMarker(cfg.arrowStart, true)}
                       </marker>
                     )}
                   </React.Fragment>
