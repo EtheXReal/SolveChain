@@ -1460,7 +1460,7 @@ export default function FocusView({
             <div
               className="p-3 rounded-lg border-l-4"
               style={{
-                backgroundColor: NODE_TYPE_CONFIG[focusInfo.node.type].bgColor,
+                backgroundColor: 'var(--color-bg-tertiary)',
                 borderLeftColor: NODE_TYPE_CONFIG[focusInfo.node.type].color
               }}
             >
@@ -1494,8 +1494,11 @@ export default function FocusView({
                   return (
                     <div
                       key={node.id}
-                      className="p-3 rounded-lg cursor-pointer transition-shadow node-card"
-                      style={{ border: `1px solid ${nodeConfig.color}40` }}
+                      className="p-3 rounded-lg cursor-pointer transition-shadow"
+                      style={{
+                        background: 'var(--color-bg-tertiary)',
+                        border: `1px solid ${nodeConfig.color}40`
+                      }}
                       onClick={() => onNodeClick(node.id)}
                     >
                       {/* 关系类型标签 */}
