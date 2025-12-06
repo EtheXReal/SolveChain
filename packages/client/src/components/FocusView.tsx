@@ -1272,47 +1272,102 @@ export default function FocusView({
           strokeLinecap="round"
         />
 
-        {/* 流动动画层 (仅 animated 边) - 粒子流动效果 */}
+        {/* 流动动画层 (仅 animated 边) - 根据线条类型选择不同动画 */}
         {isAnimated && (
           <>
-            {/* 流动粒子线 */}
-            <line
-              x1={startX}
-              y1={startY}
-              x2={endX}
-              y2={endY}
-              stroke={color}
-              strokeWidth={isSelected ? 3 : 2}
-              strokeLinecap="round"
-              strokeDasharray="4,12"
-              opacity={0.8}
-            >
-              <animate
-                attributeName="stroke-dashoffset"
-                values="16;0"
-                dur="0.8s"
-                repeatCount="indefinite"
-              />
-            </line>
-            {/* 第二层粒子 - 错开相位 */}
-            <line
-              x1={startX}
-              y1={startY}
-              x2={endX}
-              y2={endY}
-              stroke={color}
-              strokeWidth={isSelected ? 2 : 1.5}
-              strokeLinecap="round"
-              strokeDasharray="2,14"
-              opacity={0.5}
-            >
-              <animate
-                attributeName="stroke-dashoffset"
-                values="0;-16"
-                dur="1.2s"
-                repeatCount="indefinite"
-              />
-            </line>
+            {/* 实线类型 (solid/double): 明亮的流动粒子 */}
+            {(lineStyle === 'solid' || lineStyle === 'double') && (
+              <>
+                {/* 主流动粒子 - 亮点沿线移动 */}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke="white"
+                  strokeWidth={isSelected ? 4 : 3}
+                  strokeLinecap="round"
+                  strokeDasharray="6,20"
+                  opacity={0.7}
+                  filter="url(#edge-glow)"
+                >
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    values="26;0"
+                    dur="1s"
+                    repeatCount="indefinite"
+                  />
+                </line>
+                {/* 次流动粒子 - 较小，错开 */}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke={color}
+                  strokeWidth={isSelected ? 2 : 1.5}
+                  strokeLinecap="round"
+                  strokeDasharray="3,23"
+                  opacity={0.9}
+                >
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    values="13;-13"
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                </line>
+              </>
+            )}
+            {/* 虚线类型 (dashed): 脉冲闪烁效果 */}
+            {lineStyle === 'dashed' && (
+              <line
+                x1={startX}
+                y1={startY}
+                x2={endX}
+                y2={endY}
+                stroke={color}
+                strokeWidth={isSelected ? 4 : 3}
+                strokeLinecap="round"
+                strokeDasharray="8,4"
+                opacity={0.6}
+                filter="url(#edge-glow)"
+              >
+                <animate
+                  attributeName="opacity"
+                  values="0.3;0.8;0.3"
+                  dur="1.5s"
+                  repeatCount="indefinite"
+                />
+              </line>
+            )}
+            {/* 点线类型 (dotted): 警示闪烁 */}
+            {lineStyle === 'dotted' && (
+              <line
+                x1={startX}
+                y1={startY}
+                x2={endX}
+                y2={endY}
+                stroke={color}
+                strokeWidth={isSelected ? 5 : 4}
+                strokeLinecap="round"
+                opacity={0.4}
+                filter="url(#edge-glow)"
+              >
+                <animate
+                  attributeName="opacity"
+                  values="0.2;0.6;0.2"
+                  dur="0.8s"
+                  repeatCount="indefinite"
+                />
+                <animate
+                  attributeName="stroke-width"
+                  values="3;5;3"
+                  dur="0.8s"
+                  repeatCount="indefinite"
+                />
+              </line>
+            )}
           </>
         )}
 
