@@ -305,4 +305,31 @@ export const llmApi = {
     description: string;
     models: string[];
   }>>('/llm/providers'),
+
+  // ========== v2.0 场景分析 API ==========
+
+  // 场景分析
+  analyzeScene: (projectId: string, sceneId: string | null, type: string) =>
+    request<{ result: string }>('/llm/scene/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, sceneId, type }),
+    }),
+
+  // 场景对话
+  chatWithScene: (
+    projectId: string,
+    sceneId: string | null,
+    message: string,
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ) => request<{ reply: string }>('/llm/scene/chat', {
+    method: 'POST',
+    body: JSON.stringify({ projectId, sceneId, message, history }),
+  }),
+
+  // 获取 LLM 状态
+  getStatus: () => request<{
+    configured: boolean;
+    provider: string;
+    model: string;
+  }>('/llm/status'),
 };

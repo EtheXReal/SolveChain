@@ -2,7 +2,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { nodeRepository } from '../repositories/nodeRepository.js';
 import { edgeRepository } from '../repositories/edgeRepository.js';
 import { graphRepository } from '../repositories/graphRepository.js';
-import { llmService, LLMProvider, AnalysisType } from '../services/llm/index.js';
+import { projectRepository } from '../repositories/projectRepository.js';
+import { sceneRepository } from '../repositories/sceneRepository.js';
+import { llmService, LLMProvider, AnalysisType, SceneAnalysisType } from '../services/llm/index.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router = Router();
@@ -150,6 +152,154 @@ router.get('/providers', async (req: Request, res: Response, next: NextFunction)
     ];
 
     res.json({ success: true, data: providers });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ========== v2.0 场景分析 API ==========
+
+// 场景分析（风险分析、下一步建议、逻辑检查、补全建议）
+router.post('/scene/analyze', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { projectId, sceneId, type } = req.body;
+
+    if (!projectId) {
+      throw new AppError(400, 'VALIDATION_ERROR', '需要提供 projectId');
+    }
+
+    if (!type || !Object.values(SceneAnalysisType).includes(type)) {
+      throw new AppError(400, 'VALIDATION_ERROR', '需要提供有效的分析类型 (risk, next_step, logic_check, completion)');
+    }
+
+    // 检查 API Key 是否配置
+    if (!llmService.isConfigured()) {
+      throw new AppError(400, 'CONFIG_ERROR', 'DASHSCOPE_API_KEY 未配置');
+    }
+
+    // 获取项目
+    const project = await projectRepository.findById(projectId);
+    if (!project) {
+      throw new AppError(404, 'NOT_FOUND', '项目不存在');
+    }
+
+    // 获取场景（如果指定）
+    let sceneName = project.title;
+    let sceneDescription = project.description;
+    let nodes;
+    let edges;
+
+    if (sceneId) {
+      const scene = await sceneRepository.findById(sceneId);
+      if (!scene) {
+        throw new AppError(404, 'NOT_FOUND', '场景不存在');
+      }
+      sceneName = scene.name;
+      sceneDescription = scene.description;
+
+      // 获取场景中的节点和边
+      const sceneData = await sceneRepository.getSceneWithNodes(sceneId);
+      nodes = sceneData.nodes;
+      edges = sceneData.edges;
+    } else {
+      // 获取项目的所有节点和边
+      nodes = await nodeRepository.findByProjectId(projectId);
+      edges = await edgeRepository.findByProjectId(projectId);
+    }
+
+    // 调用 LLM 分析
+    const result = await llmService.analyzeScene(
+      type as SceneAnalysisType,
+      sceneName,
+      nodes,
+      edges,
+      sceneDescription
+    );
+
+    res.json({ success: true, data: { result } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 场景自由提问
+router.post('/scene/chat', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { projectId, sceneId, message, history } = req.body;
+
+    if (!projectId) {
+      throw new AppError(400, 'VALIDATION_ERROR', '需要提供 projectId');
+    }
+
+    if (!message) {
+      throw new AppError(400, 'VALIDATION_ERROR', '需要提供消息');
+    }
+
+    // 检查 API Key 是否配置
+    if (!llmService.isConfigured()) {
+      throw new AppError(400, 'CONFIG_ERROR', 'DASHSCOPE_API_KEY 未配置');
+    }
+
+    // 获取项目
+    const project = await projectRepository.findById(projectId);
+    if (!project) {
+      throw new AppError(404, 'NOT_FOUND', '项目不存在');
+    }
+
+    // 获取场景（如果指定）
+    let sceneName = project.title;
+    let sceneDescription = project.description;
+    let nodes;
+    let edges;
+
+    if (sceneId) {
+      const scene = await sceneRepository.findById(sceneId);
+      if (!scene) {
+        throw new AppError(404, 'NOT_FOUND', '场景不存在');
+      }
+      sceneName = scene.name;
+      sceneDescription = scene.description;
+
+      // 获取场景中的节点和边
+      const sceneData = await sceneRepository.getSceneWithNodes(sceneId);
+      nodes = sceneData.nodes;
+      edges = sceneData.edges;
+    } else {
+      // 获取项目的所有节点和边
+      nodes = await nodeRepository.findByProjectId(projectId);
+      edges = await edgeRepository.findByProjectId(projectId);
+    }
+
+    // 调用 LLM 对话
+    const reply = await llmService.askSceneQuestion(
+      sceneName,
+      nodes,
+      edges,
+      message,
+      sceneDescription,
+      history || []
+    );
+
+    res.json({ success: true, data: { reply } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 检查 LLM 配置状态
+router.get('/status', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const isConfigured = llmService.isConfigured();
+    const config = llmService.getConfig();
+
+    res.json({
+      success: true,
+      data: {
+        configured: isConfigured,
+        provider: config.provider,
+        model: config.model
+      }
+    });
   } catch (error) {
     next(error);
   }

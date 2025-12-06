@@ -13,10 +13,11 @@ import NodeEditPanel from '../components/NodeEditPanel';
 import EdgeEditPanel from '../components/EdgeEditPanel';
 import PropagationPanel from '../components/PropagationPanel';
 import AnalysisPanel from '../components/AnalysisPanel';
+import AIAssistantPanel from '../components/AIAssistantPanel';
 import SceneTabs from '../components/SceneTabs';
 import ImportDialog from '../components/ImportDialog';
 import { NodeType, EdgeType } from '../types';
-import { Edit3, Eye, Download, Upload, FileText, Copy, Check, Activity, Brain } from 'lucide-react';
+import { Edit3, Eye, Download, Upload, FileText, Copy, Check, Activity, Brain, Bot } from 'lucide-react';
 import {
   exportScene,
   exportProject,
@@ -92,6 +93,9 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
   // 分析面板状态
   const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
+
+  // AI 助手面板状态
+  const [showAIAssistantPanel, setShowAIAssistantPanel] = useState(false);
 
   // 加载项目
   useEffect(() => {
@@ -719,7 +723,10 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           <button
             onClick={() => {
               setShowAnalysisPanel(!showAnalysisPanel);
-              if (!showAnalysisPanel) setShowPropagationPanel(false);
+              if (!showAnalysisPanel) {
+                setShowPropagationPanel(false);
+                setShowAIAssistantPanel(false);
+              }
             }}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
               showAnalysisPanel
@@ -730,6 +737,26 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           >
             <Brain size={18} />
             <span>分析</span>
+          </button>
+
+          {/* AI 智能分析按钮 */}
+          <button
+            onClick={() => {
+              setShowAIAssistantPanel(!showAIAssistantPanel);
+              if (!showAIAssistantPanel) {
+                setShowPropagationPanel(false);
+                setShowAnalysisPanel(false);
+              }
+            }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
+              showAIAssistantPanel
+                ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white border-purple-500'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
+            }`}
+            title="AI 智能分析 - 风险分析、下一步建议、逻辑检查、补全建议"
+          >
+            <Bot size={18} />
+            <span>AI</span>
           </button>
 
           {/* 模式切换按钮 */}
@@ -843,6 +870,17 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             projectId={projectId}
             selectedNodeId={focusedNodeId}
             onNodeClick={handleSelectNode}
+          />
+        )}
+
+        {/* AI 助手面板 */}
+        {showAIAssistantPanel && !editingNodeId && !editingEdgeId && (
+          <AIAssistantPanel
+            isOpen={showAIAssistantPanel}
+            onClose={() => setShowAIAssistantPanel(false)}
+            projectId={projectId}
+            sceneId={currentSceneId}
+            sceneName={scenes.find(s => s.id === currentSceneId)?.name || '概览'}
           />
         )}
       </div>

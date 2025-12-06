@@ -6,8 +6,16 @@ import { LLMProvider, LLMConfig, LLMRequest, LLMResponse, AnalysisType, Analysis
 import { callDashScope } from './providers/dashscope.js';
 import { callDeepSeek } from './providers/deepseek.js';
 import { Node, Edge } from '../../types/index.js';
+import {
+  convertGraphToText,
+  SYSTEM_PROMPT,
+  getAnalysisPrompt,
+  SceneAnalysisType,
+  ERROR_MESSAGES,
+} from './prompts.js';
 
 export * from './types.js';
+export { SceneAnalysisType, convertGraphToText } from './prompts.js';
 
 // 默认配置
 const DEFAULT_CONFIG: Partial<LLMConfig> = {
@@ -15,7 +23,7 @@ const DEFAULT_CONFIG: Partial<LLMConfig> = {
   model: 'qwen-plus'
 };
 
-// 系统提示词
+// 系统提示词（保留原有用于决策图模型）
 const SYSTEM_PROMPTS = {
   base: `你是一位精通第一性原理思维的决策顾问。你的任务是帮助用户：
 1. 将复杂问题分解为基本事实和假设
@@ -237,6 +245,90 @@ export class LLMService {
    */
   updateConfig(config: Partial<LLMConfig>): void {
     this.config = { ...this.config, ...config };
+  }
+
+  // ========== v2.0 场景模型支持 ==========
+
+  /**
+   * 场景分析（风险分析、下一步建议、逻辑检查、补全建议）
+   */
+  async analyzeScene(
+    type: SceneAnalysisType,
+    sceneName: string,
+    nodes: Node[],
+    edges: Edge[],
+    sceneDescription?: string
+  ): Promise<string> {
+    if (nodes.length === 0) {
+      throw new Error(ERROR_MESSAGES.EMPTY_GRAPH);
+    }
+
+    const graphText = convertGraphToText(sceneName, nodes, edges, sceneDescription);
+    const analysisPrompt = getAnalysisPrompt(type);
+    const userContent = `${graphText}\n\n## 用户问题\n${analysisPrompt}`;
+
+    const response = await this.chat({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent }
+      ],
+      temperature: 0.7,
+      maxTokens: 2000
+    });
+
+    return response.content;
+  }
+
+  /**
+   * 场景自由提问
+   */
+  async askSceneQuestion(
+    sceneName: string,
+    nodes: Node[],
+    edges: Edge[],
+    question: string,
+    sceneDescription?: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  ): Promise<string> {
+    const graphText = convertGraphToText(sceneName, nodes, edges, sceneDescription);
+
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: `当前场景状态：\n${graphText}` },
+    ];
+
+    // 添加历史对话
+    history.forEach(h => {
+      messages.push({ role: h.role, content: h.content });
+    });
+
+    // 添加当前问题
+    messages.push({ role: 'user', content: question });
+
+    const response = await this.chat({
+      messages,
+      temperature: 0.7,
+      maxTokens: 2000
+    });
+
+    return response.content;
+  }
+
+  /**
+   * 检查 API Key 是否已配置
+   */
+  isConfigured(): boolean {
+    return !!this.config.apiKey;
+  }
+
+  /**
+   * 获取当前配置（不包含 API Key）
+   */
+  getConfig(): { provider: LLMProvider; model: string } {
+    return {
+      provider: this.config.provider,
+      model: this.config.model
+    };
   }
 }
 
