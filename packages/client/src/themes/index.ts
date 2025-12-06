@@ -148,68 +148,68 @@ export const classicTheme: Theme = {
 };
 
 // ============ 暗夜主题 (Midnight) ============
-// 参考 Figma/Miro 暗色模式 - 干净的深色 + 白色节点卡片
+// 深色节点卡片 + 彩色边框，舒适护眼
 export const midnightTheme: Theme = {
   id: 'midnight',
   name: '暗夜',
-  description: '专业深色，干净清晰',
+  description: '深色护眼，专业舒适',
   colors: {
-    // 纯净深色背景
-    background: '#1e1e1e',
-    backgroundSecondary: '#252525',
-    backgroundTertiary: '#2d2d2d',
-    surface: '#2d2d2d',
-    surfaceHover: '#3a3a3a',
-    border: '#404040',
-    borderLight: '#353535',
-    text: '#ffffff',
-    textSecondary: '#a0a0a0',
+    // 深色背景
+    background: '#1a1a1a',
+    backgroundSecondary: '#222222',
+    backgroundTertiary: '#2a2a2a',
+    surface: '#262626',
+    surfaceHover: '#333333',
+    border: '#3d3d3d',
+    borderLight: '#333333',
+    text: '#e6e6e6',
+    textSecondary: '#999999',
     textMuted: '#666666',
 
-    // 蓝色主色调
-    primary: '#0d99ff',
-    primaryHover: '#0085e6',
-    primaryLight: '#1a3a4d',
-    secondary: '#14ae5c',
-    accent: '#f24822',
+    // 蓝色主色
+    primary: '#4a9eff',
+    primaryHover: '#6bb3ff',
+    primaryLight: '#1a2e42',
+    secondary: '#50c878',
+    accent: '#ff6b6b',
 
-    // 白色/浅色节点背景 - 最大对比度
-    nodeGoal: '#f24822',      // 红橙
-    nodeGoalBg: '#ffffff',
-    nodeAction: '#14ae5c',    // 绿色
-    nodeActionBg: '#ffffff',
-    nodeFact: '#0d99ff',      // 蓝色
-    nodeFactBg: '#ffffff',
-    nodeAssumption: '#ffcd29', // 黄色
-    nodeAssumptionBg: '#ffffff',
-    nodeConstraint: '#9747ff', // 紫色
-    nodeConstraintBg: '#ffffff',
-    nodeConclusion: '#14ae5c', // 青色
-    nodeConclusionBg: '#ffffff',
+    // 深色节点背景 + 鲜明边框色
+    nodeGoal: '#ff6b6b',      // 珊瑚红
+    nodeGoalBg: '#2d2222',
+    nodeAction: '#50c878',    // 翡翠绿
+    nodeActionBg: '#1f2d22',
+    nodeFact: '#4a9eff',      // 天空蓝
+    nodeFactBg: '#1a2533',
+    nodeAssumption: '#ffd93d', // 金黄
+    nodeAssumptionBg: '#2d2a1a',
+    nodeConstraint: '#c084fc', // 薰衣草紫
+    nodeConstraintBg: '#261f33',
+    nodeConclusion: '#22d3ee', // 青色
+    nodeConclusionBg: '#1a2d2f',
 
-    success: '#14ae5c',
-    successBg: '#1a3d2a',
-    warning: '#ffcd29',
-    warningBg: '#3d3a1a',
-    error: '#f24822',
-    errorBg: '#3d1a1a',
-    info: '#0d99ff',
-    infoBg: '#1a2a3d',
+    success: '#50c878',
+    successBg: '#1f2d22',
+    warning: '#ffd93d',
+    warningBg: '#2d2a1a',
+    error: '#ff6b6b',
+    errorBg: '#2d2222',
+    info: '#4a9eff',
+    infoBg: '#1a2533',
 
-    // 画布 - 深灰背景 + 白色节点
-    canvasBg: '#2c2c2c',
-    canvasGrid: '#3a3a3a',
-    canvasBorder: '#505050',
-    canvasNodeBorder: '#e0e0e0',
-    canvasNodeText: '#1a1a1a',
-    canvasNodeTextSecondary: '#666666',
-    canvasConnectSource: '#14ae5c',
-    canvasConnectTarget: '#0d99ff',
-    canvasConnecting: '#14ae5c',
+    // 画布 - 统一深色调
+    canvasBg: '#1e1e1e',
+    canvasGrid: '#2a2a2a',
+    canvasBorder: '#404040',
+    canvasNodeBorder: '#4a4a4a',
+    canvasNodeText: '#e6e6e6',
+    canvasNodeTextSecondary: '#aaaaaa',
+    canvasConnectSource: '#50c878',
+    canvasConnectTarget: '#4a9eff',
+    canvasConnecting: '#50c878',
 
-    shadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+    shadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
   },
-  borderRadius: '8px',
+  borderRadius: '6px',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   nodeStyle: 'elevated',
   animationIntensity: 'subtle',
