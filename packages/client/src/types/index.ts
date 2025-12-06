@@ -326,19 +326,25 @@ export const NODE_TYPE_CONFIG: Record<string, {
 
 // ============ 关系类型配置 ============
 // 注意：颜色会根据主题动态覆盖，这里定义默认值（适用于亮色主题）
+// 箭头样式: arrow(标准), diamond(菱形), circle(圆点), triangle(三角), none(无)
+// 线条样式: solid(实线), dashed(虚线), dotted(点线), double(双线)
 export const EDGE_TYPE_CONFIG: Record<string, {
   label: string;
   symbol: string;
   color: string;
-  lineStyle: 'solid' | 'dashed';
+  lineStyle: 'solid' | 'dashed' | 'dotted' | 'double';
+  arrowStyle: 'arrow' | 'diamond' | 'circle' | 'triangle' | 'none';
+  arrowStart?: 'arrow' | 'diamond' | 'circle' | 'triangle' | 'none';  // 起点箭头
   description: string;
   deprecated?: boolean;
+  animated?: boolean;  // 是否有流动动画
 }> = {
   [EdgeType.DEPENDS]: {
     label: '依赖',
     symbol: '←',
     color: '#78716c',       // 石灰色 - 中性依赖关系
-    lineStyle: 'solid',
+    lineStyle: 'dashed',    // 虚线表示依赖方向
+    arrowStyle: 'circle',   // 圆点箭头 - 柔和的依赖
     description: 'B要成立，必须先有A'
   },
   [EdgeType.SUPPORTS]: {
@@ -346,6 +352,8 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     symbol: '→',
     color: '#22c55e',       // 翠绿 - 正向支持
     lineStyle: 'solid',
+    arrowStyle: 'arrow',    // 标准箭头 - 明确的支持方向
+    animated: true,         // 流动动画表示能量传递
     description: 'A成立会帮助B成立'
   },
   [EdgeType.ACHIEVES]: {
@@ -353,20 +361,25 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     symbol: '⊢',
     color: '#3b82f6',       // 蓝色 - 实现目标
     lineStyle: 'solid',
+    arrowStyle: 'diamond',  // 菱形箭头 - 目标达成
+    animated: true,
     description: '行动A可以满足约束或目标B'
   },
   [EdgeType.HINDERS]: {
     label: '阻碍',
     symbol: '⊣',
     color: '#f97316',       // 橙色 - 阻碍警告
-    lineStyle: 'solid',
+    lineStyle: 'dotted',    // 点线表示阻碍/不通畅
+    arrowStyle: 'triangle', // 三角箭头 - 警告标识
     description: 'A成立会妨碍B成立'
   },
   [EdgeType.CAUSES]: {
     label: '导致',
     symbol: '⇒',
     color: '#a855f7',       // 紫色 - 因果关系
-    lineStyle: 'solid',
+    lineStyle: 'double',    // 双线表示强因果
+    arrowStyle: 'arrow',
+    animated: true,
     description: 'A发生会引起B发生'
   },
   [EdgeType.CONFLICTS]: {
@@ -374,6 +387,8 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     symbol: '⊥',
     color: '#ef4444',       // 红色 - 冲突警示
     lineStyle: 'dashed',
+    arrowStyle: 'triangle', // 双向三角 - 互斥
+    arrowStart: 'triangle', // 起点也有箭头
     description: 'A和B不能同时为真'
   },
   // 废弃类型（兼容旧数据）
@@ -381,7 +396,8 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     label: '前提',
     symbol: '←',
     color: '#78716c',
-    lineStyle: 'solid',
+    lineStyle: 'dashed',
+    arrowStyle: 'circle',
     description: '（已废弃，请使用"依赖"）',
     deprecated: true
   },
@@ -389,7 +405,8 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     label: '反对',
     symbol: '⊣',
     color: '#f97316',
-    lineStyle: 'solid',
+    lineStyle: 'dotted',
+    arrowStyle: 'triangle',
     description: '（已废弃，请使用"阻碍"）',
     deprecated: true
   },
@@ -397,7 +414,8 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     label: '导致',
     symbol: '⇒',
     color: '#a855f7',
-    lineStyle: 'solid',
+    lineStyle: 'double',
+    arrowStyle: 'arrow',
     description: '（已废弃，请使用"导致(causes)"）',
     deprecated: true
   },
@@ -406,6 +424,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     symbol: '~',
     color: '#64748b',
     lineStyle: 'dashed',
+    arrowStyle: 'none',
     description: '（已废弃，信息量太低）',
     deprecated: true
   }

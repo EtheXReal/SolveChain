@@ -5,7 +5,7 @@
  * 支持编辑模式：创建/编辑/删除节点和边
  */
 
-import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { useGraphStore, EditorMode } from '../store/graphStore';
 import { usePropagationStore } from '../store/propagationStore';
 import { GraphNode, GraphEdge, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG, EdgeType } from '../types';
@@ -1180,6 +1180,23 @@ export default function FocusView({
     const endX = targetPos.x - unitX * 80;
     const endY = targetPos.y - unitY * 35;
 
+    // 获取线条样式的 strokeDasharray
+    const getStrokeDasharray = (lineStyle: string) => {
+      switch (lineStyle) {
+        case 'dashed': return '8,4';
+        case 'dotted': return '2,4';
+        case 'double': return undefined; // 双线用两条线实现
+        default: return undefined; // solid
+      }
+    };
+
+    const lineStyle = config?.lineStyle || 'solid';
+    const isDouble = lineStyle === 'double';
+    const dashArray = getStrokeDasharray(lineStyle);
+    const hasStartMarker = config?.arrowStart && config.arrowStart !== 'none';
+    const hasEndMarker = config?.arrowStyle && config.arrowStyle !== 'none';
+    const isAnimated = config?.animated && theme.nodeStyle === 'neon' && !isUnrelated;
+
     return (
       <g
         key={edge.id}
@@ -1207,11 +1224,37 @@ export default function FocusView({
             x2={endX}
             y2={endY}
             stroke={color}
-            strokeWidth={isSelected ? 8 : isRelatedToFocus ? 6 : 4}
-            opacity={isSelected ? 0.5 : isRelatedToFocus ? 0.4 : 0.25}
+            strokeWidth={isSelected ? 10 : isRelatedToFocus ? 8 : 5}
+            opacity={isSelected ? 0.5 : isRelatedToFocus ? 0.4 : 0.2}
             filter={isRelatedToFocus ? 'url(#edge-pulse)' : 'url(#edge-glow)'}
             strokeLinecap="round"
           />
+        )}
+
+        {/* 双线样式 - 第二条线（略偏移） */}
+        {isDouble && (
+          <>
+            <line
+              x1={startX}
+              y1={startY - 2}
+              x2={endX}
+              y2={endY - 2}
+              stroke={color}
+              strokeWidth={isSelected ? 2 : isRelatedToFocus ? 1.5 : 1}
+              strokeLinecap="round"
+              filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#edge-glow)' : undefined}
+            />
+            <line
+              x1={startX}
+              y1={startY + 2}
+              x2={endX}
+              y2={endY + 2}
+              stroke={color}
+              strokeWidth={isSelected ? 2 : isRelatedToFocus ? 1.5 : 1}
+              strokeLinecap="round"
+              filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#edge-glow)' : undefined}
+            />
+          </>
         )}
 
         {/* 主边线 */}
@@ -1221,12 +1264,34 @@ export default function FocusView({
           x2={endX}
           y2={endY}
           stroke={color}
-          strokeWidth={isSelected ? 3.5 : isRelatedToFocus ? 2.5 : theme.nodeStyle === 'neon' ? 2 : 1.5}
-          markerStart={edge.type === EdgeType.CONFLICTS ? 'url(#arrow-conflicts-start)' : undefined}
-          markerEnd={`url(#arrow-${edge.type})`}
+          strokeWidth={isDouble ? 0 : (isSelected ? 3 : isRelatedToFocus ? 2.5 : theme.nodeStyle === 'neon' ? 2 : 1.5)}
+          strokeDasharray={dashArray}
+          markerStart={hasStartMarker ? `url(#marker-start-${edge.type})` : undefined}
+          markerEnd={hasEndMarker ? `url(#marker-end-${edge.type})` : undefined}
           filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#edge-glow)' : undefined}
           strokeLinecap="round"
         />
+
+        {/* 流动动画层 (仅 animated 边) */}
+        {isAnimated && (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke="url(#flow-gradient)"
+            strokeWidth={isSelected ? 4 : 3}
+            strokeLinecap="round"
+            opacity={0.6}
+          >
+            <animate
+              attributeName="stroke-dashoffset"
+              values="20;0"
+              dur="1s"
+              repeatCount="indefinite"
+            />
+          </line>
+        )}
 
         {/* 边标签 - neon 模式下显示更多 */}
         {(isRelatedToFocus || isSelected || isEditMode || (theme.nodeStyle === 'neon' && !isUnrelated)) && (
@@ -1239,7 +1304,9 @@ export default function FocusView({
                 width={40}
                 height={16}
                 rx={4}
-                fill="rgba(10, 10, 15, 0.7)"
+                fill="rgba(10, 10, 15, 0.8)"
+                stroke={color}
+                strokeWidth={0.5}
                 opacity={isRelatedToFocus || isSelected ? 1 : 0.6}
               />
             )}
@@ -1454,33 +1521,85 @@ export default function FocusView({
                   </filter>
                 </>
               )}
-              {/* 使用主题感知的边颜色定义箭头 */}
-              {Object.keys(EDGE_TYPE_CONFIG).map((type) => (
-                <marker
-                  key={type}
-                  id={`arrow-${type}`}
-                  viewBox="0 0 10 10"
-                  refX="9"
-                  refY="5"
-                  markerWidth="6"
-                  markerHeight="6"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill={getEdgeColor(type)} />
-                </marker>
-              ))}
-              {/* CONFLICTS 的起点箭头（用于双向显示） */}
-              <marker
-                id="arrow-conflicts-start"
-                viewBox="0 0 10 10"
-                refX="0"
-                refY="5"
-                markerWidth="6"
-                markerHeight="6"
-                orient="auto"
-              >
-                <path d="M 10 0 L 0 5 L 10 10 z" fill={getEdgeColor(EdgeType.CONFLICTS)} />
-              </marker>
+              {/* 为每种边类型定义独特的箭头样式 */}
+              {Object.entries(EDGE_TYPE_CONFIG).map(([type, cfg]) => {
+                const color = getEdgeColor(type);
+                const arrowStyle = cfg.arrowStyle || 'arrow';
+
+                // 根据箭头样式返回不同的 path
+                const getArrowPath = (style: string, isStart = false) => {
+                  switch (style) {
+                    case 'diamond':
+                      return isStart ? "M 10 5 L 5 0 L 0 5 L 5 10 z" : "M 0 5 L 5 0 L 10 5 L 5 10 z";
+                    case 'circle':
+                      return null; // 圆形用 circle 元素
+                    case 'triangle':
+                      return isStart ? "M 10 0 L 0 5 L 10 10 z" : "M 0 0 L 10 5 L 0 10 z";
+                    case 'none':
+                      return null;
+                    case 'arrow':
+                    default:
+                      return isStart ? "M 10 0 L 0 5 L 10 10 L 7 5 z" : "M 0 0 L 10 5 L 0 10 L 3 5 z";
+                  }
+                };
+
+                return (
+                  <React.Fragment key={type}>
+                    {/* 终点箭头 */}
+                    {arrowStyle !== 'none' && (
+                      <marker
+                        id={`marker-end-${type}`}
+                        viewBox="0 0 10 10"
+                        refX={arrowStyle === 'circle' ? 5 : 9}
+                        refY="5"
+                        markerWidth={arrowStyle === 'circle' ? 5 : 7}
+                        markerHeight={arrowStyle === 'circle' ? 5 : 7}
+                        orient="auto"
+                      >
+                        {arrowStyle === 'circle' ? (
+                          <circle cx="5" cy="5" r="4" fill={color} />
+                        ) : (
+                          <path d={getArrowPath(arrowStyle) || ''} fill={color} />
+                        )}
+                      </marker>
+                    )}
+                    {/* 起点箭头 (如果配置了) */}
+                    {cfg.arrowStart && cfg.arrowStart !== 'none' && (
+                      <marker
+                        id={`marker-start-${type}`}
+                        viewBox="0 0 10 10"
+                        refX={cfg.arrowStart === 'circle' ? 5 : 1}
+                        refY="5"
+                        markerWidth={cfg.arrowStart === 'circle' ? 5 : 7}
+                        markerHeight={cfg.arrowStart === 'circle' ? 5 : 7}
+                        orient="auto"
+                      >
+                        {cfg.arrowStart === 'circle' ? (
+                          <circle cx="5" cy="5" r="4" fill={color} />
+                        ) : (
+                          <path d={getArrowPath(cfg.arrowStart, true) || ''} fill={color} />
+                        )}
+                      </marker>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {/* 流动动画渐变 */}
+              {theme.nodeStyle === 'neon' && (
+                <>
+                  <linearGradient id="flow-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="rgba(255,255,255,0)">
+                      <animate attributeName="offset" values="-0.5;1" dur="1.5s" repeatCount="indefinite" />
+                    </stop>
+                    <stop offset="50%" stopColor="rgba(255,255,255,0.6)">
+                      <animate attributeName="offset" values="0;1.5" dur="1.5s" repeatCount="indefinite" />
+                    </stop>
+                    <stop offset="100%" stopColor="rgba(255,255,255,0)">
+                      <animate attributeName="offset" values="0.5;2" dur="1.5s" repeatCount="indefinite" />
+                    </stop>
+                  </linearGradient>
+                </>
+              )}
               <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
                 <path d="M 100 0 L 0 0 0 100" fill="none" stroke={canvasColors.canvasGrid} strokeWidth="1" />
               </pattern>
