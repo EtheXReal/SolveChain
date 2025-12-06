@@ -148,71 +148,70 @@ export const classicTheme: Theme = {
 };
 
 // ============ 暗夜主题 (Midnight) ============
-// 深邃的紫蓝色调，柔和配色，适合夜间工作
+// 参考 GitHub Dark / VS Code Dark+ 的专业深色设计
 export const midnightTheme: Theme = {
   id: 'midnight',
   name: '暗夜',
-  description: '深邃优雅，护眼舒适',
+  description: '专业深色，舒适护眼',
   colors: {
-    // 深邃但不刺眼的蓝紫色背景
-    background: '#12141c',
-    backgroundSecondary: '#181a24',
-    backgroundTertiary: '#1e212c',
-    surface: '#1c1f2a',
-    surfaceHover: '#252836',
-    border: '#2e3242',
-    borderLight: '#383c4e',
-    text: '#e2e4ea',
-    textSecondary: '#a0a4b4',
-    textMuted: '#6a6e82',
+    // 纯净的深色背景，参考 GitHub Dark
+    background: '#0d1117',
+    backgroundSecondary: '#161b22',
+    backgroundTertiary: '#21262d',
+    surface: '#161b22',
+    surfaceHover: '#1f2428',
+    border: '#30363d',
+    borderLight: '#21262d',
+    text: '#c9d1d9',
+    textSecondary: '#8b949e',
+    textMuted: '#6e7681',
 
-    // 柔和的紫色作为主色，降低亮度
-    primary: '#7b6be0',
-    primaryHover: '#8a7ae8',
-    primaryLight: '#2a2840',
-    secondary: '#9580d8',
-    accent: '#d88cb0',
+    // 蓝色主色调，参考 GitHub
+    primary: '#58a6ff',
+    primaryHover: '#79b8ff',
+    primaryLight: '#1f3a5c',
+    secondary: '#a371f7',
+    accent: '#f778ba',
 
-    // 柔和的节点颜色 - 降低饱和度和亮度，不刺眼
-    nodeGoal: '#d87090',      // 柔和粉
-    nodeGoalBg: '#2a1e24',
-    nodeAction: '#50b890',    // 柔和绿
-    nodeActionBg: '#1a2824',
-    nodeFact: '#6090d0',      // 柔和蓝
-    nodeFactBg: '#1a2230',
-    nodeAssumption: '#d0a050', // 柔和橙
-    nodeAssumptionBg: '#282418',
-    nodeConstraint: '#d06060', // 柔和红
-    nodeConstraintBg: '#2a1c1c',
-    nodeConclusion: '#9070c0', // 柔和紫
-    nodeConclusionBg: '#221e2a',
+    // 清晰可辨的节点颜色
+    nodeGoal: '#f778ba',      // 粉色
+    nodeGoalBg: '#2d1f2b',
+    nodeAction: '#3fb950',    // 绿色
+    nodeActionBg: '#1b2e20',
+    nodeFact: '#58a6ff',      // 蓝色
+    nodeFactBg: '#1a2332',
+    nodeAssumption: '#d29922', // 黄色
+    nodeAssumptionBg: '#2b2517',
+    nodeConstraint: '#f85149', // 红色
+    nodeConstraintBg: '#2d1b1b',
+    nodeConclusion: '#a371f7', // 紫色
+    nodeConclusionBg: '#251f30',
 
-    success: '#50b890',
-    successBg: '#1a2824',
-    warning: '#d0a050',
-    warningBg: '#282418',
-    error: '#d06060',
-    errorBg: '#2a1c1c',
-    info: '#6090d0',
-    infoBg: '#1a2230',
+    success: '#3fb950',
+    successBg: '#1b2e20',
+    warning: '#d29922',
+    warningBg: '#2b2517',
+    error: '#f85149',
+    errorBg: '#2d1b1b',
+    info: '#58a6ff',
+    infoBg: '#1a2332',
 
-    // 画布配色 - 柔和深色调，高对比文字
-    canvasBg: '#161820',
-    canvasGrid: '#252838',
-    canvasBorder: '#3a3e52',
-    canvasNodeBorder: '#4a4e65',
-    canvasNodeText: '#f0f0f5',
-    canvasNodeTextSecondary: '#b8bac8',
-    canvasConnectSource: '#50b890',
-    canvasConnectTarget: '#7b6be0',
-    canvasConnecting: '#50b890',
+    // 画布配色
+    canvasBg: '#0d1117',
+    canvasGrid: '#21262d',
+    canvasBorder: '#30363d',
+    canvasNodeBorder: '#30363d',
+    canvasNodeText: '#c9d1d9',
+    canvasNodeTextSecondary: '#8b949e',
+    canvasConnectSource: '#3fb950',
+    canvasConnectTarget: '#58a6ff',
+    canvasConnecting: '#3fb950',
 
-    glow: '0 0 15px rgba(123, 107, 224, 0.2)',
-    shadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+    shadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
   },
-  borderRadius: '12px',
-  fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
-  nodeStyle: 'neon',
+  borderRadius: '6px',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+  nodeStyle: 'elevated',
   animationIntensity: 'subtle',
 };
 
