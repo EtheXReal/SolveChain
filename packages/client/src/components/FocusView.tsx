@@ -1283,15 +1283,16 @@ export default function FocusView({
                 x2={endX}
                 y2={endY}
                 stroke={color}
-                strokeWidth={isSelected ? 2 : 1.5}
+                strokeWidth={2}
                 strokeLinecap="round"
-                strokeDasharray="4,30"
-                opacity={0.6}
+                strokeDasharray="6,40"
+                opacity={0.8}
               >
                 <animate
                   attributeName="stroke-dashoffset"
-                  values="34;0"
-                  dur="2s"
+                  from="46"
+                  to="0"
+                  dur="2.5s"
                   repeatCount="indefinite"
                 />
               </line>
@@ -1304,14 +1305,14 @@ export default function FocusView({
                 x2={endX}
                 y2={endY}
                 stroke={color}
-                strokeWidth={isSelected ? 3 : 2}
+                strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeDasharray="8,4"
-                opacity={0.4}
+                opacity={0.5}
               >
                 <animate
                   attributeName="opacity"
-                  values="0.2;0.5;0.2"
+                  values="0.3;0.7;0.3"
                   dur="2s"
                   repeatCount="indefinite"
                 />
@@ -1325,14 +1326,14 @@ export default function FocusView({
                 x2={endX}
                 y2={endY}
                 stroke={color}
-                strokeWidth={isSelected ? 3 : 2}
+                strokeWidth={2.5}
                 strokeLinecap="round"
-                opacity={0.3}
+                opacity={0.4}
               >
                 <animate
                   attributeName="opacity"
-                  values="0.15;0.4;0.15"
-                  dur="1.2s"
+                  values="0.25;0.6;0.25"
+                  dur="1.5s"
                   repeatCount="indefinite"
                 />
               </line>
