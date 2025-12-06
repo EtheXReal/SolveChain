@@ -2,22 +2,134 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============ 基础变量定义 ============ */
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* 默认主题变量（经典主题） */
+  --color-bg: #f8fafc;
+  --color-bg-secondary: #f1f5f9;
+  --color-bg-tertiary: #e2e8f0;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-border-light: #f1f5f9;
+  --color-text: #1e293b;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --color-primary-light: #e0e7ff;
+  --color-secondary: #8b5cf6;
+  --color-accent: #ec4899;
+
+  --color-node-goal: #ec4899;
+  --color-node-goal-bg: #fce7f3;
+  --color-node-action: #22c55e;
+  --color-node-action-bg: #dcfce7;
+  --color-node-fact: #3b82f6;
+  --color-node-fact-bg: #dbeafe;
+  --color-node-assumption: #f59e0b;
+  --color-node-assumption-bg: #fef3c7;
+  --color-node-constraint: #ef4444;
+  --color-node-constraint-bg: #fee2e2;
+  --color-node-conclusion: #8b5cf6;
+  --color-node-conclusion-bg: #f3e8ff;
+
+  --color-success: #22c55e;
+  --color-success-bg: #dcfce7;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fef3c7;
+  --color-error: #ef4444;
+  --color-error-bg: #fee2e2;
+  --color-info: #3b82f6;
+  --color-info-bg: #dbeafe;
+
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --border-radius: 8px;
+  --font-family: Inter, system-ui, sans-serif;
+
+  font-family: var(--font-family);
   line-height: 1.5;
   font-weight: 400;
-  color: #213547;
-  background-color: #f8fafc;
+  color: var(--color-text);
+  background-color: var(--color-bg);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* React Flow 自定义样式 */
+/* ============ 主题特定样式 ============ */
+
+/* 暗夜主题 */
+.theme-midnight {
+  color-scheme: dark;
+}
+
+.theme-midnight ::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+.theme-midnight ::-webkit-scrollbar-thumb {
+  background: #3d3d7a;
+}
+
+.theme-midnight ::-webkit-scrollbar-thumb:hover {
+  background: #5050a0;
+}
+
+/* 暗夜主题霓虹效果 */
+.theme-midnight .node-card {
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  box-shadow: 0 0 20px rgba(108, 92, 231, 0.2);
+}
+
+.theme-midnight .node-card:hover {
+  box-shadow: 0 0 30px rgba(108, 92, 231, 0.4);
+  border-color: rgba(108, 92, 231, 0.5);
+}
+
+/* 极光主题 */
+.theme-aurora {
+  background: linear-gradient(135deg, #fafbff 0%, #f0f4ff 50%, #e5ebff 100%);
+}
+
+.theme-aurora::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 40% 60%, rgba(244, 63, 94, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* 极光主题玻璃效果 */
+.theme-aurora .node-card {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.1);
+}
+
+.theme-aurora .node-card:hover {
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 12px 40px rgba(139, 92, 246, 0.2);
+}
+
+/* ============ React Flow 自定义样式 ============ */
 .react-flow__node {
-  border-radius: 8px;
+  border-radius: var(--border-radius);
   font-size: 12px;
 }
 
@@ -26,29 +138,93 @@ body {
 }
 
 .react-flow__controls {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  box-shadow: var(--shadow);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
 }
 
-/* 自定义滚动条 */
+.react-flow__controls-button {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  fill: var(--color-text-secondary);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--color-surface-hover);
+}
+
+.react-flow__minimap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+}
+
+.react-flow__background {
+  background-color: var(--color-bg);
+}
+
+/* ============ 自定义滚动条 ============ */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--color-bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--color-text-muted);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--color-text-secondary);
 }
 
-/* 淡入动画 */
+/* ============ 通用组件样式 ============ */
+
+/* 卡片基础样式 */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  background: var(--color-surface-hover);
+}
+
+/* 按钮样式 */
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--border-radius);
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+/* 输入框样式 */
+.input {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: var(--border-radius);
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+/* ============ 动画 ============ */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -62,4 +238,65 @@ body {
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out forwards;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--color-primary);
+  }
+  50% {
+    box-shadow: 0 0 25px var(--color-primary);
+  }
+}
+
+.theme-midnight .animate-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes aurora-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.theme-aurora .animate-aurora {
+  background-size: 200% 200%;
+  animation: aurora-shift 8s ease infinite;
+}
+
+/* ============ 节点类型样式助手 ============ */
+.node-goal {
+  --node-color: var(--color-node-goal);
+  --node-bg: var(--color-node-goal-bg);
+}
+
+.node-action {
+  --node-color: var(--color-node-action);
+  --node-bg: var(--color-node-action-bg);
+}
+
+.node-fact {
+  --node-color: var(--color-node-fact);
+  --node-bg: var(--color-node-fact-bg);
+}
+
+.node-assumption {
+  --node-color: var(--color-node-assumption);
+  --node-bg: var(--color-node-assumption-bg);
+}
+
+.node-constraint {
+  --node-color: var(--color-node-constraint);
+  --node-bg: var(--color-node-constraint-bg);
+}
+
+.node-conclusion {
+  --node-color: var(--color-node-conclusion);
+  --node-bg: var(--color-node-conclusion-bg);
 }

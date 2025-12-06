@@ -653,20 +653,21 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
   if (loading && !currentProject) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">加载中...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
+        <div style={{ color: 'var(--color-text-muted)' }}>加载中...</div>
       </div>
     );
   }
 
   if (!currentProject) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
         <div className="text-center">
-          <p className="text-gray-500 mb-4">项目不存在或已被删除</p>
+          <p className="mb-4" style={{ color: 'var(--color-text-muted)' }}>项目不存在或已被删除</p>
           <button
             onClick={onBack}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 text-white rounded-lg transition-colors"
+            style={{ background: 'var(--color-primary)' }}
           >
             返回首页
           </button>
@@ -676,18 +677,31 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col" style={{ background: 'var(--color-bg)' }}>
       {/* 头部 */}
-      <div className="flex items-center justify-between bg-white border-b border-gray-200 px-4 h-14">
+      <div
+        className="flex items-center justify-between px-4 h-14"
+        style={{
+          background: 'var(--color-surface)',
+          borderBottom: '1px solid var(--color-border)',
+        }}
+      >
         <Header title={currentProject.title} onBack={onBack} />
 
         {/* 右侧按钮组 */}
         <div className="flex items-center gap-2">
           {/* 导出/导入按钮组 */}
-          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+          <div
+            className="flex items-center rounded-lg overflow-hidden"
+            style={{ border: '1px solid var(--color-border)' }}
+          >
             <button
               onClick={handleExportScene}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors border-r border-gray-200"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm transition-colors"
+              style={{
+                color: 'var(--color-text-secondary)',
+                borderRight: '1px solid var(--color-border)',
+              }}
               title="导出当前场景 (JSON)"
             >
               <Download size={16} />
@@ -695,7 +709,8 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             </button>
             <button
               onClick={() => setShowImportDialog(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm transition-colors"
+              style={{ color: 'var(--color-text-secondary)' }}
               title="导入场景"
             >
               <Upload size={16} />
@@ -707,11 +722,12 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           <div className="relative" data-text-export-menu>
             <button
               onClick={() => setShowTextExportMenu(!showTextExportMenu)}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors border border-gray-200 ${
-                copySuccess
-                  ? 'bg-green-50 text-green-600 border-green-300'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors"
+              style={{
+                border: '1px solid var(--color-border)',
+                color: copySuccess ? 'var(--color-success)' : 'var(--color-text-secondary)',
+                background: copySuccess ? 'var(--color-success-bg)' : 'transparent',
+              }}
               title="导出为文本（AI友好格式）"
             >
               {copySuccess ? (
@@ -729,25 +745,35 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
             {/* 下拉菜单 */}
             {showTextExportMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+              <div
+                className="absolute right-0 top-full mt-1 w-48 rounded-lg z-50"
+                style={{
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: 'var(--shadow)',
+                }}
+              >
                 <button
                   onClick={handleCopySceneText}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+                  style={{ color: 'var(--color-text-secondary)' }}
                 >
                   <Copy size={14} />
                   <span>复制当前场景</span>
                 </button>
                 <button
                   onClick={handleExportSceneAsText}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+                  style={{ color: 'var(--color-text-secondary)' }}
                 >
                   <Download size={14} />
                   <span>下载当前场景 (.txt)</span>
                 </button>
-                <div className="border-t border-gray-100 my-1" />
+                <div className="my-1" style={{ borderTop: '1px solid var(--color-border-light)' }} />
                 <button
                   onClick={handleExportProjectAsText}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+                  style={{ color: 'var(--color-text-secondary)' }}
                 >
                   <Download size={14} />
                   <span>下载整个项目 (.txt)</span>
@@ -759,7 +785,11 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           {/* 导出整个项目按钮 (JSON) */}
           <button
             onClick={handleExportProject}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors"
+            style={{
+              color: 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
             title="导出整个项目 (JSON)"
           >
             <Download size={16} />
@@ -772,11 +802,12 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
               setShowPropagationPanel(!showPropagationPanel);
               if (!showPropagationPanel) setShowAnalysisPanel(false);
             }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
-              showPropagationPanel
-                ? 'bg-blue-50 text-blue-600 border-blue-300'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
-            }`}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+            style={{
+              background: showPropagationPanel ? 'var(--color-info-bg)' : 'var(--color-surface)',
+              color: showPropagationPanel ? 'var(--color-info)' : 'var(--color-text-secondary)',
+              border: `1px solid ${showPropagationPanel ? 'var(--color-info)' : 'var(--color-border)'}`,
+            }}
             title="状态传播面板"
           >
             <Activity size={18} />
@@ -792,11 +823,12 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
                 setShowAIAssistantPanel(false);
               }
             }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
-              showAnalysisPanel
-                ? 'bg-purple-50 text-purple-600 border-purple-300'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
-            }`}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+            style={{
+              background: showAnalysisPanel ? 'var(--color-node-conclusion-bg)' : 'var(--color-surface)',
+              color: showAnalysisPanel ? 'var(--color-node-conclusion)' : 'var(--color-text-secondary)',
+              border: `1px solid ${showAnalysisPanel ? 'var(--color-node-conclusion)' : 'var(--color-border)'}`,
+            }}
             title="分析面板 - 获取下一步行动建议和可行性评估"
           >
             <Brain size={18} />
@@ -812,11 +844,12 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
                 setShowAnalysisPanel(false);
               }
             }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border ${
-              showAIAssistantPanel
-                ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white border-purple-500'
-                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
-            }`}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+            style={{
+              background: showAIAssistantPanel ? 'linear-gradient(to right, var(--color-secondary), var(--color-primary))' : 'var(--color-surface)',
+              color: showAIAssistantPanel ? 'white' : 'var(--color-text-secondary)',
+              border: `1px solid ${showAIAssistantPanel ? 'var(--color-secondary)' : 'var(--color-border)'}`,
+            }}
             title="AI 智能分析 - 风险分析、下一步建议、逻辑检查、补全建议"
           >
             <Bot size={18} />
@@ -826,11 +859,11 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           {/* 模式切换按钮 */}
           <button
             onClick={toggleEditorMode}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              editorMode === 'edit'
-                ? 'bg-green-500 text-white hover:bg-green-600'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+            style={{
+              background: editorMode === 'edit' ? 'var(--color-success)' : 'var(--color-bg-secondary)',
+              color: editorMode === 'edit' ? 'white' : 'var(--color-text-secondary)',
+            }}
             title={editorMode === 'edit' ? '切换到查看模式' : '切换到编辑模式'}
           >
             {editorMode === 'edit' ? (
@@ -861,7 +894,15 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
       {/* 错误提示 */}
       {error && (
-        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-red-100 border border-red-300 text-red-700 rounded-lg shadow-lg">
+        <div
+          className="absolute top-28 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg"
+          style={{
+            background: 'var(--color-error-bg)',
+            border: '1px solid var(--color-error)',
+            color: 'var(--color-error)',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
           {error}
         </div>
       )}

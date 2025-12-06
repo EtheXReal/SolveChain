@@ -67,17 +67,24 @@ export default function SceneTabs({
   };
 
   return (
-    <div className="flex items-center gap-1 px-4 py-2 bg-gray-100 border-b border-gray-200 overflow-x-auto">
+    <div
+      className="flex items-center gap-1 px-4 py-2 overflow-x-auto"
+      style={{
+        background: 'var(--color-bg-secondary)',
+        borderBottom: '1px solid var(--color-border)',
+      }}
+    >
       {/* 概览标签 */}
       <button
         onClick={() => onSelectScene(null)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-          currentSceneId === null
-            ? 'bg-white text-gray-900 shadow-sm'
-            : 'text-gray-600 hover:bg-gray-200'
-        }`}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
+        style={{
+          background: currentSceneId === null ? 'var(--color-surface)' : 'transparent',
+          color: currentSceneId === null ? 'var(--color-text)' : 'var(--color-text-secondary)',
+          boxShadow: currentSceneId === null ? 'var(--shadow)' : 'none',
+        }}
       >
-        <span className="w-2 h-2 rounded-full bg-gray-400" />
+        <span className="w-2 h-2 rounded-full" style={{ background: 'var(--color-text-muted)' }} />
         概览
       </button>
 
@@ -87,11 +94,12 @@ export default function SceneTabs({
         .map((scene) => (
           <div
             key={scene.id}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap group ${
-              currentSceneId === scene.id
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:bg-gray-200'
-            }`}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap group"
+            style={{
+              background: currentSceneId === scene.id ? 'var(--color-surface)' : 'transparent',
+              color: currentSceneId === scene.id ? 'var(--color-text)' : 'var(--color-text-secondary)',
+              boxShadow: currentSceneId === scene.id ? 'var(--shadow)' : 'none',
+            }}
           >
             <span
               className="w-2 h-2 rounded-full"
@@ -108,12 +116,18 @@ export default function SceneTabs({
                     if (e.key === 'Enter') handleSaveEdit();
                     if (e.key === 'Escape') setEditingSceneId(null);
                   }}
-                  className="w-20 px-1 py-0.5 text-sm border border-gray-300 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-20 px-1 py-0.5 text-sm rounded outline-none"
+                  style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)',
+                  }}
                   autoFocus
                 />
                 <button
                   onClick={handleSaveEdit}
-                  className="p-0.5 hover:bg-gray-200 rounded"
+                  className="p-0.5 rounded"
+                  style={{ color: 'var(--color-success)' }}
                 >
                   <Check size={12} />
                 </button>
@@ -134,7 +148,8 @@ export default function SceneTabs({
                         e.stopPropagation();
                         handleStartEdit(scene);
                       }}
-                      className="p-0.5 hover:bg-gray-300 rounded"
+                      className="p-0.5 rounded"
+                      style={{ color: 'var(--color-text-muted)' }}
                     >
                       <Edit2 size={10} />
                     </button>
@@ -143,7 +158,8 @@ export default function SceneTabs({
                         e.stopPropagation();
                         handleDelete(scene.id);
                       }}
-                      className="p-0.5 hover:bg-red-200 text-red-500 rounded"
+                      className="p-0.5 rounded"
+                      style={{ color: 'var(--color-error)' }}
                     >
                       <X size={10} />
                     </button>
@@ -171,13 +187,19 @@ export default function SceneTabs({
                   }
                 }}
                 placeholder="场景名称..."
-                className="w-24 px-2 py-1 text-sm border border-gray-300 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-24 px-2 py-1 text-sm rounded outline-none"
+                style={{
+                  background: 'var(--color-bg)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text)',
+                }}
                 autoFocus
               />
               <button
                 onClick={handleCreate}
                 disabled={!newSceneName.trim()}
-                className="p-1 text-green-600 hover:bg-green-100 rounded disabled:text-gray-400"
+                className="p-1 rounded disabled:opacity-40"
+                style={{ color: 'var(--color-success)' }}
               >
                 <Check size={14} />
               </button>
@@ -186,7 +208,8 @@ export default function SceneTabs({
                   setShowCreateInput(false);
                   setNewSceneName('');
                 }}
-                className="p-1 text-gray-400 hover:bg-gray-200 rounded"
+                className="p-1 rounded"
+                style={{ color: 'var(--color-text-muted)' }}
               >
                 <X size={14} />
               </button>
@@ -194,7 +217,8 @@ export default function SceneTabs({
           ) : (
             <button
               onClick={() => setShowCreateInput(true)}
-              className="flex items-center gap-1 px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-200 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2 py-1.5 text-sm rounded-md transition-colors"
+              style={{ color: 'var(--color-text-muted)' }}
             >
               <Plus size={14} />
               新场景

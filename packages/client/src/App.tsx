@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { ThemeProvider } from './themes/ThemeContext';
 import Home from './pages/Home';
 import Editor from './pages/Editor';
 import ProjectList from './pages/ProjectList';
@@ -35,15 +36,23 @@ export default function App() {
     setView(USE_V2_MODE ? { type: 'projects' } : { type: 'home' });
   };
 
-  switch (view.type) {
-    case 'editor':
-      return <Editor graphId={view.graphId} onBack={handleBack} />;
-    case 'projects':
-      return <ProjectList onSelectProject={handleSelectProject} />;
-    case 'project-editor':
-      return <ProjectEditor projectId={view.projectId} onBack={handleBack} />;
-    case 'home':
-    default:
-      return <Home onSelectGraph={handleSelectGraph} />;
-  }
+  const renderContent = () => {
+    switch (view.type) {
+      case 'editor':
+        return <Editor graphId={view.graphId} onBack={handleBack} />;
+      case 'projects':
+        return <ProjectList onSelectProject={handleSelectProject} />;
+      case 'project-editor':
+        return <ProjectEditor projectId={view.projectId} onBack={handleBack} />;
+      case 'home':
+      default:
+        return <Home onSelectGraph={handleSelectGraph} />;
+    }
+  };
+
+  return (
+    <ThemeProvider>
+      {renderContent()}
+    </ThemeProvider>
+  );
 }

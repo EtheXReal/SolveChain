@@ -1162,8 +1162,8 @@ export default function FocusView({
   // 空状态
   if (nodes.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="text-center text-gray-400">
+      <div className="flex-1 flex items-center justify-center" style={{ background: 'var(--color-bg)' }}>
+        <div className="text-center" style={{ color: 'var(--color-text-muted)' }}>
           <p className="text-lg mb-2">暂无节点</p>
           <p className="text-sm">从左侧创建节点开始</p>
         </div>
@@ -1172,14 +1172,19 @@ export default function FocusView({
   }
 
   return (
-    <div className="flex-1 flex bg-gray-100 relative overflow-hidden">
+    <div className="flex-1 flex relative overflow-hidden" style={{ background: 'var(--color-bg-secondary)' }}>
       {/* 主画布区域 */}
       <div className="flex-1 flex flex-col relative">
         {/* 左上角：自动布局按钮 */}
         <div className="absolute top-4 left-4 z-10">
           <button
             onClick={handleAutoLayout}
-            className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+            style={{
+              background: 'var(--color-surface)',
+              boxShadow: 'var(--shadow)',
+              color: 'var(--color-text-secondary)',
+            }}
             title={focusedNodeId ? "径向布局：以聚焦节点为中心，按关系远近排布" : "分层布局：按逻辑层次排列，最小化边交叉"}
           >
             <LayoutGrid size={18} />
@@ -1189,43 +1194,55 @@ export default function FocusView({
 
         {/* 布局保存成功提示 (Ctrl+S 手动保存时显示) */}
         {showSaveToast && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-green-500 text-white rounded-lg shadow-lg animate-fade-in">
+          <div
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 text-white rounded-lg animate-fade-in"
+            style={{ background: 'var(--color-success)', boxShadow: 'var(--shadow)' }}
+          >
             布局已保存
           </div>
         )}
 
         {/* 右上角：缩放工具栏 */}
-        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 bg-white rounded-lg shadow-md p-1">
-          <button onClick={handleZoomIn} className="p-2 hover:bg-gray-100 rounded" title="放大">
+        <div
+          className="absolute top-4 right-4 z-10 flex flex-col gap-2 rounded-lg p-1"
+          style={{ background: 'var(--color-surface)', boxShadow: 'var(--shadow)' }}
+        >
+          <button onClick={handleZoomIn} className="p-2 rounded" style={{ color: 'var(--color-text-secondary)' }} title="放大">
             <ZoomIn size={18} />
           </button>
-          <button onClick={handleZoomOut} className="p-2 hover:bg-gray-100 rounded" title="缩小">
+          <button onClick={handleZoomOut} className="p-2 rounded" style={{ color: 'var(--color-text-secondary)' }} title="缩小">
             <ZoomOut size={18} />
           </button>
-          <button onClick={handleResetView} className="p-2 hover:bg-gray-100 rounded" title="重置视图">
+          <button onClick={handleResetView} className="p-2 rounded" style={{ color: 'var(--color-text-secondary)' }} title="重置视图">
             <Maximize2 size={18} />
           </button>
         </div>
 
         {/* 缩放比例 */}
-        <div className="absolute bottom-4 right-4 z-10 bg-white rounded px-2 py-1 text-sm text-gray-500 shadow">
+        <div
+          className="absolute bottom-4 right-4 z-10 rounded px-2 py-1 text-sm"
+          style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)', boxShadow: 'var(--shadow)' }}
+        >
           {Math.round(scale * 100)}%
         </div>
 
         {/* 图例 */}
-        <div className="absolute bottom-4 left-4 z-10 bg-white rounded-lg shadow-md p-3">
-          <div className="text-xs text-gray-500 mb-2 space-y-1">
+        <div
+          className="absolute bottom-4 left-4 z-10 rounded-lg p-3"
+          style={{ background: 'var(--color-surface)', boxShadow: 'var(--shadow)' }}
+        >
+          <div className="text-xs mb-2 space-y-1" style={{ color: 'var(--color-text-muted)' }}>
             <div>
               {isEditMode
                 ? '双击/E: 编辑 | 右键: 连线 | Del: 删除 | Ctrl+Z: 撤销'
                 : '双击: 聚焦 | 拖拽: 调整布局'
               }
             </div>
-            <div className="text-gray-400">
+            <div style={{ color: 'var(--color-text-muted)', opacity: 0.7 }}>
               L: 布局 | R: 重置 | F: 居中 | +/-: 缩放 | 方向键: 导航
             </div>
           </div>
-          <div className="flex flex-wrap gap-3 text-xs">
+          <div className="flex flex-wrap gap-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
             {/* v2.1 只显示新类型，不显示废弃类型 */}
             {Object.entries(EDGE_TYPE_CONFIG)
               .filter(([, config]) => !config.deprecated)
@@ -1323,17 +1340,24 @@ export default function FocusView({
 
       {/* 右侧详情面板 */}
       {focusInfo && (
-        <div className="w-80 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
+        <div
+          className="w-80 flex flex-col overflow-hidden"
+          style={{
+            background: 'var(--color-surface)',
+            borderLeft: '1px solid var(--color-border)',
+          }}
+        >
           {/* 聚焦节点详情 */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-800">聚焦节点</h3>
+              <h3 className="font-semibold" style={{ color: 'var(--color-text)' }}>聚焦节点</h3>
               <button
                 onClick={() => onNodeClick('')}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 rounded"
                 title="取消聚焦"
+                style={{ color: 'var(--color-text-muted)' }}
               >
-                <X size={16} className="text-gray-400" />
+                <X size={16} />
               </button>
             </div>
             <div
@@ -1351,20 +1375,20 @@ export default function FocusView({
                   {NODE_TYPE_CONFIG[focusInfo.node.type].label}
                 </span>
               </div>
-              <h4 className="font-medium text-gray-800 mb-1">{focusInfo.node.title}</h4>
+              <h4 className="font-medium mb-1" style={{ color: 'var(--color-text)' }}>{focusInfo.node.title}</h4>
               {focusInfo.node.content && (
-                <p className="text-sm text-gray-600">{focusInfo.node.content}</p>
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{focusInfo.node.content}</p>
               )}
             </div>
           </div>
 
           {/* 相邻节点列表 */}
           <div className="flex-1 overflow-y-auto p-4">
-            <h3 className="font-semibold text-gray-800 mb-3">
+            <h3 className="font-semibold mb-3" style={{ color: 'var(--color-text)' }}>
               关联节点 ({focusInfo.neighbors.length})
             </h3>
             {focusInfo.neighbors.length === 0 ? (
-              <p className="text-sm text-gray-400">暂无关联节点</p>
+              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>暂无关联节点</p>
             ) : (
               <div className="space-y-3">
                 {focusInfo.neighbors.map(({ node, edge, direction }) => {
@@ -1373,8 +1397,8 @@ export default function FocusView({
                   return (
                     <div
                       key={node.id}
-                      className="p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
-                      style={{ borderColor: nodeConfig.color + '40' }}
+                      className="p-3 rounded-lg cursor-pointer transition-shadow node-card"
+                      style={{ border: `1px solid ${nodeConfig.color}40` }}
                       onClick={() => onNodeClick(node.id)}
                     >
                       {/* 关系类型标签 */}
@@ -1386,7 +1410,7 @@ export default function FocusView({
                           {direction === 'incoming' ? '→' : '←'} {edgeConfig?.label || edge.type}
                         </span>
                         {edge.description && (
-                          <span className="text-gray-500 truncate" title={edge.description}>
+                          <span className="truncate" style={{ color: 'var(--color-text-muted)' }} title={edge.description}>
                             {edge.description}
                           </span>
                         )}
@@ -1397,11 +1421,11 @@ export default function FocusView({
                           className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: nodeConfig.color }}
                         />
-                        <span className="text-xs text-gray-500">{nodeConfig.label}</span>
+                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{nodeConfig.label}</span>
                       </div>
-                      <h5 className="font-medium text-gray-800 text-sm">{node.title}</h5>
+                      <h5 className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>{node.title}</h5>
                       {node.content && (
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{node.content}</p>
+                        <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>{node.content}</p>
                       )}
                     </div>
                   );

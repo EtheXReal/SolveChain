@@ -150,16 +150,26 @@ export default function NodeEditPanel({
   const config = NODE_TYPE_CONFIG[type];
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
+    <div
+      className="w-80 flex flex-col h-full"
+      style={{
+        background: 'var(--color-surface)',
+        borderLeft: '1px solid var(--color-border)',
+      }}
+    >
       {/* 头部 */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-800">编辑节点</h3>
+      <div
+        className="p-4 flex items-center justify-between"
+        style={{ borderBottom: '1px solid var(--color-border)' }}
+      >
+        <h3 className="font-semibold" style={{ color: 'var(--color-text)' }}>编辑节点</h3>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-gray-100 rounded"
+          className="p-1 rounded"
           title="关闭"
+          style={{ color: 'var(--color-text-muted)' }}
         >
-          <X size={18} className="text-gray-400" />
+          <X size={18} />
         </button>
       </div>
 
@@ -167,13 +177,18 @@ export default function NodeEditPanel({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* 节点类型 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
             节点类型
           </label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value as NodeType)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg px-3 py-2 focus:outline-none"
+            style={{
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
           >
             {/* v2.1 只显示新类型，不显示废弃类型 */}
             {Object.entries(NODE_TYPE_CONFIG)
@@ -184,29 +199,34 @@ export default function NodeEditPanel({
                 </option>
               ))}
           </select>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
             {NODE_TYPE_CONFIG[type]?.description || ''}
           </p>
         </div>
 
         {/* 标题 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            标题 <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+            标题 <span style={{ color: 'var(--color-error)' }}>*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="简短描述这个节点"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg px-3 py-2 focus:outline-none"
+            style={{
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
             maxLength={100}
           />
         </div>
 
         {/* 内容 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
             详细内容
           </label>
           <textarea
@@ -214,16 +234,21 @@ export default function NodeEditPanel({
             onChange={(e) => setContent(e.target.value)}
             placeholder="详细描述或解释..."
             rows={4}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full rounded-lg px-3 py-2 resize-none focus:outline-none"
+            style={{
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
           />
         </div>
 
         {/* 权重 (0.1 - 2.0) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
             权重: {getActualWeight().toFixed(1)} ({getWeightLabel(getActualWeight())})
             {weight === null && (
-              <span className="text-gray-400 text-xs ml-2">默认</span>
+              <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>默认</span>
             )}
           </label>
           <input
@@ -233,9 +258,10 @@ export default function NodeEditPanel({
             step={0.1}
             value={getActualWeight()}
             onChange={(e) => setWeight(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+            style={{ background: 'var(--color-bg-tertiary)' }}
           />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
+          <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
             <span>0.1 很低</span>
             <span>1.0 标准</span>
             <span>2.0 很高</span>
@@ -243,7 +269,8 @@ export default function NodeEditPanel({
           {weight !== null && (
             <button
               onClick={() => setWeight(null)}
-              className="mt-1 text-xs text-blue-500 hover:text-blue-700"
+              className="mt-1 text-xs"
+              style={{ color: 'var(--color-primary)' }}
             >
               恢复默认 ({DEFAULT_WEIGHTS[type].toFixed(1)})
             </button>
@@ -253,9 +280,9 @@ export default function NodeEditPanel({
         {/* 置信度 - 只有假设节点显示 */}
         {type === NodeType.ASSUMPTION && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
               置信度: {confidence}%
-              <span className="text-gray-400 text-xs ml-2">（认为它为真的概率）</span>
+              <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>（认为它为真的概率）</span>
             </label>
             <input
               type="range"
@@ -263,9 +290,10 @@ export default function NodeEditPanel({
               max={100}
               value={confidence}
               onChange={(e) => setConfidence(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+              style={{ background: 'var(--color-bg-tertiary)' }}
             />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
               <span>0% 不可能</span>
               <span>50% 不确定</span>
               <span>100% 确定</span>
@@ -275,12 +303,15 @@ export default function NodeEditPanel({
 
         {/* 自动更新开关 - 只有约束和结论节点显示 */}
         {[NodeType.CONSTRAINT, NodeType.CONCLUSION, NodeType.INFERENCE].includes(type) && (
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div
+            className="flex items-center justify-between p-3 rounded-lg"
+            style={{ background: 'var(--color-bg-secondary)' }}
+          >
             <div>
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                 自动更新
               </label>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                 {type === NodeType.CONSTRAINT
                   ? '由行动状态自动计算'
                   : '由导致关系自动计算'}
@@ -288,16 +319,12 @@ export default function NodeEditPanel({
             </div>
             <button
               onClick={() => setAutoUpdate(!autoUpdate)}
-              className={`
-                relative w-11 h-6 rounded-full transition-colors
-                ${autoUpdate ? 'bg-blue-500' : 'bg-gray-300'}
-              `}
+              className="relative w-11 h-6 rounded-full transition-colors"
+              style={{ background: autoUpdate ? 'var(--color-primary)' : 'var(--color-bg-tertiary)' }}
             >
               <span
-                className={`
-                  absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
-                  ${autoUpdate ? 'translate-x-5' : 'translate-x-0'}
-                `}
+                className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                style={{ transform: autoUpdate ? 'translateX(20px)' : 'translateX(0)' }}
               />
             </button>
           </div>
@@ -305,7 +332,7 @@ export default function NodeEditPanel({
 
         {/* v2.2: 基础状态选择器 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
             <span className="flex items-center gap-1">
               <Zap size={14} />
               状态
@@ -316,13 +343,12 @@ export default function NodeEditPanel({
               <button
                 key={option.value}
                 onClick={() => setBaseStatus(option.value)}
-                className={`
-                  px-3 py-2 rounded-lg text-sm font-medium transition-all border
-                  ${baseStatus === option.value
-                    ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 hover:bg-gray-50 text-gray-700'
-                  }
-                `}
+                className="px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  background: baseStatus === option.value ? 'var(--color-primary-light)' : 'var(--color-bg)',
+                  color: baseStatus === option.value ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                  border: `1px solid ${baseStatus === option.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                }}
               >
                 {option.label}
               </button>
@@ -333,13 +359,16 @@ export default function NodeEditPanel({
         {/* v2.2: 计算状态显示 */}
         {node.computedStatus && (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
               系统分析
             </label>
 
             {/* 被阻塞 */}
             {node.computedStatus.blocked && (
-              <div className="flex items-start gap-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-800">
+              <div
+                className="flex items-start gap-2 p-2 rounded-lg text-xs"
+                style={{ background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}
+              >
                 <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-medium">被阻塞</div>
@@ -357,7 +386,10 @@ export default function NodeEditPanel({
 
             {/* 存在冲突 */}
             {node.computedStatus.conflicted && (
-              <div className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+              <div
+                className="flex items-start gap-2 p-2 rounded-lg text-xs"
+                style={{ background: 'var(--color-error-bg)', border: '1px solid var(--color-error)', color: 'var(--color-error)' }}
+              >
                 <XCircle size={14} className="mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-medium">存在矛盾</div>
@@ -375,7 +407,10 @@ export default function NodeEditPanel({
 
             {/* 可执行 (行动节点) */}
             {node.type === NodeType.ACTION && node.computedStatus.executable && (
-              <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+              <div
+                className="flex items-center gap-2 p-2 rounded-lg text-xs"
+                style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', color: 'var(--color-success)' }}
+              >
                 <CheckCircle size={14} />
                 <span className="font-medium">可执行</span>
               </div>
@@ -383,7 +418,10 @@ export default function NodeEditPanel({
 
             {/* 可达成 (目标节点) */}
             {node.type === NodeType.GOAL && node.computedStatus.achievable && (
-              <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+              <div
+                className="flex items-center gap-2 p-2 rounded-lg text-xs"
+                style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success)', color: 'var(--color-success)' }}
+              >
                 <CheckCircle size={14} />
                 <span className="font-medium">可达成</span>
               </div>
@@ -391,7 +429,10 @@ export default function NodeEditPanel({
 
             {/* 受威胁 */}
             {node.computedStatus.threatened && (
-              <div className="flex items-center gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+              <div
+                className="flex items-center gap-2 p-2 rounded-lg text-xs"
+                style={{ background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}
+              >
                 <AlertTriangle size={14} />
                 <span>可行性得分: {node.computedStatus.feasibilityScore.toFixed(2)}</span>
               </div>
@@ -399,7 +440,10 @@ export default function NodeEditPanel({
 
             {/* 状态来源 */}
             {node.computedStatus.statusSource && (
-              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-600">
+              <div
+                className="flex items-center gap-2 p-2 rounded-lg text-xs"
+                style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-muted)' }}
+              >
                 <Clock size={14} />
                 <span>{node.computedStatus.statusSource}</span>
               </div>
@@ -409,7 +453,7 @@ export default function NodeEditPanel({
 
         {/* 预览 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
             预览
           </label>
           <div
@@ -427,22 +471,23 @@ export default function NodeEditPanel({
                 {config.label}
               </span>
             </div>
-            <h4 className="font-medium text-gray-800">
+            <h4 className="font-medium" style={{ color: 'var(--color-text)' }}>
               {title || '节点标题'}
             </h4>
             {content && (
-              <p className="text-sm text-gray-600 mt-1">{content}</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>{content}</p>
             )}
           </div>
         </div>
       </div>
 
       {/* 底部按钮 */}
-      <div className="p-4 border-t border-gray-200 flex gap-2">
+      <div className="p-4 flex gap-2" style={{ borderTop: '1px solid var(--color-border)' }}>
         {onDelete && (
           <button
             onClick={handleDelete}
-            className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="flex items-center gap-1 px-3 py-2 rounded-lg transition-colors"
+            style={{ color: 'var(--color-error)' }}
             title="删除节点"
           >
             <Trash2 size={16} />
@@ -450,14 +495,16 @@ export default function NodeEditPanel({
         )}
         <button
           onClick={onClose}
-          className="flex-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          className="flex-1 px-4 py-2 rounded-lg transition-colors"
+          style={{ color: 'var(--color-text-secondary)' }}
         >
           取消
         </button>
         <button
           onClick={handleSave}
           disabled={!title.trim() || saving}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: 'var(--color-primary)' }}
         >
           <Save size={16} />
           {saving ? '保存中...' : '保存'}

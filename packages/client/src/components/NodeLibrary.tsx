@@ -100,28 +100,39 @@ export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode
   const typeOrder = NEW_TYPE_ORDER;
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div
+      className="w-64 flex flex-col h-full"
+      style={{
+        background: 'var(--color-surface)',
+        borderRight: '1px solid var(--color-border)',
+      }}
+    >
       {/* 标题 */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="font-semibold text-gray-800">节点库</h2>
+      <div className="p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <h2 className="font-semibold" style={{ color: 'var(--color-text)' }}>节点库</h2>
       </div>
 
       {/* 搜索框 */}
-      <div className="p-3 border-b border-gray-200">
+      <div className="p-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-muted)' }} />
           <input
             type="text"
             placeholder="搜索节点..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none"
+            style={{
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
           />
         </div>
       </div>
 
       {/* 新建节点按钮 */}
-      <div className="p-3 border-b border-gray-200">
+      <div className="p-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div className="grid grid-cols-2 gap-2">
           {typeOrder.map(type => {
             const config = NODE_TYPE_CONFIG[type];
@@ -129,8 +140,13 @@ export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode
               <button
                 key={type}
                 onClick={() => onCreateNode(type)}
-                className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-gray-200 hover:bg-gray-50 transition-colors"
-                style={{ borderLeftColor: config.color, borderLeftWidth: 3 }}
+                className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded transition-colors"
+                style={{
+                  border: '1px solid var(--color-border)',
+                  borderLeftColor: config.color,
+                  borderLeftWidth: 3,
+                  color: 'var(--color-text-secondary)',
+                }}
               >
                 <Plus size={12} style={{ color: config.color }} />
                 <span>{config.label}</span>
@@ -148,25 +164,25 @@ export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode
           const isExpanded = expandedTypes.has(type);
 
           return (
-            <div key={type} className="border-b border-gray-100">
+            <div key={type} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
               {/* 分组标题 */}
               <button
                 onClick={() => toggleType(type)}
-                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-2 px-4 py-2 transition-colors"
               >
                 {isExpanded ? (
-                  <ChevronDown size={14} className="text-gray-400" />
+                  <ChevronDown size={14} style={{ color: 'var(--color-text-muted)' }} />
                 ) : (
-                  <ChevronRight size={14} className="text-gray-400" />
+                  <ChevronRight size={14} style={{ color: 'var(--color-text-muted)' }} />
                 )}
                 <span
                   className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: config.color }}
                 />
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                   {config.label}
                 </span>
-                <span className="text-xs text-gray-400 ml-auto">
+                <span className="text-xs ml-auto" style={{ color: 'var(--color-text-muted)' }}>
                   {nodeList.length}
                 </span>
               </button>
@@ -175,21 +191,21 @@ export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode
               {isExpanded && (
                 <div className="pb-2">
                   {nodeList.length === 0 ? (
-                    <p className="px-4 py-2 text-xs text-gray-400">暂无节点</p>
+                    <p className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>暂无节点</p>
                   ) : (
                     nodeList.map(node => (
                       <button
                         key={node.id}
                         onClick={() => onSelectNode(node.id)}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                          selectedNodeId === node.id
-                            ? 'bg-blue-50 border-r-2 border-blue-500'
-                            : ''
-                        }`}
+                        className="w-full text-left px-4 py-2 text-sm transition-colors"
+                        style={{
+                          background: selectedNodeId === node.id ? 'var(--color-primary-light)' : 'transparent',
+                          borderRight: selectedNodeId === node.id ? '2px solid var(--color-primary)' : 'none',
+                        }}
                       >
-                        <div className="truncate text-gray-700">{node.title}</div>
+                        <div className="truncate" style={{ color: 'var(--color-text-secondary)' }}>{node.title}</div>
                         {node.content && (
-                          <div className="truncate text-xs text-gray-400 mt-0.5">
+                          <div className="truncate text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                             {node.content}
                           </div>
                         )}
