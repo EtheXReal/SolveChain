@@ -78,6 +78,38 @@ export default function FocusView({
   const nodes = propNodes ?? graphStore.nodes;
   const edges = propEdges ?? graphStore.edges;
 
+  // 根据节点类型获取主题感知的背景色
+  const getNodeBgColor = useCallback((nodeType: string) => {
+    const colorMap: Record<string, string> = {
+      goal: canvasColors.nodeGoalBg,
+      action: canvasColors.nodeActionBg,
+      fact: canvasColors.nodeFactBg,
+      assumption: canvasColors.nodeAssumptionBg,
+      constraint: canvasColors.nodeConstraintBg,
+      conclusion: canvasColors.nodeConclusionBg,
+      // 兼容旧类型
+      decision: canvasColors.nodeActionBg,
+      inference: canvasColors.nodeConclusionBg,
+    };
+    return colorMap[nodeType] || canvasColors.nodeFactBg;
+  }, [canvasColors]);
+
+  // 根据节点类型获取主题感知的边框/强调色
+  const getNodeColor = useCallback((nodeType: string) => {
+    const colorMap: Record<string, string> = {
+      goal: canvasColors.nodeGoal,
+      action: canvasColors.nodeAction,
+      fact: canvasColors.nodeFact,
+      assumption: canvasColors.nodeAssumption,
+      constraint: canvasColors.nodeConstraint,
+      conclusion: canvasColors.nodeConclusion,
+      // 兼容旧类型
+      decision: canvasColors.nodeAction,
+      inference: canvasColors.nodeConclusion,
+    };
+    return colorMap[nodeType] || canvasColors.nodeFact;
+  }, [canvasColors]);
+
   // 如果有外部 onCreateEdge，使用本地连线状态；否则使用 graphStore
   const useExternalConnect = !!onCreateEdge;
   const [localConnectingState, setLocalConnectingState] = useState<ConnectingState | null>(null);
@@ -908,6 +940,9 @@ export default function FocusView({
     if (!pos) return null;
 
     const config = NODE_TYPE_CONFIG[node.type];
+    // 使用主题感知的颜色
+    const nodeBgColor = getNodeBgColor(node.type);
+    const nodeColor = getNodeColor(node.type);
     const isFocused = node.id === focusedNodeId;
     const isDragging = node.id === draggingNodeId;
     const isRelated = focusInfo?.relatedNodeIds.has(node.id) ?? false;
@@ -954,7 +989,7 @@ export default function FocusView({
             height={70}
             rx={12}
             fill="none"
-            stroke={config.color}
+            stroke={nodeColor}
             strokeWidth={2}
             opacity={0.5}
             className="animate-pulse"
@@ -999,14 +1034,14 @@ export default function FocusView({
           width={150}
           height={60}
           rx={8}
-          fill={config.bgColor}
-          stroke={isConnectSource ? canvasColors.canvasConnectSource : isFocused ? config.color : isRelated ? config.color : canvasColors.canvasNodeBorder}
+          fill={nodeBgColor}
+          stroke={isConnectSource ? canvasColors.canvasConnectSource : isFocused ? nodeColor : isRelated ? nodeColor : canvasColors.canvasNodeBorder}
           strokeWidth={isConnectSource ? 3 : isFocused ? 3 : isRelated ? 2 : 1}
           filter={isDragging ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' : undefined}
         />
 
         {/* 类型标记 */}
-        <circle cx={-55} cy={-10} r={5} fill={config.color} />
+        <circle cx={-55} cy={-10} r={5} fill={nodeColor} />
         <text
           x={-45}
           y={-6}
