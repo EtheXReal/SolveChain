@@ -29,20 +29,20 @@ interface AnalysisPanelProps {
   onNodeClick?: (nodeId: string) => void;
 }
 
-// 判定标签配置
+// 判定标签配置 - 使用 CSS 变量样式
 const VERDICT_CONFIG = {
-  highly_feasible: { label: '高度可行', color: 'bg-green-100 text-green-800', icon: CheckCircle2 },
-  feasible: { label: '可行', color: 'bg-green-50 text-green-700', icon: CheckCircle2 },
-  uncertain: { label: '不确定', color: 'bg-yellow-100 text-yellow-800', icon: HelpCircle },
-  challenging: { label: '有挑战', color: 'bg-orange-100 text-orange-800', icon: AlertTriangle },
-  infeasible: { label: '不可行', color: 'bg-red-100 text-red-800', icon: XCircle },
+  highly_feasible: { label: '高度可行', bgVar: '--color-success-bg', colorVar: '--color-success', icon: CheckCircle2 },
+  feasible: { label: '可行', bgVar: '--color-success-bg', colorVar: '--color-success', icon: CheckCircle2 },
+  uncertain: { label: '不确定', bgVar: '--color-warning-bg', colorVar: '--color-warning', icon: HelpCircle },
+  challenging: { label: '有挑战', bgVar: '--color-warning-bg', colorVar: '--color-warning', icon: AlertTriangle },
+  infeasible: { label: '不可行', bgVar: '--color-error-bg', colorVar: '--color-error', icon: XCircle },
 };
 
-// 风险级别配置
+// 风险级别配置 - 使用 CSS 变量样式
 const SEVERITY_CONFIG = {
-  high: { label: '高', color: 'text-red-600 bg-red-50' },
-  medium: { label: '中', color: 'text-orange-600 bg-orange-50' },
-  low: { label: '低', color: 'text-yellow-600 bg-yellow-50' },
+  high: { label: '高', bgVar: '--color-error-bg', colorVar: '--color-error' },
+  medium: { label: '中', bgVar: '--color-warning-bg', colorVar: '--color-warning' },
+  low: { label: '低', bgVar: '--color-warning-bg', colorVar: '--color-warning' },
 };
 
 type NextActionResult = Awaited<ReturnType<typeof analysisApi.getNextAction>>;
@@ -110,7 +110,11 @@ export default function AnalysisPanel({
   const renderNodeTag = (node: GraphNode) => (
     <button
       onClick={() => onNodeClick?.(node.id)}
-      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-colors"
+      style={{
+        background: 'var(--color-bg-tertiary)',
+        color: 'var(--color-text-secondary)',
+      }}
     >
       {node.title}
     </button>
@@ -121,11 +125,15 @@ export default function AnalysisPanel({
     if (!nextActionResult) {
       return (
         <div className="p-4 text-center">
-          <p className="text-gray-500 mb-4">点击下方按钮分析当前项目</p>
+          <p className="mb-4" style={{ color: 'var(--color-text-muted)' }}>点击下方按钮分析当前项目</p>
           <button
             onClick={fetchNextAction}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50"
+            style={{
+              background: 'var(--color-primary)',
+              color: '#fff',
+            }}
           >
             {loading ? <Loader2 className="animate-spin" size={16} /> : <PlayCircle size={16} />}
             分析下一步行动
@@ -135,38 +143,39 @@ export default function AnalysisPanel({
     }
 
     return (
-      <div className="divide-y divide-gray-100">
+      <div style={{ borderColor: 'var(--color-border-light)' }}>
         {/* 摘要 */}
-        <div className="p-4">
+        <div className="p-4" style={{ borderBottom: '1px solid var(--color-border-light)' }}>
           <div className="flex items-start gap-2">
-            <Lightbulb className="text-yellow-500 mt-0.5 flex-shrink-0" size={18} />
-            <p className="text-sm text-gray-700">{nextActionResult.summary}</p>
+            <Lightbulb className="mt-0.5 flex-shrink-0" size={18} style={{ color: 'var(--color-warning)' }} />
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{nextActionResult.summary}</p>
           </div>
         </div>
 
         {/* 建议行动 */}
         {nextActionResult.suggestedAction && (
-          <div className="p-4 bg-green-50">
-            <h4 className="text-sm font-medium text-green-800 mb-2">建议下一步</h4>
+          <div className="p-4" style={{ background: 'var(--color-success-bg)', borderBottom: '1px solid var(--color-border-light)' }}>
+            <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-success)' }}>建议下一步</h4>
             <div className="flex items-center gap-2">
-              <PlayCircle className="text-green-600" size={16} />
-              <span className="font-medium text-green-700">
+              <PlayCircle size={16} style={{ color: 'var(--color-success)' }} />
+              <span className="font-medium" style={{ color: 'var(--color-success)' }}>
                 {nextActionResult.suggestedAction.action.title}
               </span>
             </div>
-            <p className="text-xs text-green-600 mt-1">
+            <p className="text-xs mt-1" style={{ color: 'var(--color-success)' }}>
               {nextActionResult.suggestedAction.reason}
             </p>
           </div>
         )}
 
         {/* 根目标 */}
-        <div>
+        <div style={{ borderBottom: '1px solid var(--color-border-light)' }}>
           <button
             onClick={() => toggleSection('goals')}
-            className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+            className="w-full px-4 py-2 flex items-center justify-between transition-colors"
+            style={{ color: 'var(--color-text-secondary)' }}
           >
-            <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <span className="flex items-center gap-2 text-sm font-medium">
               <Target size={16} />
               根目标 ({nextActionResult.rootGoals.length})
             </span>
@@ -184,13 +193,14 @@ export default function AnalysisPanel({
         </div>
 
         {/* 阻塞点 */}
-        <div>
+        <div style={{ borderBottom: '1px solid var(--color-border-light)' }}>
           <button
             onClick={() => toggleSection('blocking')}
-            className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+            className="w-full px-4 py-2 flex items-center justify-between transition-colors"
+            style={{ color: 'var(--color-text-secondary)' }}
           >
-            <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <AlertTriangle size={16} className="text-orange-500" />
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <AlertTriangle size={16} style={{ color: 'var(--color-warning)' }} />
               阻塞点 ({nextActionResult.blockingPoints.length})
             </span>
             {expandedSections.has('blocking') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -198,20 +208,20 @@ export default function AnalysisPanel({
           {expandedSections.has('blocking') && (
             <div className="px-4 pb-3 space-y-2">
               {nextActionResult.blockingPoints.map((bp, index) => (
-                <div key={index} className="p-2 bg-orange-50 rounded text-sm">
+                <div key={index} className="p-2 rounded text-sm" style={{ background: 'var(--color-warning-bg)' }}>
                   <div className="flex items-center gap-2 mb-1">
                     {renderNodeTag(bp.node)}
                   </div>
-                  <p className="text-xs text-orange-700">{bp.reason}</p>
+                  <p className="text-xs" style={{ color: 'var(--color-warning)' }}>{bp.reason}</p>
                   {bp.achievableActions.length > 0 && (
-                    <div className="mt-1 text-xs text-gray-600">
+                    <div className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                       可通过: {bp.achievableActions.map(a => a.action.title).join(', ')}
                     </div>
                   )}
                 </div>
               ))}
               {nextActionResult.blockingPoints.length === 0 && (
-                <p className="text-sm text-gray-500">没有阻塞点</p>
+                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>没有阻塞点</p>
               )}
             </div>
           )}
@@ -219,12 +229,13 @@ export default function AnalysisPanel({
 
         {/* 后续步骤 */}
         {nextActionResult.followUpActions.length > 0 && (
-          <div>
+          <div style={{ borderBottom: '1px solid var(--color-border-light)' }}>
             <button
               onClick={() => toggleSection('followup')}
-              className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+              className="w-full px-4 py-2 flex items-center justify-between transition-colors"
+              style={{ color: 'var(--color-text-secondary)' }}
             >
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium">
                 后续步骤 ({nextActionResult.followUpActions.length})
               </span>
               {expandedSections.has('followup') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -233,7 +244,7 @@ export default function AnalysisPanel({
               <div className="px-4 pb-3 space-y-1">
                 {nextActionResult.followUpActions.map((action, index) => (
                   <div key={index} className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-400">{index + 2}.</span>
+                    <span style={{ color: 'var(--color-text-muted)' }}>{index + 2}.</span>
                     {renderNodeTag(action.action)}
                   </div>
                 ))}
@@ -247,7 +258,8 @@ export default function AnalysisPanel({
           <button
             onClick={fetchNextAction}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm rounded transition-colors"
+            style={{ color: 'var(--color-text-secondary)' }}
           >
             {loading ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
             重新分析
@@ -261,7 +273,7 @@ export default function AnalysisPanel({
   const renderFeasibility = () => {
     if (!selectedNodeId) {
       return (
-        <div className="p-4 text-center text-gray-500">
+        <div className="p-4 text-center" style={{ color: 'var(--color-text-muted)' }}>
           <p>请先选择一个节点进行可行性评估</p>
         </div>
       );
@@ -270,11 +282,15 @@ export default function AnalysisPanel({
     if (!feasibilityResult || feasibilityResult.targetNode.id !== selectedNodeId) {
       return (
         <div className="p-4 text-center">
-          <p className="text-gray-500 mb-4">评估选中节点的可行性</p>
+          <p className="mb-4" style={{ color: 'var(--color-text-muted)' }}>评估选中节点的可行性</p>
           <button
             onClick={() => fetchFeasibility(selectedNodeId)}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50"
+            style={{
+              background: 'var(--color-primary)',
+              color: '#fff',
+            }}
           >
             {loading ? <Loader2 className="animate-spin" size={16} /> : <HelpCircle size={16} />}
             评估可行性
@@ -287,14 +303,20 @@ export default function AnalysisPanel({
     const VerdictIcon = verdict.icon;
 
     return (
-      <div className="divide-y divide-gray-100">
+      <div style={{ borderColor: 'var(--color-border-light)' }}>
         {/* 评分概览 */}
-        <div className="p-4">
+        <div className="p-4" style={{ borderBottom: '1px solid var(--color-border-light)' }}>
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-gray-800 truncate">
+            <h4 className="font-medium truncate" style={{ color: 'var(--color-text)' }}>
               {feasibilityResult.targetNode.title}
             </h4>
-            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${verdict.color}`}>
+            <span
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+              style={{
+                background: `var(${verdict.bgVar})`,
+                color: `var(${verdict.colorVar})`,
+              }}
+            >
               <VerdictIcon size={14} />
               {verdict.label}
             </span>
@@ -302,32 +324,34 @@ export default function AnalysisPanel({
 
           {/* 进度条 */}
           <div className="mb-2">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
               <span>可行性评分</span>
               <span>{feasibilityResult.normalizedScore}/100</span>
             </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-bg-tertiary)' }}>
               <div
-                className={`h-full transition-all ${
-                  feasibilityResult.normalizedScore >= 60 ? 'bg-green-500' :
-                  feasibilityResult.normalizedScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${feasibilityResult.normalizedScore}%` }}
+                className="h-full transition-all"
+                style={{
+                  width: `${feasibilityResult.normalizedScore}%`,
+                  background: feasibilityResult.normalizedScore >= 60 ? 'var(--color-success)' :
+                    feasibilityResult.normalizedScore >= 40 ? 'var(--color-warning)' : 'var(--color-error)',
+                }}
               />
             </div>
           </div>
 
-          <p className="text-sm text-gray-600">{feasibilityResult.summary}</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{feasibilityResult.summary}</p>
         </div>
 
         {/* 前置条件 */}
         {feasibilityResult.prerequisites.length > 0 && (
-          <div>
+          <div style={{ borderBottom: '1px solid var(--color-border-light)' }}>
             <button
               onClick={() => toggleSection('prereqs')}
-              className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+              className="w-full px-4 py-2 flex items-center justify-between transition-colors"
+              style={{ color: 'var(--color-text-secondary)' }}
             >
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium">
                 前置条件 ({feasibilityResult.prerequisites.length})
               </span>
               {expandedSections.has('prereqs') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -337,11 +361,15 @@ export default function AnalysisPanel({
                 {feasibilityResult.prerequisites.map((prereq, index) => (
                   <div key={index} className="flex items-center justify-between text-sm">
                     {renderNodeTag(prereq.node)}
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      prereq.status === 'satisfied' ? 'bg-green-100 text-green-700' :
-                      prereq.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded"
+                      style={{
+                        background: prereq.status === 'satisfied' ? 'var(--color-success-bg)' :
+                          prereq.status === 'pending' ? 'var(--color-warning-bg)' : 'var(--color-error-bg)',
+                        color: prereq.status === 'satisfied' ? 'var(--color-success)' :
+                          prereq.status === 'pending' ? 'var(--color-warning)' : 'var(--color-error)',
+                      }}
+                    >
                       {prereq.status === 'satisfied' ? '已满足' :
                        prereq.status === 'pending' ? '待验证' : '未满足'}
                     </span>
@@ -354,23 +382,23 @@ export default function AnalysisPanel({
 
         {/* 正向证据 */}
         {feasibilityResult.positiveEvidence.length > 0 && (
-          <div>
+          <div style={{ borderBottom: '1px solid var(--color-border-light)' }}>
             <button
               onClick={() => toggleSection('positive')}
-              className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+              className="w-full px-4 py-2 flex items-center justify-between transition-colors"
             >
-              <span className="flex items-center gap-2 text-sm font-medium text-green-700">
+              <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-success)' }}>
                 <CheckCircle2 size={16} />
                 正向因素 ({feasibilityResult.positiveEvidence.length})
               </span>
-              {expandedSections.has('positive') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              {expandedSections.has('positive') ? <ChevronUp size={16} style={{ color: 'var(--color-text-muted)' }} /> : <ChevronDown size={16} style={{ color: 'var(--color-text-muted)' }} />}
             </button>
             {expandedSections.has('positive') && (
               <div className="px-4 pb-3 space-y-1">
                 {feasibilityResult.positiveEvidence.map((ev, index) => (
                   <div key={index} className="flex items-center gap-2 text-sm">
                     {renderNodeTag(ev.node)}
-                    <span className="text-xs text-gray-500">+{ev.weight.toFixed(2)}</span>
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>+{ev.weight.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -380,23 +408,23 @@ export default function AnalysisPanel({
 
         {/* 负向证据 */}
         {feasibilityResult.negativeEvidence.length > 0 && (
-          <div>
+          <div style={{ borderBottom: '1px solid var(--color-border-light)' }}>
             <button
               onClick={() => toggleSection('negative')}
-              className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+              className="w-full px-4 py-2 flex items-center justify-between transition-colors"
             >
-              <span className="flex items-center gap-2 text-sm font-medium text-red-700">
+              <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-error)' }}>
                 <XCircle size={16} />
                 负向因素 ({feasibilityResult.negativeEvidence.length})
               </span>
-              {expandedSections.has('negative') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              {expandedSections.has('negative') ? <ChevronUp size={16} style={{ color: 'var(--color-text-muted)' }} /> : <ChevronDown size={16} style={{ color: 'var(--color-text-muted)' }} />}
             </button>
             {expandedSections.has('negative') && (
               <div className="px-4 pb-3 space-y-1">
                 {feasibilityResult.negativeEvidence.map((ev, index) => (
                   <div key={index} className="flex items-center gap-2 text-sm">
                     {renderNodeTag(ev.node)}
-                    <span className="text-xs text-gray-500">-{ev.weight.toFixed(2)}</span>
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>-{ev.weight.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -406,28 +434,34 @@ export default function AnalysisPanel({
 
         {/* 风险 */}
         {feasibilityResult.risks.length > 0 && (
-          <div>
+          <div style={{ borderBottom: '1px solid var(--color-border-light)' }}>
             <button
               onClick={() => toggleSection('risks')}
-              className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+              className="w-full px-4 py-2 flex items-center justify-between transition-colors"
             >
-              <span className="flex items-center gap-2 text-sm font-medium text-orange-700">
+              <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-warning)' }}>
                 <AlertTriangle size={16} />
                 风险 ({feasibilityResult.risks.length})
               </span>
-              {expandedSections.has('risks') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              {expandedSections.has('risks') ? <ChevronUp size={16} style={{ color: 'var(--color-text-muted)' }} /> : <ChevronDown size={16} style={{ color: 'var(--color-text-muted)' }} />}
             </button>
             {expandedSections.has('risks') && (
               <div className="px-4 pb-3 space-y-2">
                 {feasibilityResult.risks.map((risk, index) => (
-                  <div key={index} className="p-2 bg-gray-50 rounded text-sm">
+                  <div key={index} className="p-2 rounded text-sm" style={{ background: 'var(--color-bg-tertiary)' }}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${SEVERITY_CONFIG[risk.severity].color}`}>
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded"
+                        style={{
+                          background: `var(${SEVERITY_CONFIG[risk.severity].bgVar})`,
+                          color: `var(${SEVERITY_CONFIG[risk.severity].colorVar})`,
+                        }}
+                      >
                         {SEVERITY_CONFIG[risk.severity].label}风险
                       </span>
                       {renderNodeTag(risk.node)}
                     </div>
-                    <p className="text-xs text-gray-600">{risk.description}</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{risk.description}</p>
                   </div>
                 ))}
               </div>
@@ -437,23 +471,23 @@ export default function AnalysisPanel({
 
         {/* 建议 */}
         {feasibilityResult.suggestions.length > 0 && (
-          <div>
+          <div style={{ borderBottom: '1px solid var(--color-border-light)' }}>
             <button
               onClick={() => toggleSection('suggestions')}
-              className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+              className="w-full px-4 py-2 flex items-center justify-between transition-colors"
             >
-              <span className="flex items-center gap-2 text-sm font-medium text-blue-700">
+              <span className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-info)' }}>
                 <Lightbulb size={16} />
                 建议 ({feasibilityResult.suggestions.length})
               </span>
-              {expandedSections.has('suggestions') ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              {expandedSections.has('suggestions') ? <ChevronUp size={16} style={{ color: 'var(--color-text-muted)' }} /> : <ChevronDown size={16} style={{ color: 'var(--color-text-muted)' }} />}
             </button>
             {expandedSections.has('suggestions') && (
               <div className="px-4 pb-3">
-                <ul className="space-y-1 text-sm text-gray-600">
+                <ul className="space-y-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                   {feasibilityResult.suggestions.map((suggestion, index) => (
                     <li key={index} className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-0.5">•</span>
+                      <span className="mt-0.5" style={{ color: 'var(--color-info)' }}>•</span>
                       {suggestion}
                     </li>
                   ))}
@@ -468,7 +502,8 @@ export default function AnalysisPanel({
           <button
             onClick={() => fetchFeasibility(selectedNodeId)}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-sm rounded transition-colors"
+            style={{ color: 'var(--color-text-secondary)' }}
           >
             {loading ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
             重新评估
@@ -479,26 +514,34 @@ export default function AnalysisPanel({
   };
 
   return (
-    <div className="bg-white border-l border-gray-200 w-80 flex flex-col h-full">
+    <div
+      className="w-80 flex flex-col h-full"
+      style={{
+        background: 'var(--color-surface)',
+        borderLeft: '1px solid var(--color-border)',
+      }}
+    >
       {/* 标签切换 */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex" style={{ borderBottom: '1px solid var(--color-border)' }}>
         <button
           onClick={() => setActiveTab('next-action')}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'next-action'
-              ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-          }`}
+          className="flex-1 px-4 py-3 text-sm font-medium transition-colors"
+          style={{
+            color: activeTab === 'next-action' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            borderBottom: activeTab === 'next-action' ? '2px solid var(--color-primary)' : '2px solid transparent',
+            background: activeTab === 'next-action' ? 'var(--color-primary-light)' : 'transparent',
+          }}
         >
           下一步行动
         </button>
         <button
           onClick={() => setActiveTab('feasibility')}
-          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'feasibility'
-              ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-          }`}
+          className="flex-1 px-4 py-3 text-sm font-medium transition-colors"
+          style={{
+            color: activeTab === 'feasibility' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+            borderBottom: activeTab === 'feasibility' ? '2px solid var(--color-primary)' : '2px solid transparent',
+            background: activeTab === 'feasibility' ? 'var(--color-primary-light)' : 'transparent',
+          }}
         >
           可行性评估
         </button>
@@ -506,13 +549,19 @@ export default function AnalysisPanel({
 
       {/* 错误提示 */}
       {error && (
-        <div className="p-3 bg-red-50 text-red-700 text-sm">
+        <div
+          className="p-3 text-sm"
+          style={{
+            background: 'var(--color-error-bg)',
+            color: 'var(--color-error)',
+          }}
+        >
           {error}
         </div>
       )}
 
       {/* 内容区 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ background: 'var(--color-bg)' }}>
         {activeTab === 'next-action' ? renderNextAction() : renderFeasibility()}
       </div>
     </div>

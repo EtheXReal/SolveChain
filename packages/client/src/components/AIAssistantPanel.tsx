@@ -986,15 +986,31 @@ export default function AIAssistantPanel({
 
   return (
     <div
-      className="bg-white border-l border-gray-200 w-96 flex flex-col h-full shadow-lg"
-      style={{ display: isOpen ? 'flex' : 'none' }}
+      className="w-96 flex flex-col h-full shadow-lg"
+      style={{
+        display: isOpen ? 'flex' : 'none',
+        background: 'var(--color-surface)',
+        borderLeft: '1px solid var(--color-border)',
+      }}
     >
       {/* 头部 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-bg-secondary)',
+        }}
+      >
         <div className="flex items-center gap-2">
-          <Bot className="text-purple-600" size={20} />
-          <h3 className="font-semibold text-gray-800">AI 智能分析</h3>
-          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+          <Bot size={20} style={{ color: 'var(--color-primary)' }} />
+          <h3 className="font-semibold" style={{ color: 'var(--color-text)' }}>AI 智能分析</h3>
+          <span
+            className="text-xs px-2 py-0.5 rounded"
+            style={{
+              color: 'var(--color-text-secondary)',
+              background: 'var(--color-bg-tertiary)',
+            }}
+          >
             {sceneName}
           </span>
         </div>
@@ -1002,25 +1018,33 @@ export default function AIAssistantPanel({
           {messages.length > 0 && (
             <button
               onClick={handleClearMessages}
-              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+              className="p-1.5 rounded transition-colors"
+              style={{ color: 'var(--color-text-muted)' }}
               title="清空对话"
             >
-              <Trash2 size={16} className="text-gray-500" />
+              <Trash2 size={16} />
             </button>
           )}
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            className="p-1.5 rounded transition-colors"
+            style={{ color: 'var(--color-text-muted)' }}
           >
-            <X size={18} className="text-gray-500" />
+            <X size={18} />
           </button>
         </div>
       </div>
 
       {/* LLM 状态检查 */}
       {llmStatus && !llmStatus.configured && (
-        <div className="px-4 py-2 bg-yellow-50 border-b border-yellow-100">
-          <div className="flex items-center gap-2 text-yellow-700 text-sm">
+        <div
+          className="px-4 py-2"
+          style={{
+            background: 'var(--color-warning-bg)',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-warning)' }}>
             <AlertCircle size={16} />
             <span>DASHSCOPE_API_KEY 未配置，无法使用 AI 分析</span>
           </div>
@@ -1028,7 +1052,7 @@ export default function AIAssistantPanel({
       )}
 
       {/* 分析按钮 */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4" style={{ borderBottom: '1px solid var(--color-border-light)' }}>
         <div className="grid grid-cols-2 gap-2">
           {ANALYSIS_BUTTONS.map((btn) => {
             const Icon = btn.icon;
@@ -1037,11 +1061,15 @@ export default function AIAssistantPanel({
                 key={btn.type}
                 onClick={() => handleAnalysis(btn.type)}
                 disabled={isLoading || !!(llmStatus && !llmStatus.configured)}
-                className="flex flex-col items-center gap-1 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex flex-col items-center gap-1 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-bg)',
+                }}
                 title={btn.description}
               >
-                <Icon size={18} className="text-purple-600" />
-                <span className="text-xs font-medium text-gray-700">{btn.label}</span>
+                <Icon size={18} style={{ color: 'var(--color-primary)' }} />
+                <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{btn.label}</span>
               </button>
             );
           })}
@@ -1049,9 +1077,9 @@ export default function AIAssistantPanel({
       </div>
 
       {/* 对话区域 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ background: 'var(--color-bg)' }}>
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+          <div className="flex flex-col items-center justify-center h-full" style={{ color: 'var(--color-text-muted)' }}>
             <MessageSquare size={48} className="mb-2 opacity-30" />
             <p className="text-sm">选择上方功能或输入问题开始对话</p>
           </div>
@@ -1062,11 +1090,11 @@ export default function AIAssistantPanel({
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[90%] rounded-lg px-3 py-2 ${
-                  msg.role === 'user'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-800'
-                }`}
+                className="max-w-[90%] rounded-lg px-3 py-2"
+                style={{
+                  background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg-tertiary)',
+                  color: msg.role === 'user' ? '#fff' : 'var(--color-text)',
+                }}
               >
                 {msg.role === 'assistant' ? (
                   msg.structuredData ? (
@@ -1075,7 +1103,7 @@ export default function AIAssistantPanel({
                       graphOps={graphOperations}
                     />
                   ) : (
-                    <div className="prose prose-sm prose-gray max-w-none">
+                    <div className="prose prose-sm max-w-none" style={{ color: 'inherit' }}>
                       <ReactMarkdown
                         components={{
                           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -1087,7 +1115,7 @@ export default function AIAssistantPanel({
                           h3: ({ children }) => <h5 className="font-semibold text-sm mb-1">{children}</h5>,
                           strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                           code: ({ children }) => (
-                            <code className="bg-gray-200 px-1 rounded text-xs">{children}</code>
+                            <code className="px-1 rounded text-xs" style={{ background: 'var(--color-bg-secondary)' }}>{children}</code>
                           ),
                         }}
                       >
@@ -1106,9 +1134,12 @@ export default function AIAssistantPanel({
         {/* 加载指示器 */}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 rounded-lg px-3 py-2 flex items-center gap-2">
-              <Loader2 size={16} className="animate-spin text-purple-600" />
-              <span className="text-sm text-gray-600">AI 正在分析...</span>
+            <div
+              className="rounded-lg px-3 py-2 flex items-center gap-2"
+              style={{ background: 'var(--color-bg-tertiary)' }}
+            >
+              <Loader2 size={16} className="animate-spin" style={{ color: 'var(--color-primary)' }} />
+              <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>AI 正在分析...</span>
             </div>
           </div>
         )}
@@ -1117,9 +1148,22 @@ export default function AIAssistantPanel({
       </div>
 
       {/* 自由提问输入框 */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
+      <div
+        className="p-4"
+        style={{
+          borderTop: '1px solid var(--color-border)',
+          background: 'var(--color-bg-secondary)',
+        }}
+      >
         {error && (
-          <div className="mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs">
+          <div
+            className="mb-2 px-3 py-2 rounded-lg text-xs"
+            style={{
+              background: 'var(--color-error-bg)',
+              border: '1px solid var(--color-error)',
+              color: 'var(--color-error)',
+            }}
+          >
             {error}
           </div>
         )}
@@ -1132,12 +1176,21 @@ export default function AIAssistantPanel({
             onKeyDown={handleKeyDown}
             placeholder="输入问题，按 Enter 发送..."
             disabled={isLoading || !!(llmStatus && !llmStatus.configured)}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-3 py-2 rounded-lg text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: 'var(--color-bg)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
           />
           <button
             onClick={handleFreeQuestion}
             disabled={isLoading || !freeQuestion.trim() || !!(llmStatus && !llmStatus.configured)}
-            className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            style={{
+              background: 'var(--color-primary)',
+              color: '#fff',
+            }}
           >
             {isLoading ? (
               <Loader2 size={18} className="animate-spin" />
@@ -1146,7 +1199,7 @@ export default function AIAssistantPanel({
             )}
           </button>
         </div>
-        <p className="mt-2 text-xs text-gray-400 text-center">
+        <p className="mt-2 text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
           AI 分析基于当前场景数据，点击卡片中的操作可直接修改图
         </p>
       </div>
