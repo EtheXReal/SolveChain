@@ -342,9 +342,10 @@ export const EDGE_TYPE_CONFIG: Record<string, {
   [EdgeType.DEPENDS]: {
     label: '依赖',
     symbol: '←',
-    color: '#78716c',       // 石灰色 - 中性依赖关系
+    color: '#94a3b8',       // 亮银色 - 中性但清晰的依赖关系
     lineStyle: 'dashed',    // 虚线表示依赖方向
     arrowStyle: 'circle',   // 圆点箭头 - 柔和的依赖
+    animated: true,         // 添加动画
     description: 'B要成立，必须先有A'
   },
   [EdgeType.SUPPORTS]: {
@@ -371,6 +372,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     color: '#ef4444',       // 红色 - 醒目的阻碍警告
     lineStyle: 'dotted',    // 点线表示阻碍/不通畅
     arrowStyle: 'triangle', // 三角箭头 - 警告标识
+    animated: true,         // 添加动画 - 警示感
     description: 'A成立会妨碍B成立'
   },
   [EdgeType.CAUSES]: {
@@ -389,6 +391,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
     lineStyle: 'dashed',
     arrowStyle: 'triangle', // 双向三角 - 互斥
     arrowStart: 'triangle', // 起点也有箭头
+    animated: true,         // 闪烁动画 - 冲突警示
     description: 'A和B不能同时为真'
   },
   // 废弃类型（兼容旧数据）

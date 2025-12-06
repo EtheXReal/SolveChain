@@ -1272,25 +1272,48 @@ export default function FocusView({
           strokeLinecap="round"
         />
 
-        {/* 流动动画层 (仅 animated 边) */}
+        {/* 流动动画层 (仅 animated 边) - 粒子流动效果 */}
         {isAnimated && (
-          <line
-            x1={startX}
-            y1={startY}
-            x2={endX}
-            y2={endY}
-            stroke="url(#flow-gradient)"
-            strokeWidth={isSelected ? 4 : 3}
-            strokeLinecap="round"
-            opacity={0.6}
-          >
-            <animate
-              attributeName="stroke-dashoffset"
-              values="20;0"
-              dur="1s"
-              repeatCount="indefinite"
-            />
-          </line>
+          <>
+            {/* 流动粒子线 */}
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={color}
+              strokeWidth={isSelected ? 3 : 2}
+              strokeLinecap="round"
+              strokeDasharray="4,12"
+              opacity={0.8}
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                values="16;0"
+                dur="0.8s"
+                repeatCount="indefinite"
+              />
+            </line>
+            {/* 第二层粒子 - 错开相位 */}
+            <line
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={color}
+              strokeWidth={isSelected ? 2 : 1.5}
+              strokeLinecap="round"
+              strokeDasharray="2,14"
+              opacity={0.5}
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                values="0;-16"
+                dur="1.2s"
+                repeatCount="indefinite"
+              />
+            </line>
+          </>
         )}
 
         {/* 边标签 - neon 模式下显示更多 */}

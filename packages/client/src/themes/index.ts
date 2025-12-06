@@ -143,7 +143,7 @@ export const classicTheme: Theme = {
     nodeConclusionBg: '#f2edff',
 
     // 边/关系颜色 - 亮色主题用较深的颜色
-    edgeDepends: '#78716c',     // 石灰色 - 依赖
+    edgeDepends: '#64748b',     // 板岩色 - 依赖 (清晰可见)
     edgeSupports: '#16a34a',    // 绿色 - 促成
     edgeAchieves: '#2563eb',    // 蓝色 - 实现
     edgeHinders: '#dc2626',     // 红色 - 阻碍 (醒目)
@@ -219,7 +219,7 @@ export const midnightTheme: Theme = {
     nodeConclusionBg: 'rgba(167, 139, 250, 0.12)',
 
     // 边/关系颜色 - 霓虹发光色
-    edgeDepends: '#6b7280',     // 灰银 - 依赖
+    edgeDepends: '#a1a1aa',     // 亮银色 - 依赖 (霓虹风格)
     edgeSupports: '#4ade80',    // 霓虹绿 - 促成
     edgeAchieves: '#38bdf8',    // 霓虹蓝 - 实现
     edgeHinders: '#f87171',     // 霓虹红 - 阻碍 (醒目)
