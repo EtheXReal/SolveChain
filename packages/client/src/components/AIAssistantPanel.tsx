@@ -221,45 +221,63 @@ function RiskCard({
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  const levelColors = {
-    high: 'border-red-300 bg-red-50',
-    medium: 'border-yellow-300 bg-yellow-50',
-    low: 'border-gray-300 bg-gray-50',
+  // 使用 CSS 变量的风险等级样式
+  const getLevelStyle = (level: string) => {
+    switch (level) {
+      case 'high':
+        return { borderColor: 'var(--color-error)', background: 'var(--color-bg-tertiary)' };
+      case 'medium':
+        return { borderColor: 'var(--color-warning)', background: 'var(--color-bg-tertiary)' };
+      default:
+        return { borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' };
+    }
   };
 
-  const levelBadges = {
-    high: 'bg-red-500 text-white',
-    medium: 'bg-yellow-500 text-white',
-    low: 'bg-gray-400 text-white',
+  const getBadgeStyle = (level: string) => {
+    switch (level) {
+      case 'high':
+        return { background: 'var(--color-error)', color: '#fff' };
+      case 'medium':
+        return { background: 'var(--color-warning)', color: '#fff' };
+      default:
+        return { background: 'var(--color-text-muted)', color: '#fff' };
+    }
   };
 
   return (
-    <div className={`border rounded-lg p-3 ${levelColors[risk.level]}`}>
+    <div
+      className="border rounded-lg p-3"
+      style={getLevelStyle(risk.level)}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-xs px-2 py-0.5 rounded ${levelBadges[risk.level]}`}>
+            <span
+              className="text-xs px-2 py-0.5 rounded"
+              style={getBadgeStyle(risk.level)}
+            >
               {risk.level === 'high' ? '高风险' : risk.level === 'medium' ? '中风险' : '低风险'}
             </span>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
               {NODE_TYPE_LABELS[risk.nodeType] || risk.nodeType}
             </span>
           </div>
-          <h4 className="font-medium text-gray-900 text-sm">{risk.nodeName}</h4>
-          <p className="text-xs text-gray-600 mt-1">{risk.description}</p>
+          <h4 className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>{risk.nodeName}</h4>
+          <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>{risk.description}</p>
         </div>
         <button
           onClick={() => onLocate(risk.nodeId)}
-          className="p-1.5 hover:bg-white/50 rounded transition-colors"
+          className="p-1.5 rounded transition-colors"
           title="定位到节点"
+          style={{ color: 'var(--color-text-muted)' }}
         >
-          <MapPin size={16} className="text-gray-500" />
+          <MapPin size={16} />
         </button>
       </div>
 
       {/* 后果展示 */}
       {risk.consequence && (
-        <div className="mt-2 text-xs text-red-600 flex items-start gap-1">
+        <div className="mt-2 text-xs flex items-start gap-1" style={{ color: 'var(--color-error)' }}>
           <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
           <span>{risk.consequence}</span>
         </div>
@@ -270,7 +288,8 @@ function RiskCard({
         <div className="mt-3">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+            className="flex items-center gap-1 text-xs transition-colors"
+            style={{ color: 'var(--color-text-muted)' }}
           >
             {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             {expanded ? '收起操作' : `${risk.suggestedActions.length} 个建议操作`}
@@ -281,7 +300,12 @@ function RiskCard({
                 <button
                   key={idx}
                   onClick={() => onAction(action, risk.nodeId)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded transition-colors"
+                  style={{
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-secondary)',
+                  }}
                 >
                   {action.type === 'changeStatus' && <Wrench size={14} />}
                   {action.type === 'addNode' && <Plus size={14} />}
@@ -310,33 +334,44 @@ function ActionQueueCard({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
+    <div
+      className="border rounded-lg p-3"
+      style={{
+        borderColor: 'var(--color-info)',
+        background: 'var(--color-bg-tertiary)',
+      }}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs px-2 py-0.5 rounded bg-blue-500 text-white">
+            <span
+              className="text-xs px-2 py-0.5 rounded"
+              style={{ background: 'var(--color-info)', color: '#fff' }}
+            >
               优先级 {action.priority}
             </span>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
               {STATUS_LABELS[action.currentStatus] || action.currentStatus}
             </span>
           </div>
-          <h4 className="font-medium text-gray-900 text-sm">{action.nodeName}</h4>
-          <p className="text-xs text-gray-600 mt-1">{action.reason}</p>
+          <h4 className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>{action.nodeName}</h4>
+          <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>{action.reason}</p>
         </div>
         <button
           onClick={() => onLocate(action.nodeId)}
-          className="p-1.5 hover:bg-white/50 rounded transition-colors"
+          className="p-1.5 rounded transition-colors"
           title="定位到节点"
+          style={{ color: 'var(--color-text-muted)' }}
         >
-          <MapPin size={16} className="text-gray-500" />
+          <MapPin size={16} />
         </button>
       </div>
 
       {/* 依赖和阻塞展示 */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="mt-2 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+        className="mt-2 flex items-center gap-1 text-xs transition-colors"
+        style={{ color: 'var(--color-text-muted)' }}
       >
         {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         {expanded ? '收起详情' : '查看依赖关系'}
@@ -346,13 +381,15 @@ function ActionQueueCard({
         <div className="mt-2 space-y-2">
           {action.dependencies && action.dependencies.length > 0 && (
             <div className="text-xs">
-              <span className="text-gray-500">依赖项：</span>
+              <span style={{ color: 'var(--color-text-muted)' }}>依赖项：</span>
               {action.dependencies.map((dep, idx) => (
                 <span
                   key={idx}
-                  className={`ml-1 px-1.5 py-0.5 rounded ${
-                    dep.satisfied ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}
+                  className="ml-1 px-1.5 py-0.5 rounded"
+                  style={{
+                    background: dep.satisfied ? 'var(--color-success-bg)' : 'var(--color-error-bg)',
+                    color: dep.satisfied ? 'var(--color-success)' : 'var(--color-error)',
+                  }}
                 >
                   {dep.nodeName}
                 </span>
@@ -361,9 +398,16 @@ function ActionQueueCard({
           )}
           {action.blockedBy && action.blockedBy.length > 0 && (
             <div className="text-xs">
-              <span className="text-red-500">阻塞：</span>
+              <span style={{ color: 'var(--color-error)' }}>阻塞：</span>
               {action.blockedBy.map((blocker, idx) => (
-                <span key={idx} className="ml-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                <span
+                  key={idx}
+                  className="ml-1 px-1.5 py-0.5 rounded"
+                  style={{
+                    background: 'var(--color-error-bg)',
+                    color: 'var(--color-error)',
+                  }}
+                >
                   {blocker.nodeName}
                 </span>
               ))}
@@ -383,7 +427,11 @@ function ActionQueueCard({
             });
             onStartAction(action.nodeId, action.suggestedAction.newStatus || 'inProgress');
           }}
-          className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs rounded transition-colors"
+          style={{
+            background: 'var(--color-primary)',
+            color: '#fff',
+          }}
         >
           <ArrowRight size={14} />
           <span>{action.suggestedAction.label}</span>
@@ -403,14 +451,22 @@ function LogicIssueCard({
   onLocate: (nodeId: string) => void;
   onFix: (issue: LogicIssue) => void;
 }) {
-  const severityColors = {
-    error: 'border-red-300 bg-red-50',
-    warning: 'border-yellow-300 bg-yellow-50',
+  const getSeverityStyle = (severity: string) => {
+    switch (severity) {
+      case 'error':
+        return { borderColor: 'var(--color-error)', background: 'var(--color-bg-tertiary)' };
+      default:
+        return { borderColor: 'var(--color-warning)', background: 'var(--color-bg-tertiary)' };
+    }
   };
 
-  const severityBadges = {
-    error: 'bg-red-500 text-white',
-    warning: 'bg-yellow-500 text-white',
+  const getBadgeStyle = (severity: string) => {
+    switch (severity) {
+      case 'error':
+        return { background: 'var(--color-error)', color: '#fff' };
+      default:
+        return { background: 'var(--color-warning)', color: '#fff' };
+    }
   };
 
   const typeLabels: Record<string, string> = {
@@ -421,18 +477,24 @@ function LogicIssueCard({
   };
 
   return (
-    <div className={`border rounded-lg p-3 ${severityColors[issue.severity]}`}>
+    <div
+      className="border rounded-lg p-3"
+      style={getSeverityStyle(issue.severity)}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-xs px-2 py-0.5 rounded ${severityBadges[issue.severity]}`}>
+            <span
+              className="text-xs px-2 py-0.5 rounded"
+              style={getBadgeStyle(issue.severity)}
+            >
               {issue.severity === 'error' ? '错误' : '警告'}
             </span>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
               {typeLabels[issue.type] || issue.type}
             </span>
           </div>
-          <p className="text-sm text-gray-800">{issue.description}</p>
+          <p className="text-sm" style={{ color: 'var(--color-text)' }}>{issue.description}</p>
         </div>
       </div>
 
@@ -443,7 +505,12 @@ function LogicIssueCard({
             <button
               key={idx}
               onClick={() => onLocate(node.nodeId)}
-              className="text-xs px-2 py-0.5 bg-white border border-gray-200 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+              className="text-xs px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+              style={{
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-secondary)',
+              }}
             >
               <Target size={10} />
               {node.nodeName}
@@ -456,7 +523,12 @@ function LogicIssueCard({
       {issue.fix && (
         <button
           onClick={() => onFix(issue)}
-          className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs rounded transition-colors"
+          style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-secondary)',
+          }}
         >
           <Wrench size={14} />
           <span>{issue.fix.label}</span>
@@ -480,22 +552,38 @@ function CompletionCard({
   const [accepted, setAccepted] = useState(false);
   const [accepting, setAccepting] = useState(false);
 
-  const importanceColors = {
-    high: 'border-purple-300 bg-purple-50',
-    medium: 'border-blue-300 bg-blue-50',
-    low: 'border-gray-300 bg-gray-50',
+  const getImportanceStyle = (importance: string) => {
+    switch (importance) {
+      case 'high':
+        return { borderColor: 'var(--color-secondary)', background: 'var(--color-bg-tertiary)' };
+      case 'medium':
+        return { borderColor: 'var(--color-info)', background: 'var(--color-bg-tertiary)' };
+      default:
+        return { borderColor: 'var(--color-border)', background: 'var(--color-bg-tertiary)' };
+    }
   };
 
-  const importanceBadges = {
-    high: 'bg-purple-500 text-white',
-    medium: 'bg-blue-500 text-white',
-    low: 'bg-gray-400 text-white',
+  const getBadgeStyle = (importance: string) => {
+    switch (importance) {
+      case 'high':
+        return { background: 'var(--color-secondary)', color: '#fff' };
+      case 'medium':
+        return { background: 'var(--color-info)', color: '#fff' };
+      default:
+        return { background: 'var(--color-text-muted)', color: '#fff' };
+    }
   };
 
   if (accepted) {
     return (
-      <div className="border border-green-200 bg-green-50 rounded-lg p-3">
-        <div className="flex items-center gap-2 text-green-600">
+      <div
+        className="border rounded-lg p-3"
+        style={{
+          borderColor: 'var(--color-success)',
+          background: 'var(--color-success-bg)',
+        }}
+      >
+        <div className="flex items-center gap-2" style={{ color: 'var(--color-success)' }}>
           <Check size={16} />
           <p className="text-xs">已添加：{suggestion.node.title}</p>
         </div>
@@ -505,38 +593,57 @@ function CompletionCard({
 
   if (rejected) {
     return (
-      <div className="border border-gray-200 bg-gray-100 rounded-lg p-3 opacity-50">
-        <p className="text-xs text-gray-500 text-center">已忽略</p>
+      <div
+        className="border rounded-lg p-3 opacity-50"
+        style={{
+          borderColor: 'var(--color-border)',
+          background: 'var(--color-bg-tertiary)',
+        }}
+      >
+        <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>已忽略</p>
       </div>
     );
   }
 
   return (
-    <div className={`border rounded-lg p-3 ${importanceColors[suggestion.importance]}`}>
+    <div
+      className="border rounded-lg p-3"
+      style={getImportanceStyle(suggestion.importance)}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-xs px-2 py-0.5 rounded ${importanceBadges[suggestion.importance]}`}>
+            <span
+              className="text-xs px-2 py-0.5 rounded"
+              style={getBadgeStyle(suggestion.importance)}
+            >
               {suggestion.importance === 'high' ? '重要' : suggestion.importance === 'medium' ? '建议' : '可选'}
             </span>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
               {NODE_TYPE_LABELS[suggestion.node.type] || suggestion.node.type}
             </span>
           </div>
-          <h4 className="font-medium text-gray-900 text-sm">{suggestion.node.title}</h4>
+          <h4 className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>{suggestion.node.title}</h4>
           {suggestion.node.content && (
-            <p className="text-xs text-gray-600 mt-1">{suggestion.node.content}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>{suggestion.node.content}</p>
           )}
-          <p className="text-xs text-gray-500 mt-1 italic">{suggestion.reason}</p>
+          <p className="text-xs mt-1 italic" style={{ color: 'var(--color-text-muted)' }}>{suggestion.reason}</p>
         </div>
       </div>
 
       {/* 关系预览 */}
       {suggestion.relations && suggestion.relations.length > 0 && (
-        <div className="mt-2 text-xs text-gray-600">
+        <div className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
           <span>关联：</span>
           {suggestion.relations.map((rel, idx) => (
-            <span key={idx} className="ml-1 px-1.5 py-0.5 bg-white rounded border border-gray-200">
+            <span
+              key={idx}
+              className="ml-1 px-1.5 py-0.5 rounded"
+              style={{
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
               {rel.direction === 'from' ? '←' : '→'} {EDGE_TYPE_LABELS[rel.type] || rel.type} {rel.targetNodeName}
             </span>
           ))}
@@ -558,7 +665,11 @@ function CompletionCard({
             }
           }}
           disabled={accepting}
-          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs rounded transition-colors disabled:opacity-50"
+          style={{
+            background: 'var(--color-success)',
+            color: '#fff',
+          }}
         >
           {accepting ? (
             <Loader2 size={14} className="animate-spin" />
@@ -570,7 +681,11 @@ function CompletionCard({
         <button
           onClick={() => setRejected(true)}
           disabled={accepting}
-          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs rounded transition-colors disabled:opacity-50"
+          style={{
+            background: 'var(--color-bg-tertiary)',
+            color: 'var(--color-text-secondary)',
+          }}
         >
           <XCircle size={14} />
           忽略
