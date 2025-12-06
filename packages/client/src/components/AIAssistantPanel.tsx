@@ -1104,8 +1104,10 @@ export default function AIAssistantPanel({
       className="w-96 flex flex-col h-full shadow-lg"
       style={{
         display: isOpen ? 'flex' : 'none',
-        background: 'var(--color-surface)',
-        borderLeft: '1px solid var(--color-border)',
+        background: 'var(--glass-bg, var(--color-surface))',
+        backdropFilter: 'var(--glass, none)',
+        WebkitBackdropFilter: 'var(--glass, none)',
+        borderLeft: '1px solid var(--glass-border, var(--color-border))',
       }}
     >
       {/* 头部 */}

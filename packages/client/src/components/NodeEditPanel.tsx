@@ -153,8 +153,10 @@ export default function NodeEditPanel({
     <div
       className="w-80 flex flex-col h-full"
       style={{
-        background: 'var(--color-surface)',
-        borderLeft: '1px solid var(--color-border)',
+        background: 'var(--glass-bg, var(--color-surface))',
+        backdropFilter: 'var(--glass, none)',
+        WebkitBackdropFilter: 'var(--glass, none)',
+        borderLeft: '1px solid var(--glass-border, var(--color-border))',
       }}
     >
       {/* 头部 */}

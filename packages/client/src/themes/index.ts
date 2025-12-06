@@ -76,6 +76,10 @@ export interface ThemeColors {
   glow?: string;
   gradient?: string;
   shadow: string;
+  // 毛玻璃效果
+  glass?: string;           // backdrop-filter 值
+  glassBg?: string;         // 毛玻璃背景色 (半透明)
+  glassBorder?: string;     // 毛玻璃边框色
 }
 
 export interface Theme {
@@ -169,44 +173,44 @@ export const classicTheme: Theme = {
 };
 
 // ============ 暗夜主题 (Midnight) ============
-// 流光暗夜设计 - 深色渐变卡片 + 霓虹边框 + 流动光效
+// 流光暗夜设计 - 毛玻璃质感 + 霓虹边框 + 流动光效
 export const midnightTheme: Theme = {
   id: 'midnight',
   name: '暗夜',
-  description: '流光溢彩，高级暗色',
+  description: '毛玻璃质感，流光溢彩',
   colors: {
     // 深邃的蓝黑色背景，带微妙紫色调
     background: '#0a0a0f',
-    backgroundSecondary: '#0f0f18',
-    backgroundTertiary: '#151520',
-    surface: '#12121a',
-    surfaceHover: '#1a1a28',
-    border: '#252535',
-    borderLight: '#1e1e2d',
+    backgroundSecondary: 'rgba(15, 15, 24, 0.8)',
+    backgroundTertiary: 'rgba(21, 21, 32, 0.7)',
+    surface: 'rgba(18, 18, 26, 0.85)',
+    surfaceHover: 'rgba(26, 26, 40, 0.9)',
+    border: 'rgba(60, 60, 90, 0.5)',
+    borderLight: 'rgba(45, 45, 70, 0.4)',
     text: '#f0f0f5',
-    textSecondary: '#9898b0',
-    textMuted: '#5a5a75',
+    textSecondary: '#a0a0b8',
+    textMuted: '#6a6a85',
 
     // 主色调 - 霓虹紫蓝
     primary: '#8b5cf6',
     primaryHover: '#a78bfa',
-    primaryLight: '#1e1533',
+    primaryLight: 'rgba(139, 92, 246, 0.15)',
     secondary: '#06b6d4',
     accent: '#ec4899',
 
-    // 节点配色 - 深色渐变卡片 + 发光边框
+    // 节点配色 - 毛玻璃卡片 + 发光边框
     nodeGoal: '#f472b6',      // 霓虹粉 - 目标
-    nodeGoalBg: '#1f1025',    // 深紫红背景
+    nodeGoalBg: 'rgba(244, 114, 182, 0.12)',
     nodeAction: '#4ade80',    // 霓虹绿 - 行动
-    nodeActionBg: '#0d1f15',  // 深绿背景
+    nodeActionBg: 'rgba(74, 222, 128, 0.12)',
     nodeFact: '#38bdf8',      // 霓虹蓝 - 事实
-    nodeFactBg: '#0c1929',    // 深蓝背景
+    nodeFactBg: 'rgba(56, 189, 248, 0.12)',
     nodeAssumption: '#fbbf24', // 霓虹金 - 假设
-    nodeAssumptionBg: '#1f1a0a', // 深金背景
+    nodeAssumptionBg: 'rgba(251, 191, 36, 0.12)',
     nodeConstraint: '#f87171', // 霓虹红 - 约束
-    nodeConstraintBg: '#1f0f0f', // 深红背景
+    nodeConstraintBg: 'rgba(248, 113, 113, 0.12)',
     nodeConclusion: '#a78bfa', // 霓虹紫 - 结论
-    nodeConclusionBg: '#1a1528', // 深紫背景
+    nodeConclusionBg: 'rgba(167, 139, 250, 0.12)',
 
     // 边/关系颜色 - 霓虹发光色
     edgeDepends: '#6b7280',     // 灰银 - 依赖
@@ -217,13 +221,13 @@ export const midnightTheme: Theme = {
     edgeConflicts: '#f87171',   // 霓虹红 - 矛盾
 
     success: '#4ade80',
-    successBg: '#0d1f15',
+    successBg: 'rgba(74, 222, 128, 0.15)',
     warning: '#fbbf24',
-    warningBg: '#1f1a0a',
+    warningBg: 'rgba(251, 191, 36, 0.15)',
     error: '#f87171',
-    errorBg: '#1f0f0f',
+    errorBg: 'rgba(248, 113, 113, 0.15)',
     info: '#38bdf8',
-    infoBg: '#0c1929',
+    infoBg: 'rgba(56, 189, 248, 0.15)',
 
     // 画布 - 深邃星空感
     canvasBg: '#08080d',
@@ -239,7 +243,11 @@ export const midnightTheme: Theme = {
     // 流光效果
     glow: '0 0 20px rgba(139, 92, 246, 0.3)',
     gradient: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 50%, #ec4899 100%)',
-    shadow: '0 4px 24px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.1)',
+    shadow: '0 4px 24px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.08)',
+    // 毛玻璃效果
+    glass: 'blur(12px) saturate(180%)',
+    glassBg: 'rgba(18, 18, 26, 0.75)',
+    glassBorder: 'rgba(255, 255, 255, 0.08)',
   },
   borderRadius: '12px',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',

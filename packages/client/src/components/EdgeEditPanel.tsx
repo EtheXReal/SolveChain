@@ -94,16 +94,28 @@ export default function EdgeEditPanel({
   const targetConfig = NODE_TYPE_CONFIG[targetNode.type];
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
+    <div
+      className="w-80 flex flex-col h-full"
+      style={{
+        background: 'var(--glass-bg, var(--color-surface))',
+        backdropFilter: 'var(--glass, none)',
+        WebkitBackdropFilter: 'var(--glass, none)',
+        borderLeft: '1px solid var(--glass-border, var(--color-border))',
+      }}
+    >
       {/* 头部 */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-800">编辑关系</h3>
+      <div
+        className="p-4 flex items-center justify-between"
+        style={{ borderBottom: '1px solid var(--color-border)' }}
+      >
+        <h3 className="font-semibold" style={{ color: 'var(--color-text)' }}>编辑关系</h3>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-gray-100 rounded"
+          className="p-1 rounded"
           title="关闭"
+          style={{ color: 'var(--color-text-muted)' }}
         >
-          <X size={18} className="text-gray-400" />
+          <X size={18} />
         </button>
       </div>
 
@@ -111,10 +123,13 @@ export default function EdgeEditPanel({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* 连接的节点 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
             连接节点
           </label>
-          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+          <div
+            className="flex items-center gap-2 p-3 rounded-lg"
+            style={{ background: 'var(--color-bg-tertiary)' }}
+          >
             {/* 源节点 */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1 mb-1">
@@ -122,16 +137,16 @@ export default function EdgeEditPanel({
                   className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: sourceConfig.color }}
                 />
-                <span className="text-xs text-gray-500">{sourceConfig.label}</span>
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{sourceConfig.label}</span>
               </div>
-              <p className="text-sm font-medium text-gray-800 truncate">
+              <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text)' }}>
                 {sourceNode.title}
               </p>
             </div>
 
             {/* 箭头 */}
             <div className="flex-shrink-0">
-              <ArrowRight size={20} className="text-gray-400" />
+              <ArrowRight size={20} style={{ color: 'var(--color-text-muted)' }} />
             </div>
 
             {/* 目标节点 */}
@@ -141,9 +156,9 @@ export default function EdgeEditPanel({
                   className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: targetConfig.color }}
                 />
-                <span className="text-xs text-gray-500">{targetConfig.label}</span>
+                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{targetConfig.label}</span>
               </div>
-              <p className="text-sm font-medium text-gray-800 truncate">
+              <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text)' }}>
                 {targetNode.title}
               </p>
             </div>
@@ -152,13 +167,18 @@ export default function EdgeEditPanel({
 
         {/* 关系类型 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
             关系类型
           </label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value as EdgeType)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+            style={{
+              background: 'var(--color-bg-tertiary)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
           >
             {/* v2.1 只显示新类型，不显示废弃类型 */}
             {Object.entries(EDGE_TYPE_CONFIG)
@@ -175,7 +195,7 @@ export default function EdgeEditPanel({
         <div
           className="p-3 rounded-lg border-l-4"
           style={{
-            backgroundColor: edgeConfig.color + '10',
+            backgroundColor: 'var(--color-bg-tertiary)',
             borderLeftColor: edgeConfig.color
           }}
         >
@@ -187,12 +207,12 @@ export default function EdgeEditPanel({
               {edgeConfig.label}
             </span>
           </div>
-          <p className="text-sm text-gray-600">{edgeConfig.description}</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{edgeConfig.description}</p>
         </div>
 
         {/* 关系强度 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
             关系强度: {strength.toFixed(1)} ({getStrengthLabel(strength)})
           </label>
           <input
@@ -202,9 +222,10 @@ export default function EdgeEditPanel({
             step={0.1}
             value={strength}
             onChange={(e) => setStrength(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+            style={{ background: 'var(--color-bg-tertiary)' }}
           />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
+          <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
             <span>0.1 很弱</span>
             <span>1.0 标准</span>
             <span>2.0 很强</span>
@@ -213,7 +234,7 @@ export default function EdgeEditPanel({
 
         {/* 描述 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
             关系说明
           </label>
           <textarea
@@ -221,52 +242,60 @@ export default function EdgeEditPanel({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="解释这个关系..."
             rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 resize-none"
+            style={{
+              background: 'var(--color-bg-tertiary)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text)',
+            }}
           />
         </div>
 
         {/* 预览 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
             预览
           </label>
           <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium">{sourceNode.title}</span>
+            <span className="font-medium" style={{ color: 'var(--color-text)' }}>{sourceNode.title}</span>
             <span
               className="px-2 py-0.5 rounded text-white text-xs"
               style={{ backgroundColor: edgeConfig.color }}
             >
               {edgeConfig.label}
             </span>
-            <span className="font-medium">{targetNode.title}</span>
+            <span className="font-medium" style={{ color: 'var(--color-text)' }}>{targetNode.title}</span>
           </div>
           {description && (
-            <p className="text-xs text-gray-500 mt-1">{description}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{description}</p>
           )}
         </div>
       </div>
 
       {/* 底部按钮 */}
-      <div className="p-4 border-t border-gray-200 flex gap-2">
+      <div className="p-4 flex gap-2" style={{ borderTop: '1px solid var(--color-border)' }}>
         {onDelete && (
           <button
             onClick={handleDelete}
-            className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="flex items-center gap-1 px-3 py-2 rounded-lg transition-colors"
             title="删除关系"
+            style={{ color: 'var(--color-error)' }}
           >
             <Trash2 size={16} />
           </button>
         )}
         <button
           onClick={onClose}
-          className="flex-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          className="flex-1 px-4 py-2 rounded-lg transition-colors"
+          style={{ color: 'var(--color-text-secondary)', background: 'var(--color-bg-tertiary)' }}
         >
           取消
         </button>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: 'var(--color-primary)' }}
         >
           <Save size={16} />
           {saving ? '保存中...' : '保存'}

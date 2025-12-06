@@ -110,6 +110,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (colors.gradient) {
       root.style.setProperty('--gradient', colors.gradient);
     }
+    if (colors.glass) {
+      root.style.setProperty('--glass', colors.glass);
+    }
+    if (colors.glassBg) {
+      root.style.setProperty('--glass-bg', colors.glassBg);
+    }
+    if (colors.glassBorder) {
+      root.style.setProperty('--glass-border', colors.glassBorder);
+    }
 
     // 设置主题类名
     document.body.className = `theme-${themeId}`;
