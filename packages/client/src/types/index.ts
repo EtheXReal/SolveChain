@@ -368,7 +368,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
   [EdgeType.HINDERS]: {
     label: '阻碍',
     symbol: '⊣',
-    color: '#f97316',       // 橙色 - 阻碍警告
+    color: '#ef4444',       // 红色 - 醒目的阻碍警告
     lineStyle: 'dotted',    // 点线表示阻碍/不通畅
     arrowStyle: 'triangle', // 三角箭头 - 警告标识
     description: 'A成立会妨碍B成立'
@@ -385,7 +385,7 @@ export const EDGE_TYPE_CONFIG: Record<string, {
   [EdgeType.CONFLICTS]: {
     label: '矛盾',
     symbol: '⊥',
-    color: '#ef4444',       // 红色 - 冲突警示
+    color: '#f59e0b',       // 琥珀/金色 - 醒目的冲突警示
     lineStyle: 'dashed',
     arrowStyle: 'triangle', // 双向三角 - 互斥
     arrowStart: 'triangle', // 起点也有箭头

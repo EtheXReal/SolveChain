@@ -146,9 +146,9 @@ export const classicTheme: Theme = {
     edgeDepends: '#78716c',     // 石灰色 - 依赖
     edgeSupports: '#16a34a',    // 绿色 - 促成
     edgeAchieves: '#2563eb',    // 蓝色 - 实现
-    edgeHinders: '#ea580c',     // 橙色 - 阻碍
+    edgeHinders: '#dc2626',     // 红色 - 阻碍 (醒目)
     edgeCauses: '#9333ea',      // 紫色 - 导致
-    edgeConflicts: '#dc2626',   // 红色 - 矛盾
+    edgeConflicts: '#d97706',   // 琥珀色 - 矛盾
 
     success: '#10b981',
     successBg: '#e6f9f1',
@@ -222,9 +222,9 @@ export const midnightTheme: Theme = {
     edgeDepends: '#6b7280',     // 灰银 - 依赖
     edgeSupports: '#4ade80',    // 霓虹绿 - 促成
     edgeAchieves: '#38bdf8',    // 霓虹蓝 - 实现
-    edgeHinders: '#fb923c',     // 霓虹橙 - 阻碍
+    edgeHinders: '#f87171',     // 霓虹红 - 阻碍 (醒目)
     edgeCauses: '#c084fc',      // 霓虹紫 - 导致
-    edgeConflicts: '#f87171',   // 霓虹红 - 矛盾
+    edgeConflicts: '#fbbf24',   // 霓虹金 - 矛盾
 
     success: '#4ade80',
     successBg: 'rgba(74, 222, 128, 0.15)',
