@@ -12,10 +12,29 @@ import {
   getAnalysisPrompt,
   SceneAnalysisType,
   ERROR_MESSAGES,
+  RiskAnalysisResult,
+  NextStepResult,
+  LogicCheckResult,
+  CompletionResult,
+  AnalysisResult as StructuredAnalysisResult,
 } from './prompts.js';
 
 export * from './types.js';
 export { SceneAnalysisType, convertGraphToText } from './prompts.js';
+export type {
+  RiskAnalysisResult,
+  NextStepResult,
+  LogicCheckResult,
+  CompletionResult,
+  RiskItem,
+  SuggestedAction,
+  ActionQueueItem,
+  DependencyItem,
+  BlockerItem,
+  LogicIssue,
+  IssueFix,
+  CompletionSuggestion,
+} from './prompts.js';
 
 // 默认配置
 const DEFAULT_CONFIG: Partial<LLMConfig> = {
@@ -251,32 +270,84 @@ export class LLMService {
 
   /**
    * 场景分析（风险分析、下一步建议、逻辑检查、补全建议）
+   * 返回结构化的分析结果
    */
   async analyzeScene(
     type: SceneAnalysisType,
     sceneName: string,
     nodes: Node[],
     edges: Edge[],
-    sceneDescription?: string
-  ): Promise<string> {
+    sceneDescription?: string,
+    focusedNode?: Node | null
+  ): Promise<StructuredAnalysisResult> {
     if (nodes.length === 0) {
       throw new Error(ERROR_MESSAGES.EMPTY_GRAPH);
     }
 
     const graphText = convertGraphToText(sceneName, nodes, edges, sceneDescription);
-    const analysisPrompt = getAnalysisPrompt(type);
-    const userContent = `${graphText}\n\n## 用户问题\n${analysisPrompt}`;
+    let analysisPrompt = getAnalysisPrompt(type);
+
+    // 如果是下一步分析且有聚焦节点，添加聚焦上下文
+    if (type === SceneAnalysisType.NEXT_STEP && focusedNode) {
+      const focusContext = `\n\n【当前聚焦的节点】\n节点 ID: ${focusedNode.id}\n标题: ${focusedNode.title}\n类型: ${focusedNode.type}\n状态: ${focusedNode.baseStatus || '未设置'}\n\n请重点分析：围绕这个节点，用户下一步应该做什么？考虑它的依赖项、阻塞者和潜在后续行动。`;
+      analysisPrompt = analysisPrompt + focusContext;
+    }
+
+    const userContent = `${graphText}\n\n${analysisPrompt}`;
 
     const response = await this.chat({
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userContent }
       ],
-      temperature: 0.7,
-      maxTokens: 2000
+      temperature: 0.5, // 降低温度以获得更稳定的 JSON 输出
+      maxTokens: 4000,
+      jsonMode: true // 启用 JSON 模式
     });
 
-    return response.content;
+    // 解析 JSON 响应
+    const parsed = this.parseJsonResponse(response.content);
+
+    // 根据类型返回结构化结果
+    switch (type) {
+      case SceneAnalysisType.RISK:
+        return { type: 'risk', data: parsed as RiskAnalysisResult };
+      case SceneAnalysisType.NEXT_STEP:
+        return { type: 'next_step', data: parsed as NextStepResult };
+      case SceneAnalysisType.LOGIC_CHECK:
+        return { type: 'logic_check', data: parsed as LogicCheckResult };
+      case SceneAnalysisType.COMPLETION:
+        return { type: 'completion', data: parsed as CompletionResult };
+      default:
+        throw new Error(`Unknown analysis type: ${type}`);
+    }
+  }
+
+  /**
+   * 解析 LLM 的 JSON 响应
+   * 处理可能的格式问题（如 markdown 代码块包裹）
+   */
+  private parseJsonResponse(content: string): unknown {
+    let jsonStr = content.trim();
+
+    // 移除可能的 markdown 代码块标记
+    if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.slice(7);
+    } else if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.slice(3);
+    }
+    if (jsonStr.endsWith('```')) {
+      jsonStr = jsonStr.slice(0, -3);
+    }
+    jsonStr = jsonStr.trim();
+
+    try {
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      console.error('Failed to parse LLM response as JSON:', content);
+      console.error('Parse error:', error);
+      throw new Error(ERROR_MESSAGES.INVALID_RESPONSE + ': ' + (error as Error).message);
+    }
   }
 
   /**

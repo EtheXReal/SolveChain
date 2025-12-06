@@ -162,7 +162,7 @@ router.get('/providers', async (req: Request, res: Response, next: NextFunction)
 // 场景分析（风险分析、下一步建议、逻辑检查、补全建议）
 router.post('/scene/analyze', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { projectId, sceneId, type } = req.body;
+    const { projectId, sceneId, type, focusedNodeId } = req.body;
 
     if (!projectId) {
       throw new AppError(400, 'VALIDATION_ERROR', '需要提供 projectId');
@@ -207,16 +207,24 @@ router.post('/scene/analyze', async (req: Request, res: Response, next: NextFunc
       edges = await edgeRepository.findByProjectId(projectId);
     }
 
-    // 调用 LLM 分析
-    const result = await llmService.analyzeScene(
+    // 查找聚焦的节点（如果有）
+    let focusedNode = null;
+    if (focusedNodeId && type === SceneAnalysisType.NEXT_STEP) {
+      focusedNode = nodes.find((n: any) => n.id === focusedNodeId);
+    }
+
+    // 调用 LLM 分析 - 返回结构化数据
+    const analysisResult = await llmService.analyzeScene(
       type as SceneAnalysisType,
       sceneName,
       nodes,
       edges,
-      sceneDescription
+      sceneDescription,
+      focusedNode // 传递聚焦节点
     );
 
-    res.json({ success: true, data: { result } });
+    // 直接返回结构化的分析结果
+    res.json({ success: true, data: analysisResult });
   } catch (error) {
     next(error);
   }

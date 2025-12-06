@@ -28,7 +28,14 @@
       "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT id, title FROM projects LIMIT 3;\")",
       "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT DISTINCT base_status FROM nodes WHERE deleted_at IS NULL;\")",
       "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT DISTINCT base_status, type FROM nodes WHERE deleted_at IS NULL;\")",
-      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT id, title, type, base_status FROM nodes WHERE deleted_at IS NULL LIMIT 5;\")"
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT id, title, type, base_status FROM nodes WHERE deleted_at IS NULL LIMIT 5;\")",
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"UPDATE nodes SET weight = 0.1 + (weight / 100.0) * 1.9 WHERE weight > 2; UPDATE edges SET strength = 0.1 + (strength / 100.0) * 1.9 WHERE strength > 2;\")",
+      "Bash(npx json-compact:*)",
+      "Bash(del \"C:\\Users\\Administrator\\Desktop\\SolveChain\\packages\\server\\src\\test-feasibility.ts\")",
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT id, title FROM projects LIMIT 1;\")",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(\"C:\\Program Files\\PostgreSQL\\18\\bin\\psql\" -U postgres -h localhost -d solvechain -c \"SELECT id, title, type, base_status FROM nodes WHERE id = ''e185db37-bf8d-4a08-b5f4-43b511d3bd65'';\")"
     ],
     "deny": [],
     "ask": []

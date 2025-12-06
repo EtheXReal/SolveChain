@@ -9,7 +9,8 @@ import type {
   CalculationResult,
   LLMAnalysisResult,
   NodeType,
-  EdgeType
+  EdgeType,
+  LLMStructuredResult
 } from '../types';
 
 const API_BASE = '/api';
@@ -308,11 +309,11 @@ export const llmApi = {
 
   // ========== v2.0 场景分析 API ==========
 
-  // 场景分析
-  analyzeScene: (projectId: string, sceneId: string | null, type: string) =>
-    request<{ result: string }>('/llm/scene/analyze', {
+  // 场景分析（返回结构化数据）
+  analyzeScene: (projectId: string, sceneId: string | null, type: string, focusedNodeId?: string | null) =>
+    request<LLMStructuredResult>('/llm/scene/analyze', {
       method: 'POST',
-      body: JSON.stringify({ projectId, sceneId, type }),
+      body: JSON.stringify({ projectId, sceneId, type, focusedNodeId }),
     }),
 
   // 场景对话

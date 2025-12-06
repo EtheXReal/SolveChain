@@ -3,7 +3,7 @@
  * 支持场景切换的决策图编辑
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useProjectStore, EditorMode } from '../store/projectStore';
 import { useUndoStore } from '../store/undoStore';
 import Header from '../components/Header';
@@ -263,6 +263,70 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     },
     [createEdge]
   );
+
+  // ============ AI 助手图操作回调 ============
+
+  // 定位到节点（选中并聚焦）
+  const handleAILocateNode = useCallback((nodeId: string) => {
+    setFocusedNodeId(nodeId);
+    // 可以在这里添加滚动到节点的逻辑
+  }, []);
+
+  // 更新节点状态
+  const handleAIUpdateNodeStatus = useCallback(async (nodeId: string, status: string) => {
+    console.log('handleAIUpdateNodeStatus 被调用:', { nodeId, status });
+    try {
+      await updateNode(nodeId, { baseStatus: status as any });
+      console.log('updateNode 调用成功');
+    } catch (err) {
+      console.error('更新节点状态失败:', err);
+    }
+  }, [updateNode]);
+
+  // 添加新节点（返回新节点 ID）
+  const handleAIAddNode = useCallback(async (nodeData: { type: string; title: string; content?: string }): Promise<string | undefined> => {
+    try {
+      const newNode = await createNode({
+        type: nodeData.type as NodeType,
+        title: nodeData.title,
+        content: nodeData.content,
+        positionX: 0,
+        positionY: 0,
+      });
+
+      // 如果在某个场景中，自动将节点添加到场景
+      if (currentSceneId) {
+        await addNodeToScene(currentSceneId, newNode.id, 0, 0);
+      }
+
+      setFocusedNodeId(newNode.id);
+      return newNode.id; // 返回新节点 ID
+    } catch (err) {
+      console.error('添加节点失败:', err);
+      return undefined;
+    }
+  }, [createNode, currentSceneId, addNodeToScene]);
+
+  // 添加新边
+  const handleAIAddEdge = useCallback(async (edgeData: { sourceNodeId: string; targetNodeId: string; type: string }) => {
+    try {
+      await createEdge({
+        sourceNodeId: edgeData.sourceNodeId,
+        targetNodeId: edgeData.targetNodeId,
+        type: edgeData.type as EdgeType,
+      });
+    } catch (err) {
+      console.error('添加边失败:', err);
+    }
+  }, [createEdge]);
+
+  // 图操作回调集合
+  const graphOperations = useMemo(() => ({
+    onLocateNode: handleAILocateNode,
+    onUpdateNodeStatus: handleAIUpdateNodeStatus,
+    onAddNode: handleAIAddNode,
+    onAddEdge: handleAIAddEdge,
+  }), [handleAILocateNode, handleAIUpdateNodeStatus, handleAIAddNode, handleAIAddEdge]);
 
   // 错误提示
   useEffect(() => {
@@ -874,15 +938,16 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
         )}
 
         {/* AI 助手面板 */}
-        {showAIAssistantPanel && !editingNodeId && !editingEdgeId && (
-          <AIAssistantPanel
-            isOpen={showAIAssistantPanel}
-            onClose={() => setShowAIAssistantPanel(false)}
-            projectId={projectId}
-            sceneId={currentSceneId}
-            sceneName={scenes.find(s => s.id === currentSceneId)?.name || '概览'}
-          />
-        )}
+        <AIAssistantPanel
+          isOpen={showAIAssistantPanel && !editingNodeId && !editingEdgeId}
+          onClose={() => setShowAIAssistantPanel(false)}
+          projectId={projectId}
+          sceneId={currentSceneId}
+          sceneName={scenes.find(s => s.id === currentSceneId)?.name || '概览'}
+          graphOperations={graphOperations}
+          focusedNodeId={focusedNodeId}
+          nodes={displayNodes}
+        />
       </div>
 
       {/* 导入对话框 */}

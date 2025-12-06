@@ -482,3 +482,138 @@ export const SCENE_COLORS = [
   '#8b5cf6', // 淡紫
   '#06b6d4', // 青色
 ];
+
+// ============ LLM 分析结果类型（v2.1） ============
+
+/** 建议操作 */
+export interface SuggestedAction {
+  type: 'changeStatus' | 'addNode' | 'addRelation';
+  label: string;
+  newStatus?: string;
+  node?: {
+    type: string;
+    title: string;
+    content?: string;
+  };
+  relations?: {
+    type: string;
+    targetNodeId: string;
+  }[];
+}
+
+/** 风险项 */
+export interface RiskItem {
+  level: 'high' | 'medium' | 'low';
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
+  currentStatus: string;
+  description: string;
+  consequence: string;
+  suggestedActions: SuggestedAction[];
+}
+
+/** 风险分析结果 */
+export interface RiskAnalysisResult {
+  summary: string;
+  risks: RiskItem[];
+}
+
+/** 依赖项 */
+export interface DependencyItem {
+  nodeId: string;
+  nodeName: string;
+  status: string;
+  satisfied: boolean;
+}
+
+/** 阻塞项 */
+export interface BlockerItem {
+  nodeId: string;
+  nodeName: string;
+  reason: string;
+}
+
+/** 行动队列项 */
+export interface ActionQueueItem {
+  priority: number;
+  nodeId: string;
+  nodeName: string;
+  currentStatus: string;
+  reason: string;
+  dependencies: DependencyItem[];
+  blockedBy: BlockerItem[];
+  suggestedAction: SuggestedAction;
+}
+
+/** 下一步建议结果 */
+export interface NextStepResult {
+  summary: string;
+  currentBlocker: string;
+  actionQueue: ActionQueueItem[];
+}
+
+/** 逻辑问题修复 */
+export interface IssueFix {
+  type: 'addRelation' | 'removeNode' | 'changeRelation' | 'addNode';
+  label: string;
+  description: string;
+  data: {
+    sourceNodeId?: string;
+    targetNodeId?: string;
+    relationType?: string;
+    node?: {
+      type: string;
+      title: string;
+      content?: string;
+    };
+  };
+}
+
+/** 逻辑问题 */
+export interface LogicIssue {
+  type: 'missing_dependency' | 'orphan_node' | 'wrong_relation' | 'status_inconsistency';
+  severity: 'error' | 'warning';
+  description: string;
+  involvedNodes: { nodeId: string; nodeName: string }[];
+  fix: IssueFix;
+}
+
+/** 逻辑检查结果 */
+export interface LogicCheckResult {
+  summary: string;
+  issues: LogicIssue[];
+  score: number;
+}
+
+/** 补全建议 */
+export interface CompletionSuggestion {
+  id: string;
+  importance: 'high' | 'medium' | 'low';
+  node: {
+    type: string;
+    title: string;
+    content?: string;
+    suggestedStatus?: string;
+  };
+  relations: {
+    type: string;
+    direction: 'from' | 'to';
+    targetNodeId: string;
+    targetNodeName: string;
+  }[];
+  reason: string;
+}
+
+/** 补全建议结果 */
+export interface CompletionResult {
+  summary: string;
+  suggestions: CompletionSuggestion[];
+}
+
+/** 统一分析结果类型 */
+export type LLMStructuredResult =
+  | { type: 'risk'; data: RiskAnalysisResult }
+  | { type: 'next_step'; data: NextStepResult }
+  | { type: 'logic_check'; data: LogicCheckResult }
+  | { type: 'completion'; data: CompletionResult };

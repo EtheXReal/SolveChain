@@ -606,9 +606,14 @@ export class AnalysisEngine {
     const negativeScore = negativeEvidence.reduce((sum, e) => sum + e.weight, 0);
     const feasibilityScore = positiveScore - negativeScore;
 
-    // 归一化到 0-100
-    const maxPossibleScore = Math.max(positiveScore + negativeScore, 1);
-    const normalizedScore = Math.round(((feasibilityScore + maxPossibleScore) / (2 * maxPossibleScore)) * 100);
+    // 归一化到 0-100（使用 tanh 平滑函数）
+    // 公式: 50 + 50 × tanh((正向 - 负向) / 2)
+    // - 无证据时返回50（未知状态）
+    // - 使用 tanh 避免单个证据导致极端值
+    // - 多个证据会累积影响，但有渐进上限
+    const BASE_SCORE = 50;
+    const scaledImpact = feasibilityScore / 2;
+    const normalizedScore = Math.round(BASE_SCORE + 50 * Math.tanh(scaledImpact));
 
     // 步骤6：识别风险
     const risks = this.identifyRisks(nodeId, negativeEvidence, prerequisites);
