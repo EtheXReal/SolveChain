@@ -148,72 +148,72 @@ export const classicTheme: Theme = {
 };
 
 // ============ 暗夜主题 (Midnight) ============
-// 深邃的紫蓝色调，霓虹光效，适合夜间工作
+// 深邃的紫蓝色调，柔和配色，适合夜间工作
 export const midnightTheme: Theme = {
   id: 'midnight',
   name: '暗夜',
-  description: '深邃优雅，霓虹点缀',
+  description: '深邃优雅，护眼舒适',
   colors: {
-    // 深邃的蓝紫色渐变背景
-    background: '#0d0d18',
-    backgroundSecondary: '#131325',
-    backgroundTertiary: '#1a1a35',
-    surface: '#181830',
-    surfaceHover: '#222245',
-    border: '#2a2a50',
-    borderLight: '#353565',
-    text: '#e8e8f4',
-    textSecondary: '#a8a8c8',
-    textMuted: '#6868a0',
+    // 深邃但不刺眼的蓝紫色背景
+    background: '#12141c',
+    backgroundSecondary: '#181a24',
+    backgroundTertiary: '#1e212c',
+    surface: '#1c1f2a',
+    surfaceHover: '#252836',
+    border: '#2e3242',
+    borderLight: '#383c4e',
+    text: '#e2e4ea',
+    textSecondary: '#a0a4b4',
+    textMuted: '#6a6e82',
 
-    // 霓虹紫作为主色，更加鲜明
-    primary: '#7c6cf0',
-    primaryHover: '#9080ff',
-    primaryLight: '#2a2850',
-    secondary: '#a78bfa',
-    accent: '#f472b6',
+    // 柔和的紫色作为主色，降低亮度
+    primary: '#7b6be0',
+    primaryHover: '#8a7ae8',
+    primaryLight: '#2a2840',
+    secondary: '#9580d8',
+    accent: '#d88cb0',
 
-    // 霓虹风格节点颜色 - 更加鲜艳协调
-    nodeGoal: '#ff6090',      // 霓虹粉
-    nodeGoalBg: 'rgba(255, 96, 144, 0.18)',
-    nodeAction: '#00e5a0',    // 霓虹绿
-    nodeActionBg: 'rgba(0, 229, 160, 0.15)',
-    nodeFact: '#4da8ff',      // 霓虹蓝
-    nodeFactBg: 'rgba(77, 168, 255, 0.15)',
-    nodeAssumption: '#ffb340', // 霓虹橙
-    nodeAssumptionBg: 'rgba(255, 179, 64, 0.15)',
-    nodeConstraint: '#ff5c5c', // 霓虹红
-    nodeConstraintBg: 'rgba(255, 92, 92, 0.15)',
-    nodeConclusion: '#b380ff', // 霓虹紫
-    nodeConclusionBg: 'rgba(179, 128, 255, 0.15)',
+    // 柔和的节点颜色 - 降低饱和度和亮度，不刺眼
+    nodeGoal: '#d87090',      // 柔和粉
+    nodeGoalBg: '#2a1e24',
+    nodeAction: '#50b890',    // 柔和绿
+    nodeActionBg: '#1a2824',
+    nodeFact: '#6090d0',      // 柔和蓝
+    nodeFactBg: '#1a2230',
+    nodeAssumption: '#d0a050', // 柔和橙
+    nodeAssumptionBg: '#282418',
+    nodeConstraint: '#d06060', // 柔和红
+    nodeConstraintBg: '#2a1c1c',
+    nodeConclusion: '#9070c0', // 柔和紫
+    nodeConclusionBg: '#221e2a',
 
-    success: '#00e5a0',
-    successBg: 'rgba(0, 229, 160, 0.15)',
-    warning: '#ffb340',
-    warningBg: 'rgba(255, 179, 64, 0.15)',
-    error: '#ff5c5c',
-    errorBg: 'rgba(255, 92, 92, 0.15)',
-    info: '#4da8ff',
-    infoBg: 'rgba(77, 168, 255, 0.15)',
+    success: '#50b890',
+    successBg: '#1a2824',
+    warning: '#d0a050',
+    warningBg: '#282418',
+    error: '#d06060',
+    errorBg: '#2a1c1c',
+    info: '#6090d0',
+    infoBg: '#1a2230',
 
-    // 画布配色 - 深邃蓝紫色调
-    canvasBg: '#0f0f22',
-    canvasGrid: '#252550',
-    canvasBorder: '#3535a0',
-    canvasNodeBorder: '#404070',
-    canvasNodeText: '#e8e8f8',
-    canvasNodeTextSecondary: '#a8a8d0',
-    canvasConnectSource: '#00e5a0',
-    canvasConnectTarget: '#7c6cf0',
-    canvasConnecting: '#00e5a0',
+    // 画布配色 - 柔和深色调，高对比文字
+    canvasBg: '#161820',
+    canvasGrid: '#252838',
+    canvasBorder: '#3a3e52',
+    canvasNodeBorder: '#4a4e65',
+    canvasNodeText: '#f0f0f5',
+    canvasNodeTextSecondary: '#b8bac8',
+    canvasConnectSource: '#50b890',
+    canvasConnectTarget: '#7b6be0',
+    canvasConnecting: '#50b890',
 
-    glow: '0 0 25px rgba(124, 108, 240, 0.35)',
-    shadow: '0 4px 24px rgba(0, 0, 0, 0.6)',
+    glow: '0 0 15px rgba(123, 107, 224, 0.2)',
+    shadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
   },
   borderRadius: '12px',
   fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif',
   nodeStyle: 'neon',
-  animationIntensity: 'moderate',
+  animationIntensity: 'subtle',
 };
 
 // ============ 极光主题 (Aurora) ============
