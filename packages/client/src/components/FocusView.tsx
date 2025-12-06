@@ -1275,8 +1275,31 @@ export default function FocusView({
         {/* 流动动画层 (仅 animated 边) - 根据线条类型选择不同动画 */}
         {isAnimated && (
           <>
-            {/* 实线类型 (solid/double): 柔和的流动光点 */}
+            {/* 实线类型 (solid/double): 流动粒子 */}
             {(lineStyle === 'solid' || lineStyle === 'double') && (
+              <>
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke={color}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeDasharray="4,16"
+                  opacity={0.5}
+                >
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    values="20;0"
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                </line>
+              </>
+            )}
+            {/* 虚线类型 (dashed): 脉冲效果 */}
+            {lineStyle === 'dashed' && (
               <line
                 x1={startX}
                 y1={startY}
@@ -1285,40 +1308,18 @@ export default function FocusView({
                 stroke={color}
                 strokeWidth={2}
                 strokeLinecap="round"
-                strokeDasharray="6,40"
-                opacity={0.8}
-              >
-                <animate
-                  attributeName="stroke-dashoffset"
-                  from="46"
-                  to="0"
-                  dur="2.5s"
-                  repeatCount="indefinite"
-                />
-              </line>
-            )}
-            {/* 虚线类型 (dashed): 柔和脉冲效果 */}
-            {lineStyle === 'dashed' && (
-              <line
-                x1={startX}
-                y1={startY}
-                x2={endX}
-                y2={endY}
-                stroke={color}
-                strokeWidth={2.5}
-                strokeLinecap="round"
                 strokeDasharray="8,4"
-                opacity={0.5}
+                opacity={0.4}
               >
                 <animate
                   attributeName="opacity"
-                  values="0.3;0.7;0.3"
-                  dur="2s"
+                  values="0.2;0.6;0.2"
+                  dur="1.8s"
                   repeatCount="indefinite"
                 />
               </line>
             )}
-            {/* 点线类型 (dotted): 柔和警示 */}
+            {/* 点线类型 (dotted): 警示效果 */}
             {lineStyle === 'dotted' && (
               <line
                 x1={startX}
@@ -1326,14 +1327,14 @@ export default function FocusView({
                 x2={endX}
                 y2={endY}
                 stroke={color}
-                strokeWidth={2.5}
+                strokeWidth={2}
                 strokeLinecap="round"
-                opacity={0.4}
+                opacity={0.35}
               >
                 <animate
                   attributeName="opacity"
-                  values="0.25;0.6;0.25"
-                  dur="1.5s"
+                  values="0.2;0.5;0.2"
+                  dur="1s"
                   repeatCount="indefinite"
                 />
               </line>
