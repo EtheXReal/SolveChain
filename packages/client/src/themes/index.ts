@@ -169,79 +169,82 @@ export const classicTheme: Theme = {
 };
 
 // ============ 暗夜主题 (Midnight) ============
-// 参考 Figma/Miro 暗色画布 - 深色背景 + 亮色卡片确保可读性
+// 流光暗夜设计 - 深色渐变卡片 + 霓虹边框 + 流动光效
 export const midnightTheme: Theme = {
   id: 'midnight',
   name: '暗夜',
-  description: '专业暗色，清晰可读',
+  description: '流光溢彩，高级暗色',
   colors: {
-    // 深色界面背景
-    background: '#18181b',
-    backgroundSecondary: '#1f1f23',
-    backgroundTertiary: '#27272a',
-    surface: '#27272a',
-    surfaceHover: '#3f3f46',
-    border: '#3f3f46',
-    borderLight: '#2d2d30',
-    text: '#fafafa',
-    textSecondary: '#a1a1aa',
-    textMuted: '#71717a',
+    // 深邃的蓝黑色背景，带微妙紫色调
+    background: '#0a0a0f',
+    backgroundSecondary: '#0f0f18',
+    backgroundTertiary: '#151520',
+    surface: '#12121a',
+    surfaceHover: '#1a1a28',
+    border: '#252535',
+    borderLight: '#1e1e2d',
+    text: '#f0f0f5',
+    textSecondary: '#9898b0',
+    textMuted: '#5a5a75',
 
-    // 主色调
-    primary: '#818cf8',
-    primaryHover: '#a5b4fc',
-    primaryLight: '#312e81',
-    secondary: '#34d399',
-    accent: '#fb7185',
+    // 主色调 - 霓虹紫蓝
+    primary: '#8b5cf6',
+    primaryHover: '#a78bfa',
+    primaryLight: '#1e1533',
+    secondary: '#06b6d4',
+    accent: '#ec4899',
 
-    // 节点配色 - 亮色卡片背景 + 彩色左边框（参考 Notion/Linear）
-    nodeGoal: '#fb7185',      // 玫红
-    nodeGoalBg: '#fef2f2',    // 浅红背景
-    nodeAction: '#34d399',    // 翠绿
-    nodeActionBg: '#ecfdf5',  // 浅绿背景
-    nodeFact: '#60a5fa',      // 天蓝
-    nodeFactBg: '#eff6ff',    // 浅蓝背景
-    nodeAssumption: '#fbbf24', // 琥珀
-    nodeAssumptionBg: '#fffbeb', // 浅黄背景
-    nodeConstraint: '#f87171', // 珊瑚红
-    nodeConstraintBg: '#fef2f2', // 浅红背景
-    nodeConclusion: '#a78bfa', // 紫色
-    nodeConclusionBg: '#f5f3ff', // 浅紫背景
+    // 节点配色 - 深色渐变卡片 + 发光边框
+    nodeGoal: '#f472b6',      // 霓虹粉 - 目标
+    nodeGoalBg: '#1f1025',    // 深紫红背景
+    nodeAction: '#4ade80',    // 霓虹绿 - 行动
+    nodeActionBg: '#0d1f15',  // 深绿背景
+    nodeFact: '#38bdf8',      // 霓虹蓝 - 事实
+    nodeFactBg: '#0c1929',    // 深蓝背景
+    nodeAssumption: '#fbbf24', // 霓虹金 - 假设
+    nodeAssumptionBg: '#1f1a0a', // 深金背景
+    nodeConstraint: '#f87171', // 霓虹红 - 约束
+    nodeConstraintBg: '#1f0f0f', // 深红背景
+    nodeConclusion: '#a78bfa', // 霓虹紫 - 结论
+    nodeConclusionBg: '#1a1528', // 深紫背景
 
-    // 边/关系颜色 - 暗色主题用亮色确保可见
-    edgeDepends: '#a1a1aa',     // 灰色 - 依赖
-    edgeSupports: '#34d399',    // 翠绿 - 促成
-    edgeAchieves: '#60a5fa',    // 天蓝 - 实现
-    edgeHinders: '#fb923c',     // 橙色 - 阻碍
-    edgeCauses: '#c084fc',      // 紫色 - 导致
-    edgeConflicts: '#f87171',   // 珊瑚红 - 矛盾
+    // 边/关系颜色 - 霓虹发光色
+    edgeDepends: '#6b7280',     // 灰银 - 依赖
+    edgeSupports: '#4ade80',    // 霓虹绿 - 促成
+    edgeAchieves: '#38bdf8',    // 霓虹蓝 - 实现
+    edgeHinders: '#fb923c',     // 霓虹橙 - 阻碍
+    edgeCauses: '#c084fc',      // 霓虹紫 - 导致
+    edgeConflicts: '#f87171',   // 霓虹红 - 矛盾
 
-    success: '#34d399',
-    successBg: '#064e3b',
+    success: '#4ade80',
+    successBg: '#0d1f15',
     warning: '#fbbf24',
-    warningBg: '#78350f',
+    warningBg: '#1f1a0a',
     error: '#f87171',
-    errorBg: '#7f1d1d',
-    info: '#60a5fa',
-    infoBg: '#1e3a8a',
+    errorBg: '#1f0f0f',
+    info: '#38bdf8',
+    infoBg: '#0c1929',
 
-    // 画布 - 深灰色画布背景
-    canvasBg: '#1a1a1e',
-    canvasGrid: '#2d2d32',
-    canvasBorder: '#52525b',
-    canvasNodeBorder: '#71717a',
-    canvasNodeText: '#27272a',    // 深色文字（因为节点背景是亮色）
-    canvasNodeTextSecondary: '#52525b',
-    canvasConnectSource: '#34d399',
-    canvasConnectTarget: '#818cf8',
-    canvasConnecting: '#34d399',
+    // 画布 - 深邃星空感
+    canvasBg: '#08080d',
+    canvasGrid: '#15152a',
+    canvasBorder: '#3a3a55',
+    canvasNodeBorder: '#4a4a65',
+    canvasNodeText: '#f0f0f5',
+    canvasNodeTextSecondary: '#a0a0b8',
+    canvasConnectSource: '#4ade80',
+    canvasConnectTarget: '#8b5cf6',
+    canvasConnecting: '#4ade80',
 
-    shadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+    // 流光效果
+    glow: '0 0 20px rgba(139, 92, 246, 0.3)',
+    gradient: 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 50%, #ec4899 100%)',
+    shadow: '0 4px 24px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.1)',
   },
-  borderRadius: '8px',
+  borderRadius: '12px',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  nodeStyle: 'elevated',
-  animationIntensity: 'subtle',
+  nodeStyle: 'neon',
+  animationIntensity: 'moderate',
 };
 
 // ============ 极光主题 (Aurora) ============

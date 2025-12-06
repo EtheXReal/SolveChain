@@ -1045,6 +1045,22 @@ export default function FocusView({
           />
         )}
 
+        {/* 霓虹发光层 - 仅在 neon 模式下显示 */}
+        {theme.nodeStyle === 'neon' && (isFocused || isRelated) && (
+          <rect
+            x={-77}
+            y={-32}
+            width={154}
+            height={64}
+            rx={10}
+            fill="none"
+            stroke={nodeColor}
+            strokeWidth={2}
+            opacity={0.6}
+            filter="url(#neon-glow-strong)"
+          />
+        )}
+
         {/* 节点背景 */}
         <rect
           x={-75}
@@ -1053,9 +1069,10 @@ export default function FocusView({
           height={60}
           rx={8}
           fill={nodeBgColor}
-          stroke={isConnectSource ? canvasColors.canvasConnectSource : isFocused ? nodeColor : isRelated ? nodeColor : canvasColors.canvasNodeBorder}
-          strokeWidth={isConnectSource ? 3 : isFocused ? 3 : isRelated ? 2 : 1}
-          filter={isDragging ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' : undefined}
+          stroke={isConnectSource ? canvasColors.canvasConnectSource : isFocused ? nodeColor : isRelated ? nodeColor : nodeColor}
+          strokeWidth={isConnectSource ? 3 : isFocused ? 3 : isRelated ? 2 : 1.5}
+          filter={theme.nodeStyle === 'neon' && !isUnrelated ? 'url(#neon-glow)' : isDragging ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' : undefined}
+          opacity={isUnrelated ? 0.4 : 1}
         />
 
         {/* 类型标记 */}
@@ -1155,16 +1172,17 @@ export default function FocusView({
           />
         )}
 
-        {/* 选中高亮 */}
-        {isSelected && (
+        {/* 选中高亮 / 霓虹发光层 */}
+        {(isSelected || (theme.nodeStyle === 'neon' && isRelatedToFocus)) && (
           <line
             x1={startX}
             y1={startY}
             x2={endX}
             y2={endY}
             stroke={color}
-            strokeWidth={6}
-            opacity={0.3}
+            strokeWidth={isSelected ? 6 : 4}
+            opacity={0.4}
+            filter={theme.nodeStyle === 'neon' ? 'url(#neon-glow)' : undefined}
           />
         )}
 
@@ -1174,9 +1192,10 @@ export default function FocusView({
           x2={endX}
           y2={endY}
           stroke={color}
-          strokeWidth={isSelected ? 4 : isRelatedToFocus ? 3 : 1}
+          strokeWidth={isSelected ? 4 : isRelatedToFocus ? 2.5 : 1.5}
           markerStart={edge.type === EdgeType.CONFLICTS ? 'url(#arrow-conflicts-start)' : undefined}
           markerEnd={`url(#arrow-${edge.type})`}
+          filter={theme.nodeStyle === 'neon' && isRelatedToFocus ? 'url(#neon-glow)' : undefined}
         />
 
         {(isRelatedToFocus || isSelected || isEditMode) && (
@@ -1339,6 +1358,26 @@ export default function FocusView({
             }}
           >
             <defs>
+              {/* 霓虹发光滤镜 - 用于节点边框发光效果 */}
+              {theme.nodeStyle === 'neon' && (
+                <>
+                  <filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter id="neon-glow-strong" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="6" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </>
+              )}
               {/* 使用主题感知的边颜色定义箭头 */}
               {Object.keys(EDGE_TYPE_CONFIG).map((type) => (
                 <marker
