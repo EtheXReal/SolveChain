@@ -12,9 +12,10 @@ interface NodeLibraryProps {
   onSelectNode: (nodeId: string) => void;
   selectedNodeId: string | null;
   onCreateNode: (type: NodeType) => void;
-  nodes?: GraphNode[]; // 可选，支持从外部传入
+  nodes?: GraphNode[]; // 可选，支持从外部传入（所有项目节点）
   allNodes?: GraphNode[]; // 所有节点（用于场景模式下显示可添加的节点）
   isInScene?: boolean; // 是否在场景中
+  sceneNodeIds?: Set<string>; // 当前场景中的节点ID集合
   onAddNodeToScene?: (nodeId: string) => void; // 添加节点到场景
 }
 
@@ -34,7 +35,7 @@ const LEGACY_TYPE_MAP: Record<string, NodeType> = {
   [NodeType.INFERENCE]: NodeType.CONCLUSION,
 };
 
-export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode, nodes: propNodes }: NodeLibraryProps) {
+export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode, nodes: propNodes, isInScene, sceneNodeIds, onAddNodeToScene }: NodeLibraryProps) {
   const graphStore = useGraphStore();
   const nodes = propNodes ?? graphStore.nodes;
   const [searchTerm, setSearchTerm] = useState('');
@@ -193,24 +194,59 @@ export default function NodeLibrary({ onSelectNode, selectedNodeId, onCreateNode
                   {nodeList.length === 0 ? (
                     <p className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>暂无节点</p>
                   ) : (
-                    nodeList.map(node => (
-                      <button
-                        key={node.id}
-                        onClick={() => onSelectNode(node.id)}
-                        className="w-full text-left px-4 py-2 text-sm transition-colors"
-                        style={{
-                          background: selectedNodeId === node.id ? 'var(--color-primary-light)' : 'transparent',
-                          borderRight: selectedNodeId === node.id ? '2px solid var(--color-primary)' : 'none',
-                        }}
-                      >
-                        <div className="truncate" style={{ color: 'var(--color-text-secondary)' }}>{node.title}</div>
-                        {node.content && (
-                          <div className="truncate text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                            {node.content}
-                          </div>
-                        )}
-                      </button>
-                    ))
+                    nodeList.map(node => {
+                      const isInCurrentScene = sceneNodeIds?.has(node.id) ?? true;
+                      return (
+                        <div
+                          key={node.id}
+                          className="flex items-center group"
+                          style={{
+                            background: selectedNodeId === node.id ? 'var(--color-primary-light)' : 'transparent',
+                            borderRight: selectedNodeId === node.id ? '2px solid var(--color-primary)' : 'none',
+                          }}
+                        >
+                          <button
+                            onClick={() => {
+                              if (isInCurrentScene) {
+                                onSelectNode(node.id);
+                              } else if (onAddNodeToScene) {
+                                onAddNodeToScene(node.id);
+                              }
+                            }}
+                            className="flex-1 text-left px-4 py-2 text-sm transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="truncate"
+                                style={{
+                                  color: isInCurrentScene ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
+                                  opacity: isInCurrentScene ? 1 : 0.6,
+                                }}
+                              >
+                                {node.title}
+                              </span>
+                              {isInScene && !isInCurrentScene && (
+                                <span
+                                  className="text-xs px-1.5 py-0.5 rounded"
+                                  style={{
+                                    background: 'var(--color-primary)',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                  }}
+                                >
+                                  +添加
+                                </span>
+                              )}
+                            </div>
+                            {node.content && (
+                              <div className="truncate text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                {node.content}
+                              </div>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               )}

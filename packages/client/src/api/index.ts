@@ -333,4 +333,42 @@ export const llmApi = {
     provider: string;
     model: string;
   }>('/llm/status'),
+
+  // ========== 设置 API ==========
+
+  // 获取设置
+  getSettings: () => request<{
+    provider: string;
+    model: string;
+    hasApiKey: boolean;
+  }>('/llm/settings'),
+
+  // 保存设置
+  saveSettings: (data: {
+    provider?: string;
+    model?: string;
+    apiKey?: string;
+  }) => request<{
+    provider: string;
+    model: string;
+    hasApiKey: boolean;
+  }>('/llm/settings', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  // 测试连接
+  testConnection: (data: {
+    provider?: string;
+    model?: string;
+    apiKey?: string;
+  }) => request<{
+    success: boolean;
+    error?: string;
+    provider: string;
+    model: string;
+  }>('/llm/settings/test', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };

@@ -5,6 +5,7 @@
 import { LLMProvider, LLMConfig, LLMRequest, LLMResponse, AnalysisType, AnalysisResult } from './types.js';
 import { callDashScope } from './providers/dashscope.js';
 import { callDeepSeek } from './providers/deepseek.js';
+import { callVolcengine } from './providers/volcengine.js';
 import { Node, Edge } from '../../types/index.js';
 import {
   convertGraphToText,
@@ -113,6 +114,9 @@ export class LLMService {
 
       case LLMProvider.DEEPSEEK:
         return callDeepSeek(apiKey, model, request);
+
+      case LLMProvider.VOLCENGINE:
+        return callVolcengine(apiKey, model, request);
 
       default:
         throw new Error(`不支持的 Provider: ${provider}`);

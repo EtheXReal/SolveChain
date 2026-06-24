@@ -16,6 +16,7 @@ import AnalysisPanel from '../components/AnalysisPanel';
 import AIAssistantPanel from '../components/AIAssistantPanel';
 import SceneTabs from '../components/SceneTabs';
 import ImportDialog from '../components/ImportDialog';
+import SettingsDialog from '../components/SettingsDialog';
 import { NodeType, EdgeType } from '../types';
 import { Edit3, Eye, Download, Upload, FileText, Copy, Check, Activity, Brain, Bot } from 'lucide-react';
 import {
@@ -97,6 +98,9 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   // AI 助手面板状态
   const [showAIAssistantPanel, setShowAIAssistantPanel] = useState(false);
 
+  // 设置对话框状态
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+
   // 加载项目
   useEffect(() => {
     fetchProject(projectId);
@@ -139,16 +143,20 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
       };
 
       try {
+        // 画布中心位置，加随机偏移避免节点重叠
+        const centerX = 2000 + (Math.random() - 0.5) * 200;
+        const centerY = 1500 + (Math.random() - 0.5) * 200;
+
         const newNode = await createNode({
           type,
           title: `新${typeLabels[type] || '节点'}`,
-          positionX: 0,
-          positionY: 0,
+          positionX: centerX,
+          positionY: centerY,
         });
 
         // 如果在某个场景中，自动将节点添加到场景
         if (currentSceneId) {
-          await addNodeToScene(currentSceneId, newNode.id, 0, 0);
+          await addNodeToScene(currentSceneId, newNode.id, centerX, centerY);
         }
 
         setFocusedNodeId(newNode.id);
@@ -286,17 +294,21 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   // 添加新节点（返回新节点 ID）
   const handleAIAddNode = useCallback(async (nodeData: { type: string; title: string; content?: string }): Promise<string | undefined> => {
     try {
+      // 画布中心位置，加随机偏移避免节点重叠
+      const centerX = 2000 + (Math.random() - 0.5) * 200;
+      const centerY = 1500 + (Math.random() - 0.5) * 200;
+
       const newNode = await createNode({
         type: nodeData.type as NodeType,
         title: nodeData.title,
         content: nodeData.content,
-        positionX: 0,
-        positionY: 0,
+        positionX: centerX,
+        positionY: centerY,
       });
 
       // 如果在某个场景中，自动将节点添加到场景
       if (currentSceneId) {
-        await addNodeToScene(currentSceneId, newNode.id, 0, 0);
+        await addNodeToScene(currentSceneId, newNode.id, centerX, centerY);
       }
 
       setFocusedNodeId(newNode.id);
@@ -686,7 +698,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           borderBottom: '1px solid var(--color-border)',
         }}
       >
-        <Header title={currentProject.title} onBack={onBack} />
+        <Header title={currentProject.title} onBack={onBack} onSettings={() => setShowSettingsDialog(true)} />
 
         {/* 右侧按钮组 */}
         <div className="flex items-center gap-2">
@@ -909,17 +921,18 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
 
       {/* 主体区域：左侧节点库 + 中间聚焦视图 + 右侧编辑面板 */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 左侧节点库 */}
+        {/* 左侧节点库 - 始终显示所有节点 */}
         <NodeLibrary
           selectedNodeId={focusedNodeId}
           onSelectNode={handleSelectNode}
           onCreateNode={handleCreateNode}
-          nodes={displayNodes}
+          nodes={nodes}
           allNodes={nodes}
           isInScene={!!currentSceneId}
+          sceneNodeIds={new Set(sceneNodes.map(n => n.id))}
           onAddNodeToScene={(nodeId) => {
             if (currentSceneId) {
-              addNodeToScene(currentSceneId, nodeId, 0, 0);
+              addNodeToScene(currentSceneId, nodeId, 2000, 1500);
             }
           }}
         />
@@ -999,6 +1012,12 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
         existingNodes={displayNodes}
         existingScenes={scenes}
         currentSceneId={currentSceneId}
+      />
+
+      {/* 设置对话框 */}
+      <SettingsDialog
+        isOpen={showSettingsDialog}
+        onClose={() => setShowSettingsDialog(false)}
       />
     </div>
   );

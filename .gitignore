@@ -28,3 +28,7 @@ npm-debug.log*
 # Temporary files
 nul
 *.tmp
+
+# Local config / scripts (not for repo)
+.claude/settings.local.json
+启动开发服务器.bat

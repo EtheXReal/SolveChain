@@ -8,9 +8,10 @@ interface HeaderProps {
   title?: string;
   onBack?: () => void;
   onSave?: () => void;
+  onSettings?: () => void;
 }
 
-export default function Header({ title, onBack, onSave }: HeaderProps) {
+export default function Header({ title, onBack, onSave, onSettings }: HeaderProps) {
   return (
     <header
       className="h-14 flex items-center justify-between px-4"
@@ -54,8 +55,10 @@ export default function Header({ title, onBack, onSave }: HeaderProps) {
           </button>
         )}
         <button
-          className="p-2 rounded-lg transition-colors"
+          onClick={onSettings}
+          className="p-2 rounded-lg transition-colors hover:bg-gray-100"
           style={{ color: 'var(--color-text-secondary)' }}
+          title="设置"
         >
           <Settings size={20} />
         </button>

@@ -152,9 +152,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           loading: false,
         });
 
-        // 自动选择第一个场景
-        if (scenes.length > 0 && !get().currentSceneId) {
-          get().setCurrentScene(scenes[0].id);
+        // 自动进入概览模式（显示所有节点）
+        if (!get().currentSceneId) {
+          get().setCurrentScene(null);
         }
       } else {
         throw new Error(data.error?.message || '获取项目失败');
@@ -348,9 +348,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const result = await res.json();
       if (result.success) {
         const node = result.data;
-        set((state) => ({
-          nodes: [...state.nodes, node],
-        }));
+        set((state) => {
+          // 更新 nodes 数组
+          const newState: any = {
+            nodes: [...state.nodes, node],
+          };
+          // 如果不在场景中（概览模式），也更新 sceneNodes
+          if (!state.currentSceneId) {
+            newState.sceneNodes = [...state.sceneNodes, node];
+          }
+          return newState;
+        });
         return node;
       } else {
         throw new Error(result.error?.message || '创建节点失败');
@@ -554,9 +562,22 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       });
       const result = await res.json();
       if (result.success) {
-        // 如果是当前场景，刷新场景数据
+        // 如果是当前场景，立即更新 sceneNodes
         if (get().currentSceneId === sceneId) {
-          get().fetchScene(sceneId);
+          const { nodes, sceneNodes } = get();
+          // 从 nodes 中找到要添加的节点
+          const nodeToAdd = nodes.find(n => n.id === nodeId);
+          if (nodeToAdd && !sceneNodes.some(n => n.id === nodeId)) {
+            // 添加到 sceneNodes，带上场景位置
+            const nodeWithScenePos = {
+              ...nodeToAdd,
+              scenePositionX: positionX,
+              scenePositionY: positionY,
+            };
+            set((state) => ({
+              sceneNodes: [...state.sceneNodes, nodeWithScenePos],
+            }));
+          }
         }
       }
     } catch (err: any) {

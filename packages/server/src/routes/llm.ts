@@ -132,6 +132,12 @@ router.get('/providers', async (req: Request, res: Response, next: NextFunction)
         models: ['deepseek-chat', 'deepseek-reasoner']
       },
       {
+        id: LLMProvider.VOLCENGINE,
+        name: '火山引擎',
+        description: '豆包大模型，支持多种模型',
+        models: ['deepseek-v3-2-251201', 'deepseek-r1-250528', 'doubao-seed-1-6-251015']
+      },
+      {
         id: LLMProvider.ZHIPU,
         name: '智谱 AI',
         description: 'GLM 系列模型',
@@ -190,15 +196,12 @@ router.post('/scene/analyze', async (req: Request, res: Response, next: NextFunc
     let edges;
 
     if (sceneId) {
-      const scene = await sceneRepository.findById(sceneId);
-      if (!scene) {
+      const sceneData = await sceneRepository.findByIdWithDetails(sceneId);
+      if (!sceneData) {
         throw new AppError(404, 'NOT_FOUND', '场景不存在');
       }
-      sceneName = scene.name;
-      sceneDescription = scene.description;
-
-      // 获取场景中的节点和边
-      const sceneData = await sceneRepository.getSceneWithNodes(sceneId);
+      sceneName = sceneData.scene.name;
+      sceneDescription = sceneData.scene.description;
       nodes = sceneData.nodes;
       edges = sceneData.edges;
     } else {
@@ -261,15 +264,12 @@ router.post('/scene/chat', async (req: Request, res: Response, next: NextFunctio
     let edges;
 
     if (sceneId) {
-      const scene = await sceneRepository.findById(sceneId);
-      if (!scene) {
+      const sceneData = await sceneRepository.findByIdWithDetails(sceneId);
+      if (!sceneData) {
         throw new AppError(404, 'NOT_FOUND', '场景不存在');
       }
-      sceneName = scene.name;
-      sceneDescription = scene.description;
-
-      // 获取场景中的节点和边
-      const sceneData = await sceneRepository.getSceneWithNodes(sceneId);
+      sceneName = sceneData.scene.name;
+      sceneDescription = sceneData.scene.description;
       nodes = sceneData.nodes;
       edges = sceneData.edges;
     } else {
@@ -308,6 +308,118 @@ router.get('/status', async (req: Request, res: Response, next: NextFunction) =>
         model: config.model
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ========== 设置 API ==========
+
+// 获取当前设置
+router.get('/settings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const config = llmService.getConfig();
+    const isConfigured = llmService.isConfigured();
+
+    res.json({
+      success: true,
+      data: {
+        provider: config.provider,
+        model: config.model,
+        hasApiKey: isConfigured,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 保存设置
+router.post('/settings', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { provider, model, apiKey } = req.body;
+
+    // 更新 LLM 服务配置
+    const updateConfig: any = {};
+    if (provider) updateConfig.provider = provider;
+    if (model) updateConfig.model = model;
+    if (apiKey) updateConfig.apiKey = apiKey;
+
+    llmService.updateConfig(updateConfig);
+
+    res.json({
+      success: true,
+      message: '设置已保存',
+      data: {
+        provider: llmService.getConfig().provider,
+        model: llmService.getConfig().model,
+        hasApiKey: llmService.isConfigured(),
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 测试连接
+router.post('/settings/test', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { provider, model, apiKey } = req.body;
+
+    // 临时使用传入的配置测试
+    const testConfig: any = {};
+    if (provider) testConfig.provider = provider;
+    if (model) testConfig.model = model;
+    if (apiKey) testConfig.apiKey = apiKey;
+
+    // 如果没有传 apiKey，使用现有配置
+    const currentConfig = llmService.getConfig();
+    const testProvider = provider || currentConfig.provider;
+    const testModel = model || currentConfig.model;
+
+    // 临时更新配置进行测试
+    const originalProvider = currentConfig.provider;
+    const originalModel = currentConfig.model;
+
+    if (testConfig.provider || testConfig.model || testConfig.apiKey) {
+      llmService.updateConfig(testConfig);
+    }
+
+    try {
+      // 发送简单测试请求
+      await llmService.chat({
+        messages: [
+          { role: 'user', content: '请回复"OK"' }
+        ],
+        temperature: 0.1,
+        maxTokens: 10
+      });
+
+      res.json({
+        success: true,
+        data: {
+          success: true,
+          provider: testProvider,
+          model: testModel,
+        }
+      });
+    } catch (testError) {
+      // 测试失败，恢复原配置
+      llmService.updateConfig({
+        provider: originalProvider,
+        model: originalModel,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          success: false,
+          error: (testError as Error).message,
+          provider: testProvider,
+          model: testModel,
+        }
+      });
+    }
   } catch (error) {
     next(error);
   }

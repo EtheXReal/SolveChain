@@ -7,7 +7,8 @@ export enum LLMProvider {
   DEEPSEEK = 'deepseek',
   ZHIPU = 'zhipu',
   OPENAI = 'openai',
-  OLLAMA = 'ollama'
+  OLLAMA = 'ollama',
+  VOLCENGINE = 'volcengine'
 }
 
 export interface LLMMessage {
