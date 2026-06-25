@@ -493,3 +493,160 @@ export function saveProjectLayout(
   }
   saveAll(db);
 }
+
+// ========== 整项目导入（多场景重建） ==========
+
+/**
+ * 导入整项目的归一化输入（与导出格式版本无关）。
+ * 由调用方（handleImport）负责把 2.3/旧版导出格式转换成本结构。
+ */
+export interface ImportProjectInput {
+  project: { title: string; description?: string };
+  // 场景按导入顺序，成员引用 nodes[].originalId，并带场景内坐标
+  scenes: Array<{
+    name: string;
+    description?: string;
+    color?: string;
+    sortOrder?: number;
+    members: Array<{ originalId: string; scenePositionX: number; scenePositionY: number }>;
+  }>;
+  // 节点本体（已去重，每个 originalId 只出现一次）
+  nodes: Array<{
+    originalId: string;
+    type: NodeType;
+    title: string;
+    content?: string;
+    confidence?: number;
+    weight?: number;
+    positionX: number;
+    positionY: number;
+    baseStatus?: string;
+    autoUpdate?: boolean;
+    logicState?: string | null;
+    customWeight?: number | null;
+  }>;
+  // 项目级边
+  edges: Array<{
+    sourceOriginalId: string;
+    targetOriginalId: string;
+    type: EdgeType;
+    strength?: number;
+    description?: string;
+  }>;
+}
+
+/**
+ * 把一个完整项目重建到本地存储，全部生成新 id。
+ * - 节点每个只建一次，建立 原id → 新id 映射；
+ * - 跨场景共享节点靠该映射，被关联进多个场景而非复制；
+ * - 空场景照常建出来；
+ * - 边按映射重连两端，缺端则跳过。
+ * 单次 loadAll/saveAll，不触碰任何编辑器运行时状态。
+ */
+export function importProject(input: ImportProjectInput): {
+  projectId: string;
+  sceneIds: string[];
+  nodeCount: number;
+  edgeCount: number;
+} {
+  const db = loadAll();
+  const ts = now();
+  const projectId = newId();
+
+  const project: Project = {
+    id: projectId,
+    userId: 'local',
+    title: input.project.title,
+    description: input.project.description,
+    status: GraphStatus.ACTIVE,
+    tags: [],
+    createdAt: ts,
+    updatedAt: ts,
+  };
+  db.projects.unshift(project);
+
+  // 1) 节点：每个只建一次，原id → 新id
+  const idMap = new Map<string, string>();
+  for (const n of input.nodes) {
+    const newNodeId = newId();
+    idMap.set(n.originalId, newNodeId);
+    const node: StoredNode = {
+      id: newNodeId,
+      graphId: projectId,
+      projectId,
+      type: n.type,
+      title: n.title,
+      content: n.content,
+      confidence: n.confidence ?? 50,
+      weight: n.weight ?? 1,
+      status: NodeStatus.ACTIVE,
+      positionX: n.positionX ?? 0,
+      positionY: n.positionY ?? 0,
+      createdBy: 'user',
+      baseStatus: (n.baseStatus as any) ?? DEFAULT_BASE_STATUS[n.type],
+      autoUpdate: n.autoUpdate ?? true,
+      logicState: n.logicState ?? null,
+      customWeight: n.customWeight ?? null,
+      createdAt: ts,
+      updatedAt: ts,
+    };
+    db.nodes.push(node);
+  }
+
+  // 2) 场景 + 场景-节点关联（含场景内坐标）
+  const sceneIds: string[] = [];
+  input.scenes.forEach((s, idx) => {
+    const sceneId = newId();
+    sceneIds.push(sceneId);
+    const scene: Scene = {
+      id: sceneId,
+      projectId,
+      name: s.name,
+      description: s.description,
+      color: s.color || '#3b82f6',
+      sortOrder: s.sortOrder ?? idx,
+      createdAt: ts,
+      updatedAt: ts,
+    };
+    db.scenes.push(scene);
+
+    for (const m of s.members) {
+      const newNodeId = idMap.get(m.originalId);
+      if (!newNodeId) continue; // 成员引用了不存在的节点
+      db.sceneNodes.push({
+        id: newId(),
+        sceneId,
+        nodeId: newNodeId,
+        positionX: m.scenePositionX ?? 0,
+        positionY: m.scenePositionY ?? 0,
+        createdAt: ts,
+      });
+    }
+  });
+
+  // 3) 边：按映射重连两端
+  let edgeCount = 0;
+  for (const e of input.edges) {
+    const src = idMap.get(e.sourceOriginalId);
+    const tgt = idMap.get(e.targetOriginalId);
+    if (!src || !tgt) continue;
+    const edge: StoredEdge = {
+      id: newId(),
+      graphId: projectId,
+      sourceNodeId: src,
+      targetNodeId: tgt,
+      type: e.type,
+      strength: e.strength ?? 1,
+      description: e.description,
+      createdBy: 'user',
+      createdAt: ts,
+      updatedAt: ts,
+    };
+    (edge as any).projectId = projectId;
+    db.edges.push(edge);
+    edgeCount++;
+  }
+
+  saveAll(db);
+  return { projectId, sceneIds, nodeCount: input.nodes.length, edgeCount };
+}

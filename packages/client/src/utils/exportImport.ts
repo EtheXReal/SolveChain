@@ -4,8 +4,11 @@
 
 import { SceneGraphNode, GraphEdge, Scene, NodeType, EdgeType, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG } from '../types';
 
-// 导出格式版本（v2.2 支持 baseStatus/autoUpdate）
-const EXPORT_VERSION = '2.2';
+// 导出格式版本
+// 2.2: 支持 baseStatus/autoUpdate
+// 2.3: 项目导出改为逐场景带场景内坐标的成员列表（scenes[].nodes），
+//      并保留 logicState/customWeight；支持多场景/跨场景共享/空场景的完整往返
+const EXPORT_VERSION = '2.3';
 
 // 导出数据类型
 export interface ExportedScene {
@@ -21,6 +24,14 @@ export interface ExportedScene {
   edges: ExportedEdge[];
 }
 
+// 场景成员（含场景内坐标）。同一个 node id 可出现在多个场景里（跨场景共享），
+// 各自带自己的场景坐标。
+export interface ExportedSceneMember {
+  id: string; // 引用顶层 nodes[] 里某个节点的原始 ID
+  scenePositionX: number;
+  scenePositionY: number;
+}
+
 export interface ExportedProject {
   version: string;
   exportType: 'project';
@@ -33,7 +44,9 @@ export interface ExportedProject {
     name: string;
     description?: string;
     color?: string;
-    nodeIds: string[]; // 该场景包含的节点 ID
+    sortOrder?: number;
+    // v2.3：成员列表（含场景内坐标）。空场景为 []。
+    nodes: ExportedSceneMember[];
   }>;
   nodes: ExportedNode[];
   edges: ExportedEdge[];
@@ -46,11 +59,14 @@ export interface ExportedNode {
   content?: string;
   confidence?: number;
   weight?: number;
-  positionX: number;
+  positionX: number; // 概览坐标
   positionY: number;
   // v2.2 新增字段
   baseStatus?: string;
   autoUpdate?: boolean;
+  // v2.3 新增字段：保留逻辑状态 / 自定义权重
+  logicState?: string | null;
+  customWeight?: number | null;
 }
 
 export interface ExportedEdge {
@@ -127,16 +143,28 @@ export function exportScene(
   };
 }
 
+// 导出项目时，节点本体允许携带 logicState/customWeight（来自本地持久层）
+type ExportProjectNode = SceneGraphNode & {
+  logicState?: string | null;
+  customWeight?: number | null;
+};
+
 /**
- * 导出整个项目为 JSON
+ * 导出整个项目为 JSON（v2.3）
+ *
+ * @param scenes        该项目的全部场景（含空场景），建议按 sortOrder 排好序传入
+ * @param nodes         该项目全部活跃节点的本体（含概览坐标）
+ * @param edges         该项目全部活跃边
+ * @param sceneMembers  sceneId -> 该场景成员（含场景内坐标）。空场景给空数组。
+ *                      同一 nodeId 可出现在多个场景的成员里（跨场景共享）。
  */
 export function exportProject(
   projectTitle: string,
   projectDescription: string | undefined,
   scenes: Scene[],
-  nodes: SceneGraphNode[],
+  nodes: ExportProjectNode[],
   edges: GraphEdge[],
-  sceneNodeMapping: Map<string, string[]> // sceneId -> nodeIds
+  sceneMembers: Map<string, ExportedSceneMember[]>
 ): ExportedProject {
   return {
     version: EXPORT_VERSION,
@@ -150,7 +178,8 @@ export function exportProject(
       name: scene.name,
       description: scene.description,
       color: scene.color,
-      nodeIds: sceneNodeMapping.get(scene.id) || [],
+      sortOrder: scene.sortOrder,
+      nodes: sceneMembers.get(scene.id) || [],
     })),
     nodes: nodes.map(node => ({
       id: node.id,
@@ -164,6 +193,9 @@ export function exportProject(
       // v2.2 新增字段
       baseStatus: node.baseStatus,
       autoUpdate: node.autoUpdate,
+      // v2.3 新增字段
+      logicState: node.logicState ?? null,
+      customWeight: node.customWeight ?? null,
     })),
     edges: edges.map(edge => ({
       sourceNodeId: edge.sourceNodeId,

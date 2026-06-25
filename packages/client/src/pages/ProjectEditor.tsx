@@ -25,6 +25,7 @@ import {
   downloadJson,
   ExportedScene,
   ExportedProject,
+  ExportedSceneMember,
   ConflictResolution,
   findConflictingNodes,
   generateNonConflictingTitle,
@@ -33,6 +34,7 @@ import {
   downloadText,
   copyToClipboard,
 } from '../utils/exportImport';
+import { loadAll, importProject } from '../store/localStore';
 
 interface ProjectEditorProps {
   projectId: string;
@@ -52,6 +54,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     error,
     editorMode,
     fetchProject,
+    fetchProjects,
     setCurrentScene,
     createScene,
     updateScene,
@@ -465,29 +468,56 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     downloadJson(data, filename);
   }, [currentProject, scenes, currentSceneId, displayNodes, displayEdges]);
 
-  // 导出整个项目
+  // 导出整个项目（v2.3：从本地持久层取全量数据，正确导出多场景/跨场景共享/空场景）
   const handleExportProject = useCallback(() => {
     if (!currentProject) return;
 
-    // 构建场景-节点映射（这里简化处理，实际需要从后端获取）
-    const sceneNodeMapping = new Map<string, string[]>();
-    // 由于当前架构没有直接的场景-节点映射，这里使用当前场景的节点
-    if (currentSceneId) {
-      sceneNodeMapping.set(currentSceneId, sceneNodes.map(n => n.id));
+    const db = loadAll();
+    const projectId = currentProject.id;
+
+    // 该项目的全部场景（含空场景），按 sortOrder 排序
+    const projectScenes = db.scenes
+      .filter(s => s.projectId === projectId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    // 该项目的活跃节点本体（deletedAt 为空）
+    const activeNodes = db.nodes.filter(
+      n => n.projectId === projectId && !n.deletedAt
+    );
+    const activeNodeIds = new Set(activeNodes.map(n => n.id));
+
+    // 该项目的活跃边
+    const activeEdges = db.edges.filter(
+      e => (e as any).projectId === projectId && !e.deletedAt
+    );
+
+    // 全量场景归属：按 sceneId 分组 scene_nodes（仅保留活跃节点的关联，含场景内坐标）
+    const sceneIdSet = new Set(projectScenes.map(s => s.id));
+    const sceneMembers = new Map<string, ExportedSceneMember[]>();
+    // 先给每个场景放空数组，保证空场景也出现在导出里
+    projectScenes.forEach(s => sceneMembers.set(s.id, []));
+    for (const sn of db.sceneNodes) {
+      if (!sceneIdSet.has(sn.sceneId)) continue; // 不属于本项目的场景
+      if (!activeNodeIds.has(sn.nodeId)) continue; // 跳过已删节点的悬空关联
+      sceneMembers.get(sn.sceneId)!.push({
+        id: sn.nodeId,
+        scenePositionX: sn.positionX,
+        scenePositionY: sn.positionY,
+      });
     }
 
     const data = exportProject(
       currentProject.title,
       currentProject.description,
-      scenes,
-      nodes,
-      edges,
-      sceneNodeMapping
+      projectScenes,
+      activeNodes,
+      activeEdges,
+      sceneMembers
     );
 
     const filename = `${currentProject.title}_完整导出_${new Date().toISOString().slice(0, 10)}.json`;
     downloadJson(data, filename);
-  }, [currentProject, scenes, nodes, edges, currentSceneId, sceneNodes]);
+  }, [currentProject]);
 
   // 导出当前场景为文本
   const handleExportSceneAsText = useCallback(() => {
@@ -562,6 +592,79 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
       newSceneName?: string;
     }
   ) => {
+    // ===== 整项目导入（2.3 新格式，或带 scenes[] 的旧版）：还原成一个新项目 =====
+    if (data.exportType === 'project' && Array.isArray((data as ExportedProject).scenes)) {
+      const proj = data as ExportedProject;
+
+      // 节点本体的概览坐标，用于旧版（无场景坐标）回退
+      const overviewCoord = new Map(
+        proj.nodes.map(n => [n.id, { x: n.positionX, y: n.positionY }])
+      );
+
+      // 归一化场景成员：兼容 2.3 的 nodes[{id,scenePositionX,scenePositionY}] 与旧版 nodeIds[]
+      const scenes = proj.scenes.map((s: any) => {
+        let members: Array<{ originalId: string; scenePositionX: number; scenePositionY: number }>;
+        if (Array.isArray(s.nodes)) {
+          // 2.3 新格式：成员自带场景内坐标
+          members = s.nodes.map((m: any) => ({
+            originalId: m.id,
+            scenePositionX: m.scenePositionX ?? overviewCoord.get(m.id)?.x ?? 0,
+            scenePositionY: m.scenePositionY ?? overviewCoord.get(m.id)?.y ?? 0,
+          }));
+        } else if (Array.isArray(s.nodeIds)) {
+          // 旧版（2.2 及以前）：只有 id 列表，场景坐标回退用概览坐标
+          members = s.nodeIds.map((id: string) => ({
+            originalId: id,
+            scenePositionX: overviewCoord.get(id)?.x ?? 0,
+            scenePositionY: overviewCoord.get(id)?.y ?? 0,
+          }));
+        } else {
+          members = [];
+        }
+        return {
+          name: s.name,
+          description: s.description,
+          color: s.color,
+          sortOrder: s.sortOrder,
+          members,
+        };
+      });
+
+      const result = importProject({
+        project: proj.project,
+        scenes,
+        nodes: proj.nodes.map(n => ({
+          originalId: n.id,
+          type: n.type as NodeType,
+          title: n.title,
+          content: n.content,
+          confidence: n.confidence,
+          weight: n.weight,
+          positionX: n.positionX,
+          positionY: n.positionY,
+          baseStatus: n.baseStatus,
+          autoUpdate: n.autoUpdate,
+          logicState: (n as any).logicState,
+          customWeight: (n as any).customWeight,
+        })),
+        edges: proj.edges.map(e => ({
+          sourceOriginalId: e.sourceNodeId,
+          targetOriginalId: e.targetNodeId,
+          type: e.type as EdgeType,
+          strength: e.strength,
+          description: e.description,
+        })),
+      });
+
+      // 刷新项目列表，让新项目出现在列表里（不影响当前打开的项目）
+      await fetchProjects();
+      console.log(
+        `[导入] 新项目 ${result.projectId}：${result.nodeCount} 节点 / ${result.edgeCount} 边 / ${result.sceneIds.length} 场景`
+      );
+      return;
+    }
+
+    // ===== 单场景导入（exportType==='scene' 或更老的无 scenes[] 文件）：维持原有行为 =====
     // 获取目标场景中已存在的节点
     const targetNodes = options.targetSceneId === currentSceneId
       ? displayNodes
@@ -661,7 +764,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
       options.targetSceneId,
       options.newSceneName
     );
-  }, [currentSceneId, displayNodes, nodes, importNodes]);
+  }, [currentSceneId, displayNodes, nodes, importNodes, fetchProjects]);
 
   if (loading && !currentProject) {
     return (
