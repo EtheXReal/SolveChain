@@ -1,5 +1,7 @@
 /**
  * v2.0 项目-场景状态管理
+ *
+ * 数据持久层：localStore（localStorage 本地存储），无需后端。
  */
 
 import { create } from 'zustand';
@@ -11,8 +13,7 @@ import {
   NodeType,
   EdgeType,
 } from '../types';
-
-const API_BASE = 'http://localhost:3001/api';
+import * as localStore from './localStore';
 
 // 视图模式
 export type ViewMode = 'single' | 'panorama';
@@ -125,13 +126,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   fetchProjects: async () => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/projects`);
-      const data = await res.json();
-      if (data.success) {
-        set({ projects: data.data, loading: false });
-      } else {
-        throw new Error(data.error?.message || '获取项目列表失败');
-      }
+      const projects = localStore.listProjects();
+      set({ projects, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
@@ -140,10 +136,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   fetchProject: async (projectId: string) => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/projects/${projectId}`);
-      const data = await res.json();
-      if (data.success) {
-        const { project, scenes, nodes, edges } = data.data;
+      const details = localStore.getProjectDetails(projectId);
+      if (details) {
+        const { project, scenes, nodes, edges } = details;
         set({
           currentProject: project,
           scenes,
@@ -157,7 +152,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           get().setCurrentScene(null);
         }
       } else {
-        throw new Error(data.error?.message || '获取项目失败');
+        throw new Error('获取项目失败');
       }
     } catch (err: any) {
       set({ error: err.message, loading: false });
@@ -167,22 +162,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   createProject: async (data) => {
     set({ loading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE}/projects`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
-        const project = result.data;
-        set((state) => ({
-          projects: [project, ...state.projects],
-          loading: false,
-        }));
-        return project;
-      } else {
-        throw new Error(result.error?.message || '创建项目失败');
-      }
+      const project = localStore.createProject(data);
+      set((state) => ({
+        projects: [project, ...state.projects],
+        loading: false,
+      }));
+      return project;
     } catch (err: any) {
       set({ error: err.message, loading: false });
       throw err;
@@ -191,16 +176,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateProject: async (projectId, data) => {
     try {
-      const res = await fetch(`${API_BASE}/projects/${projectId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
+      const updated = localStore.updateProject(projectId, data);
+      if (updated) {
         set((state) => ({
-          projects: state.projects.map((p) => (p.id === projectId ? result.data : p)),
-          currentProject: state.currentProject?.id === projectId ? result.data : state.currentProject,
+          projects: state.projects.map((p) => (p.id === projectId ? updated : p)),
+          currentProject: state.currentProject?.id === projectId ? updated : state.currentProject,
         }));
       }
     } catch (err: any) {
@@ -210,7 +190,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   deleteProject: async (projectId) => {
     try {
-      await fetch(`${API_BASE}/projects/${projectId}`, { method: 'DELETE' });
+      localStore.deleteProject(projectId);
       set((state) => ({
         projects: state.projects.filter((p) => p.id !== projectId),
         currentProject: state.currentProject?.id === projectId ? null : state.currentProject,
@@ -264,14 +244,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   fetchScene: async (sceneId) => {
     try {
-      const res = await fetch(`${API_BASE}/scenes/${sceneId}/details`);
-      const data = await res.json();
-      if (data.success) {
-        set({
-          sceneNodes: data.data.nodes,
-          sceneEdges: data.data.edges,
-        });
-      }
+      const { nodes, edges } = localStore.getSceneDetails(sceneId);
+      set({
+        sceneNodes: nodes,
+        sceneEdges: edges,
+      });
     } catch (err: any) {
       set({ error: err.message });
     }
@@ -282,21 +259,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!currentProject) throw new Error('未选择项目');
 
     try {
-      const res = await fetch(`${API_BASE}/projects/${currentProject.id}/scenes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
-        const scene = result.data;
-        set((state) => ({
-          scenes: [...state.scenes, scene],
-        }));
-        return scene;
-      } else {
-        throw new Error(result.error?.message || '创建场景失败');
-      }
+      const scene = localStore.createScene(currentProject.id, data);
+      set((state) => ({
+        scenes: [...state.scenes, scene],
+      }));
+      return scene;
     } catch (err: any) {
       set({ error: err.message });
       throw err;
@@ -305,15 +272,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateScene: async (sceneId, data) => {
     try {
-      const res = await fetch(`${API_BASE}/scenes/${sceneId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
+      const updated = localStore.updateScene(sceneId, data);
+      if (updated) {
         set((state) => ({
-          scenes: state.scenes.map((s) => (s.id === sceneId ? result.data : s)),
+          scenes: state.scenes.map((s) => (s.id === sceneId ? updated : s)),
         }));
       }
     } catch (err: any) {
@@ -323,7 +285,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   deleteScene: async (sceneId) => {
     try {
-      await fetch(`${API_BASE}/scenes/${sceneId}`, { method: 'DELETE' });
+      localStore.deleteScene(sceneId);
       set((state) => ({
         scenes: state.scenes.filter((s) => s.id !== sceneId),
         currentSceneId: state.currentSceneId === sceneId ? null : state.currentSceneId,
@@ -340,29 +302,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!currentProject) throw new Error('未选择项目');
 
     try {
-      const res = await fetch(`${API_BASE}/projects/${currentProject.id}/nodes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+      const node = localStore.createNode(currentProject.id, data);
+      set((state) => {
+        // 更新 nodes 数组
+        const newState: any = {
+          nodes: [...state.nodes, node],
+        };
+        // 如果不在场景中（概览模式），也更新 sceneNodes
+        if (!state.currentSceneId) {
+          newState.sceneNodes = [...state.sceneNodes, node];
+        }
+        return newState;
       });
-      const result = await res.json();
-      if (result.success) {
-        const node = result.data;
-        set((state) => {
-          // 更新 nodes 数组
-          const newState: any = {
-            nodes: [...state.nodes, node],
-          };
-          // 如果不在场景中（概览模式），也更新 sceneNodes
-          if (!state.currentSceneId) {
-            newState.sceneNodes = [...state.sceneNodes, node];
-          }
-          return newState;
-        });
-        return node;
-      } else {
-        throw new Error(result.error?.message || '创建节点失败');
-      }
+      return node;
     } catch (err: any) {
       set({ error: err.message });
       throw err;
@@ -371,16 +323,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateNode: async (nodeId, data) => {
     try {
-      const res = await fetch(`${API_BASE}/nodes/${nodeId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
+      const updated = localStore.updateNode(nodeId, data);
+      if (updated) {
         set((state) => ({
-          nodes: state.nodes.map((n) => (n.id === nodeId ? { ...n, ...result.data } : n)),
-          sceneNodes: state.sceneNodes.map((n) => (n.id === nodeId ? { ...n, ...result.data } : n)),
+          nodes: state.nodes.map((n) => (n.id === nodeId ? { ...n, ...updated } : n)),
+          sceneNodes: state.sceneNodes.map((n) => (n.id === nodeId ? { ...n, ...updated } : n)),
         }));
       }
     } catch (err: any) {
@@ -390,9 +337,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   deleteNode: async (nodeId): Promise<string[]> => {
     try {
-      const res = await fetch(`${API_BASE}/nodes/${nodeId}`, { method: 'DELETE' });
-      const result = await res.json();
-      const deletedEdgeIds: string[] = result.success ? (result.data.deletedEdgeIds || []) : [];
+      const { deletedEdgeIds } = localStore.deleteNode(nodeId);
 
       set((state) => ({
         nodes: state.nodes.filter((n) => n.id !== nodeId),
@@ -410,14 +355,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   restoreNode: async (nodeId, edgeIdsToRestore) => {
     try {
-      const res = await fetch(`${API_BASE}/nodes/${nodeId}/restore`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ edgeIds: edgeIdsToRestore }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        const { node, restoredEdges } = result.data;
+      const result = localStore.restoreNode(nodeId, edgeIdsToRestore);
+      if (result) {
+        const { node, restoredEdges } = result;
         // 恢复节点和相关的边
         set((state) => ({
           nodes: [...state.nodes, node],
@@ -443,7 +383,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
         return node;
       } else {
-        throw new Error(result.error?.message || '恢复节点失败');
+        throw new Error('恢复节点失败');
       }
     } catch (err: any) {
       set({ error: err.message });
@@ -458,32 +398,22 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!currentProject) throw new Error('未选择项目');
 
     try {
-      const res = await fetch(`${API_BASE}/projects/${currentProject.id}/edges`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
-        const edge = result.data;
+      const edge = localStore.createEdge(currentProject.id, data);
+      set((state) => ({
+        edges: [...state.edges, edge],
+      }));
+
+      // 如果边的两端节点都在当前场景中，也添加到 sceneEdges
+      const { sceneNodes } = get();
+      const sourceInScene = sceneNodes.some((n) => n.id === edge.sourceNodeId);
+      const targetInScene = sceneNodes.some((n) => n.id === edge.targetNodeId);
+      if (sourceInScene && targetInScene) {
         set((state) => ({
-          edges: [...state.edges, edge],
+          sceneEdges: [...state.sceneEdges, edge],
         }));
-
-        // 如果边的两端节点都在当前场景中，也添加到 sceneEdges
-        const { sceneNodes } = get();
-        const sourceInScene = sceneNodes.some((n) => n.id === edge.sourceNodeId);
-        const targetInScene = sceneNodes.some((n) => n.id === edge.targetNodeId);
-        if (sourceInScene && targetInScene) {
-          set((state) => ({
-            sceneEdges: [...state.sceneEdges, edge],
-          }));
-        }
-
-        return edge;
-      } else {
-        throw new Error(result.error?.message || '创建边失败');
       }
+
+      return edge;
     } catch (err: any) {
       set({ error: err.message });
       throw err;
@@ -492,16 +422,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateEdge: async (edgeId, data) => {
     try {
-      const res = await fetch(`${API_BASE}/edges/${edgeId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
+      const updated = localStore.updateEdge(edgeId, data);
+      if (updated) {
         set((state) => ({
-          edges: state.edges.map((e) => (e.id === edgeId ? { ...e, ...result.data } : e)),
-          sceneEdges: state.sceneEdges.map((e) => (e.id === edgeId ? { ...e, ...result.data } : e)),
+          edges: state.edges.map((e) => (e.id === edgeId ? { ...e, ...updated } : e)),
+          sceneEdges: state.sceneEdges.map((e) => (e.id === edgeId ? { ...e, ...updated } : e)),
         }));
       }
     } catch (err: any) {
@@ -511,7 +436,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   deleteEdge: async (edgeId) => {
     try {
-      await fetch(`${API_BASE}/edges/${edgeId}`, { method: 'DELETE' });
+      localStore.deleteEdge(edgeId);
       set((state) => ({
         edges: state.edges.filter((e) => e.id !== edgeId),
         sceneEdges: state.sceneEdges.filter((e) => e.id !== edgeId),
@@ -523,12 +448,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   restoreEdge: async (edgeId) => {
     try {
-      const res = await fetch(`${API_BASE}/edges/${edgeId}/restore`, {
-        method: 'POST',
-      });
-      const result = await res.json();
-      if (result.success) {
-        const edge = result.data;
+      const edge = localStore.restoreEdge(edgeId);
+      if (edge) {
         set((state) => ({
           edges: [...state.edges, edge],
         }));
@@ -543,7 +464,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         }
         return edge;
       } else {
-        throw new Error(result.error?.message || '恢复边失败');
+        throw new Error('恢复边失败');
       }
     } catch (err: any) {
       set({ error: err.message });
@@ -555,29 +476,22 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   addNodeToScene: async (sceneId, nodeId, positionX = 0, positionY = 0) => {
     try {
-      const res = await fetch(`${API_BASE}/scenes/${sceneId}/nodes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodeId, positionX, positionY }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        // 如果是当前场景，立即更新 sceneNodes
-        if (get().currentSceneId === sceneId) {
-          const { nodes, sceneNodes } = get();
-          // 从 nodes 中找到要添加的节点
-          const nodeToAdd = nodes.find(n => n.id === nodeId);
-          if (nodeToAdd && !sceneNodes.some(n => n.id === nodeId)) {
-            // 添加到 sceneNodes，带上场景位置
-            const nodeWithScenePos = {
-              ...nodeToAdd,
-              scenePositionX: positionX,
-              scenePositionY: positionY,
-            };
-            set((state) => ({
-              sceneNodes: [...state.sceneNodes, nodeWithScenePos],
-            }));
-          }
+      localStore.addNodeToScene(sceneId, nodeId, positionX, positionY);
+      // 如果是当前场景，立即更新 sceneNodes
+      if (get().currentSceneId === sceneId) {
+        const { nodes, sceneNodes } = get();
+        // 从 nodes 中找到要添加的节点
+        const nodeToAdd = nodes.find(n => n.id === nodeId);
+        if (nodeToAdd && !sceneNodes.some(n => n.id === nodeId)) {
+          // 添加到 sceneNodes，带上场景位置
+          const nodeWithScenePos = {
+            ...nodeToAdd,
+            scenePositionX: positionX,
+            scenePositionY: positionY,
+          };
+          set((state) => ({
+            sceneNodes: [...state.sceneNodes, nodeWithScenePos],
+          }));
         }
       }
     } catch (err: any) {
@@ -587,7 +501,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   removeNodeFromScene: async (sceneId, nodeId) => {
     try {
-      await fetch(`${API_BASE}/scenes/${sceneId}/nodes/${nodeId}`, { method: 'DELETE' });
+      localStore.removeNodeFromScene(sceneId, nodeId);
       if (get().currentSceneId === sceneId) {
         set((state) => ({
           sceneNodes: state.sceneNodes.filter((n) => n.id !== nodeId),
@@ -604,11 +518,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateNodeScenePosition: async (sceneId, nodeId, positionX, positionY) => {
     try {
-      await fetch(`${API_BASE}/scenes/${sceneId}/nodes/${nodeId}/position`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ positionX, positionY }),
-      });
+      localStore.updateNodeScenePosition(sceneId, nodeId, positionX, positionY);
 
       if (get().currentSceneId === sceneId) {
         set((state) => ({
@@ -633,16 +543,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
     try {
       if (targetSceneId) {
-        // 在场景中：保存到场景级别的位置 (scene_nodes 表)
-        const res = await fetch(`${API_BASE}/scenes/${targetSceneId}/layout`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ positions }),
-        });
-        const result = await res.json();
-        if (!result.success) {
-          throw new Error(result.error?.message || '保存场景布局失败');
-        }
+        // 在场景中：保存到场景级别的位置 (scene_nodes)
+        localStore.saveSceneLayout(targetSceneId, positions);
 
         // 更新本地场景节点位置
         if (get().currentSceneId === targetSceneId) {
@@ -654,16 +556,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           }));
         }
       } else {
-        // 在概览中：保存到项目级别的位置 (nodes 表)
-        const res = await fetch(`${API_BASE}/projects/${currentProject.id}/layout`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ positions }),
-        });
-        const result = await res.json();
-        if (!result.success) {
-          throw new Error(result.error?.message || '保存布局失败');
-        }
+        // 在概览中：保存到项目级别的位置 (nodes)
+        localStore.saveProjectLayout(currentProject.id, positions);
 
         // 更新本地节点位置
         set((state) => ({
