@@ -14,6 +14,11 @@ import {
   EdgeType,
 } from '../types';
 import * as localStore from './localStore';
+import {
+  EXAMPLE_PROJECT_ID,
+  getExampleProjectDetails,
+  getExampleSceneDetails,
+} from '../data/exampleProject';
 
 // 视图模式
 export type ViewMode = 'single' | 'panorama';
@@ -41,6 +46,10 @@ interface ProjectState {
   editorMode: EditorMode;
   loading: boolean;
   error: string | null;
+
+  // 是否处于「只读示例项目」上下文：为 true 时数据来自静态文件，
+  // 且所有写操作短路为 no-op，绝不写入 localStorage。
+  isExample: boolean;
 
   // 项目操作
   fetchProjects: () => Promise<void>;
@@ -119,6 +128,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   editorMode: 'view',
   loading: false,
   error: null,
+  isExample: false,
   pendingLayoutPositions: new Map(),
 
   // ========== 项目操作 ==========
@@ -135,6 +145,31 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   fetchProject: async (projectId: string) => {
     set({ loading: true, error: null });
+
+    // 只读示例项目：数据全部来自静态文件，强制查看模式，且不经过 setCurrentScene 的
+    // 自动保存逻辑（直接落到概览，避免任何 localStorage 写入）。
+    if (projectId === EXAMPLE_PROJECT_ID) {
+      try {
+        const { project, scenes, nodes, edges } = getExampleProjectDetails();
+        set({
+          currentProject: project,
+          scenes,
+          nodes,
+          edges,
+          sceneNodes: nodes,
+          sceneEdges: edges,
+          currentSceneId: null,
+          pendingLayoutPositions: new Map(),
+          isExample: true,
+          editorMode: 'view',
+          loading: false,
+        });
+      } catch (err: any) {
+        set({ error: err.message, loading: false });
+      }
+      return;
+    }
+
     try {
       const details = localStore.getProjectDetails(projectId);
       if (details) {
@@ -144,6 +179,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           scenes,
           nodes,
           edges,
+          isExample: false,
           loading: false,
         });
 
@@ -244,7 +280,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   fetchScene: async (sceneId) => {
     try {
-      const { nodes, edges } = localStore.getSceneDetails(sceneId);
+      const { nodes, edges } = get().isExample
+        ? getExampleSceneDetails(sceneId)
+        : localStore.getSceneDetails(sceneId);
       set({
         sceneNodes: nodes,
         sceneEdges: edges,
@@ -255,6 +293,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   createScene: async (data) => {
+    if (get().isExample) throw new Error('示例项目为只读');
     const { currentProject } = get();
     if (!currentProject) throw new Error('未选择项目');
 
@@ -271,6 +310,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   updateScene: async (sceneId, data) => {
+    if (get().isExample) return;
     try {
       const updated = localStore.updateScene(sceneId, data);
       if (updated) {
@@ -284,6 +324,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   deleteScene: async (sceneId) => {
+    if (get().isExample) return;
     try {
       localStore.deleteScene(sceneId);
       set((state) => ({
@@ -298,6 +339,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   // ========== 节点操作（项目级）==========
 
   createNode: async (data) => {
+    // 只读示例：不创建、不写入；调用方（handleCreateNode）会吞掉该异常，表现为「点击无反应」
+    if (get().isExample) throw new Error('示例项目为只读');
+
     const { currentProject } = get();
     if (!currentProject) throw new Error('未选择项目');
 
@@ -322,6 +366,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   updateNode: async (nodeId, data) => {
+    if (get().isExample) return;
     try {
       const updated = localStore.updateNode(nodeId, data);
       if (updated) {
@@ -336,6 +381,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   deleteNode: async (nodeId): Promise<string[]> => {
+    if (get().isExample) return [];
     try {
       const { deletedEdgeIds } = localStore.deleteNode(nodeId);
 
@@ -354,6 +400,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   restoreNode: async (nodeId, edgeIdsToRestore) => {
+    if (get().isExample) throw new Error('示例项目为只读');
     try {
       const result = localStore.restoreNode(nodeId, edgeIdsToRestore);
       if (result) {
@@ -394,6 +441,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   // ========== 边操作（项目级）==========
 
   createEdge: async (data) => {
+    if (get().isExample) throw new Error('示例项目为只读');
     const { currentProject } = get();
     if (!currentProject) throw new Error('未选择项目');
 
@@ -421,6 +469,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   updateEdge: async (edgeId, data) => {
+    if (get().isExample) return;
     try {
       const updated = localStore.updateEdge(edgeId, data);
       if (updated) {
@@ -435,6 +484,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   deleteEdge: async (edgeId) => {
+    if (get().isExample) return;
     try {
       localStore.deleteEdge(edgeId);
       set((state) => ({
@@ -447,6 +497,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   restoreEdge: async (edgeId) => {
+    if (get().isExample) throw new Error('示例项目为只读');
     try {
       const edge = localStore.restoreEdge(edgeId);
       if (edge) {
@@ -475,6 +526,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   // ========== 场景-节点操作 ==========
 
   addNodeToScene: async (sceneId, nodeId, positionX = 0, positionY = 0) => {
+    if (get().isExample) return;
     try {
       localStore.addNodeToScene(sceneId, nodeId, positionX, positionY);
       // 如果是当前场景，立即更新 sceneNodes
@@ -500,6 +552,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   removeNodeFromScene: async (sceneId, nodeId) => {
+    if (get().isExample) return;
     try {
       localStore.removeNodeFromScene(sceneId, nodeId);
       if (get().currentSceneId === sceneId) {
@@ -517,6 +570,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   updateNodeScenePosition: async (sceneId, nodeId, positionX, positionY) => {
+    if (get().isExample) return;
     try {
       localStore.updateNodeScenePosition(sceneId, nodeId, positionX, positionY);
 
@@ -535,6 +589,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   // ========== 布局操作 ==========
 
   saveLayout: async (positions, sceneId) => {
+    // 只读示例：忽略所有布局保存，绝不写入 localStorage
+    if (get().isExample) return;
+
     const { currentProject } = get();
     if (!currentProject) throw new Error('未选择项目');
 
@@ -576,6 +633,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   // ========== 导入操作 ==========
 
   importNodes: async (nodesToImport, edgesToImport, targetSceneId, newSceneName) => {
+    if (get().isExample) throw new Error('示例项目为只读');
     const { currentProject } = get();
     if (!currentProject) throw new Error('未选择项目');
 

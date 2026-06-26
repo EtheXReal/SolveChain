@@ -4,9 +4,10 @@
 
 import { useEffect, useState } from 'react';
 import { useProjectStore } from '../store/projectStore';
-import { Plus, FolderOpen, Trash2, MoreVertical } from 'lucide-react';
+import { Plus, FolderOpen, Trash2, MoreVertical, Sparkles } from 'lucide-react';
 import { Project } from '../types';
 import ThemeSwitcher from '../components/ThemeSwitcher';
+import { exampleProject, EXAMPLE_PROJECT_ID } from '../data/exampleProject';
 
 interface ProjectListProps {
   onSelectProject: (projectId: string) => void;
@@ -101,22 +102,90 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
           <div className="flex items-center justify-center h-64">
             <div style={{ color: 'var(--color-text-muted)' }}>加载中...</div>
           </div>
-        ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <FolderOpen size={48} className="mb-4" style={{ color: 'var(--color-text-muted)' }} />
-            <p className="mb-4" style={{ color: 'var(--color-text-muted)' }}>还没有任何项目</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
-              style={{ background: 'var(--color-primary)' }}
-            >
-              <Plus size={18} />
-              创建第一个项目
-            </button>
-          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((project: Project) => (
+          <>
+            {/* 空状态：一句话说明 + 示例引导 */}
+            {projects.length === 0 && (
+              <div className="flex flex-col items-center justify-center text-center py-10 mb-2">
+                <FolderOpen size={48} className="mb-4" style={{ color: 'var(--color-text-muted)' }} />
+                <p className="mb-2" style={{ color: 'var(--color-text)' }}>还没有任何项目</p>
+                <p
+                  className="mb-6 max-w-md text-sm leading-relaxed"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  把纠结的决定画成一张图，理清每个因素如何相互促成、矛盾、影响结果。
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
+                    style={{ background: 'var(--color-primary)' }}
+                  >
+                    <Plus size={18} />
+                    创建第一个项目
+                  </button>
+                  <button
+                    onClick={() => onSelectProject(EXAMPLE_PROJECT_ID)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+                    style={{
+                      background: 'var(--color-surface)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-secondary)',
+                    }}
+                  >
+                    <Sparkles size={18} />
+                    先看看示例
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* 预置只读示例项目：始终可见，不来自 localStorage */}
+              <div
+                key={exampleProject.id}
+                className="node-card rounded-lg transition-all cursor-pointer relative"
+                style={{
+                  background: 'var(--color-surface)',
+                  border: '1px dashed var(--color-border)',
+                  borderRadius: 'var(--border-radius)',
+                }}
+                onClick={() => onSelectProject(EXAMPLE_PROJECT_ID)}
+              >
+                <div className="p-4">
+                  <div className="flex items-start justify-between">
+                    <h3 className="font-semibold line-clamp-1" style={{ color: 'var(--color-text)' }}>
+                      {exampleProject.title}
+                    </h3>
+                    <span
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-xs shrink-0"
+                      style={{
+                        background: 'var(--color-bg-secondary)',
+                        color: 'var(--color-text-muted)',
+                      }}
+                    >
+                      <Sparkles size={12} />
+                      示例
+                    </span>
+                  </div>
+
+                  <p
+                    className="text-sm mt-2 line-clamp-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {exampleProject.description}
+                  </p>
+
+                  <div
+                    className="flex items-center justify-between mt-4 text-xs"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    <span>点开即可浏览（只读，不影响你的数据）</span>
+                  </div>
+                </div>
+              </div>
+
+              {projects.map((project: Project) => (
               <div
                 key={project.id}
                 className="node-card rounded-lg transition-all cursor-pointer relative"
@@ -194,7 +263,8 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
                 )}
               </div>
             ))}
-          </div>
+            </div>
+          </>
         )}
       </main>
 

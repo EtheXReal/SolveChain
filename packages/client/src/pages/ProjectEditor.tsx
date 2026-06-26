@@ -53,6 +53,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     loading,
     error,
     editorMode,
+    isExample,
     fetchProject,
     fetchProjects,
     setCurrentScene,
@@ -971,28 +972,42 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             <span>AI</span>
           </button>
 
-          {/* 模式切换按钮 */}
-          <button
-            onClick={toggleEditorMode}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
-            style={{
-              background: editorMode === 'edit' ? 'var(--color-success)' : 'var(--color-bg-secondary)',
-              color: editorMode === 'edit' ? 'white' : 'var(--color-text-secondary)',
-            }}
-            title={editorMode === 'edit' ? '切换到查看模式' : '切换到编辑模式'}
-          >
-            {editorMode === 'edit' ? (
-              <>
-                <Edit3 size={18} />
-                <span>编辑模式</span>
-              </>
-            ) : (
-              <>
-                <Eye size={18} />
-                <span>查看模式</span>
-              </>
-            )}
-          </button>
+          {/* 模式切换按钮（示例项目为只读，隐藏切换、改为只读标识） */}
+          {isExample ? (
+            <div
+              className="flex items-center gap-2 px-4 py-2 rounded-lg"
+              style={{
+                background: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-muted)',
+              }}
+              title="这是预置示例项目，只读，任何改动都不会被保存"
+            >
+              <Eye size={18} />
+              <span>示例 · 只读</span>
+            </div>
+          ) : (
+            <button
+              onClick={toggleEditorMode}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+              style={{
+                background: editorMode === 'edit' ? 'var(--color-success)' : 'var(--color-bg-secondary)',
+                color: editorMode === 'edit' ? 'white' : 'var(--color-text-secondary)',
+              }}
+              title={editorMode === 'edit' ? '切换到查看模式' : '切换到编辑模式'}
+            >
+              {editorMode === 'edit' ? (
+                <>
+                  <Edit3 size={18} />
+                  <span>编辑模式</span>
+                </>
+              ) : (
+                <>
+                  <Eye size={18} />
+                  <span>查看模式</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
