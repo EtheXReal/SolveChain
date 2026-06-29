@@ -5,7 +5,10 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Eye, EyeOff, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { llmApi } from '../api';
+import { loadSettings, saveSettings } from '../services/llm/settings';
+import { testConnection } from '../services/llm/client';
+
+const MASK = '••••••••••••••••';
 
 // LLM Provider 配置
 const LLM_PROVIDERS = [
@@ -86,26 +89,23 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
   // 加载当前设置
   useEffect(() => {
     if (isOpen) {
-      loadSettings();
+      loadCurrentSettings();
     }
   }, [isOpen]);
 
-  const loadSettings = async () => {
-    try {
-      const config = await llmApi.getSettings();
-      setProvider(config.provider || 'dashscope');
-      setModel(config.model || 'qwen-plus');
-      setApiKey(config.hasApiKey ? '••••••••••••••••' : '');
-      setOriginalConfig({
-        provider: config.provider || 'dashscope',
-        model: config.model || 'qwen-plus',
-        hasApiKey: config.hasApiKey || false,
-      });
-      setHasChanges(false);
-      setTestResult(null);
-    } catch (err) {
-      console.error('加载设置失败:', err);
-    }
+  const loadCurrentSettings = () => {
+    const config = loadSettings();
+    const hasApiKey = !!config.apiKey;
+    setProvider(config.provider || 'dashscope');
+    setModel(config.model || 'qwen-plus');
+    setApiKey(hasApiKey ? MASK : '');
+    setOriginalConfig({
+      provider: config.provider || 'dashscope',
+      model: config.model || 'qwen-plus',
+      hasApiKey,
+    });
+    setHasChanges(false);
+    setTestResult(null);
   };
 
   // 检测变化
@@ -114,7 +114,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     const changed =
       provider !== originalConfig.provider ||
       model !== originalConfig.model ||
-      (apiKey !== '' && apiKey !== '••••••••••••••••');
+      (apiKey !== '' && apiKey !== MASK);
     setHasChanges(changed);
   }, [provider, model, apiKey, originalConfig]);
 
@@ -129,17 +129,18 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     setTestResult(null);
   };
 
-  // 保存设置
+  // 保存设置（仅本地浏览器；apiKey 为掩码时保持原值不动）
   const handleSave = async () => {
     setSaving(true);
     try {
-      await llmApi.saveSettings({
+      saveSettings({
         provider,
         model,
-        apiKey: apiKey !== '••••••••••••••••' ? apiKey : undefined,
+        apiKey: apiKey !== MASK ? apiKey : undefined,
       });
       setOriginalConfig({ provider, model, hasApiKey: !!apiKey });
       setHasChanges(false);
+      setApiKey(apiKey ? MASK : '');
       setTestResult({ success: true, message: '设置已保存' });
     } catch (err) {
       setTestResult({ success: false, message: '保存失败: ' + (err as Error).message });
@@ -148,16 +149,13 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     }
   };
 
-  // 测试连接
+  // 测试连接（掩码时回退到已保存的 Key）
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await llmApi.testConnection({
-        provider,
-        model,
-        apiKey: apiKey !== '••••••••••••••••' ? apiKey : undefined,
-      });
+      const effectiveKey = apiKey !== MASK ? apiKey : loadSettings().apiKey;
+      const result = await testConnection({ provider, model, apiKey: effectiveKey });
       setTestResult({
         success: result.success,
         message: result.success ? '连接成功！' : result.error || '连接失败',
@@ -342,7 +340,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
               </button>
             </div>
             <p className="mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              也可通过环境变量 {currentProvider?.apiKeyEnvVar} 配置
+              API Key 仅保存在本地浏览器，调用时经无状态代理转发，不会存储在服务器
             </p>
           </div>
 

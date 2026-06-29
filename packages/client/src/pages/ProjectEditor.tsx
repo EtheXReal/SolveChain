@@ -1113,12 +1113,12 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
         <AIAssistantPanel
           isOpen={showAIAssistantPanel && !editingNodeId && !editingEdgeId}
           onClose={() => setShowAIAssistantPanel(false)}
-          projectId={projectId}
-          sceneId={currentSceneId}
           sceneName={scenes.find(s => s.id === currentSceneId)?.name || '概览'}
+          sceneDescription={scenes.find(s => s.id === currentSceneId)?.description}
           graphOperations={graphOperations}
           focusedNodeId={focusedNodeId}
           nodes={displayNodes}
+          edges={displayEdges}
         />
       </div>
 

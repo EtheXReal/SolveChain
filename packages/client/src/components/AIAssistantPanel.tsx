@@ -29,7 +29,8 @@ import {
   Target,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { llmApi } from '../api';
+import { analyzeScene, askSceneQuestion } from '../services/llm/client';
+import { getStatus } from '../services/llm/settings';
 import type {
   LLMStructuredResult,
   RiskItem,
@@ -37,6 +38,8 @@ import type {
   LogicIssue,
   CompletionSuggestion,
   SuggestedAction,
+  SceneGraphNode,
+  GraphEdge,
 } from '../types';
 
 // 分析类型枚举
@@ -63,12 +66,12 @@ interface GraphOperations {
 interface AIAssistantPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  projectId: string;
-  sceneId: string | null;
   sceneName?: string;
+  sceneDescription?: string;
   graphOperations?: GraphOperations;
   focusedNodeId?: string | null; // 当前聚焦的节点 ID
-  nodes?: Array<{ id: string; title: string }>; // 节点列表，用于查找节点名称
+  nodes?: SceneGraphNode[]; // 当前场景的完整节点（用于发给 LLM + 查名称）
+  edges?: GraphEdge[]; // 当前场景的完整关系（用于发给 LLM）
 }
 
 // 分析按钮配置
@@ -919,12 +922,12 @@ function RenderStructuredResult({
 export default function AIAssistantPanel({
   isOpen,
   onClose,
-  projectId,
-  sceneId,
   sceneName = '概览',
+  sceneDescription,
   graphOperations,
   focusedNodeId,
   nodes = [],
+  edges = [],
 }: AIAssistantPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -957,12 +960,10 @@ export default function AIAssistantPanel({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // 检查 LLM 状态
+  // 检查 LLM 状态（读 localStorage，同步）
   useEffect(() => {
     if (isOpen) {
-      llmApi.getStatus().then(setLlmStatus).catch(() => {
-        setLlmStatus({ configured: false, provider: '', model: '' });
-      });
+      setLlmStatus(getStatus());
     }
   }, [isOpen]);
 
@@ -994,9 +995,19 @@ export default function AIAssistantPanel({
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      // 只有下一步分析才传递 focusedNodeId
-      const nodeIdForAnalysis = type === 'next_step' ? focusedNodeId : null;
-      const response = await llmApi.analyzeScene(projectId, sceneId, type, nodeIdForAnalysis);
+      // 只有下一步分析才传递聚焦节点
+      const focusedNode =
+        type === 'next_step' && focusedNodeId
+          ? nodes.find((n) => n.id === focusedNodeId) || null
+          : null;
+      const response = await analyzeScene({
+        type,
+        sceneName,
+        sceneDescription,
+        nodes,
+        edges,
+        focusedNode,
+      });
 
       // 添加 AI 回复（包含结构化数据）
       const assistantMessage: ChatMessage = {
@@ -1024,7 +1035,7 @@ export default function AIAssistantPanel({
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, projectId, sceneId, focusedNodeId, focusedNodeName]);
+  }, [isLoading, sceneName, sceneDescription, nodes, edges, focusedNodeId, focusedNodeName]);
 
   // 发送自由提问
   const handleFreeQuestion = useCallback(async () => {
@@ -1052,13 +1063,20 @@ export default function AIAssistantPanel({
         .slice(-10)
         .map(m => ({ role: m.role, content: m.content }));
 
-      const response = await llmApi.chatWithScene(projectId, sceneId, question, history);
+      const reply = await askSceneQuestion({
+        sceneName,
+        sceneDescription,
+        nodes,
+        edges,
+        question,
+        history,
+      });
 
       // 添加 AI 回复
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: response.reply,
+        content: reply,
         timestamp: new Date(),
         type: 'free',
       };
@@ -1080,7 +1098,7 @@ export default function AIAssistantPanel({
       setIsLoading(false);
       inputRef.current?.focus();
     }
-  }, [isLoading, freeQuestion, projectId, sceneId, messages]);
+  }, [isLoading, freeQuestion, sceneName, sceneDescription, nodes, edges, messages]);
 
   // 清空对话
   const handleClearMessages = useCallback(() => {
@@ -1163,7 +1181,7 @@ export default function AIAssistantPanel({
         >
           <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-warning)' }}>
             <AlertCircle size={16} />
-            <span>DASHSCOPE_API_KEY 未配置，无法使用 AI 分析</span>
+            <span>未配置 API Key，请点右上角「设置」填写后使用</span>
           </div>
         </div>
       )}
