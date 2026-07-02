@@ -25,12 +25,23 @@ export class PropagationEngine {
   private states: Map<string, NodeState>;
   private events: PropagationEvent[];
   private conflicts: Array<{ nodeIds: string[]; reason: string }>;
+  /** 已记录的冲突键（去重，防止迭代间重复上报） */
+  private conflictKeys: Set<string>;
 
   constructor(config: Partial<PropagationEngineConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.states = new Map();
     this.events = [];
     this.conflicts = [];
+    this.conflictKeys = new Set();
+  }
+
+  /** 记录冲突（按节点组合去重） */
+  private recordConflict(nodeIds: string[], reason: string): void {
+    const key = [...nodeIds].sort().join('|');
+    if (this.conflictKeys.has(key)) return;
+    this.conflictKeys.add(key);
+    this.conflicts.push({ nodeIds, reason });
   }
 
   /**
@@ -87,6 +98,7 @@ export class PropagationEngine {
       currentState.logicState = newLogicState;
       currentState.lastUpdated = Date.now();
       currentState.derivedFrom = []; // 用户手动设置，清除推导来源
+      currentState.pinned = true; // 手设优先，推导不得改写
     }
 
     // 构建邻接表
@@ -143,8 +155,10 @@ export class PropagationEngine {
         confidence: initial?.confidence ?? node.confidence,
         derivedFrom: initial?.derivedFrom ?? [],
         lastUpdated: Date.now(),
+        pinned: initial?.pinned ?? false,
       });
     }
+    this.conflictKeys.clear();
   }
 
   /**
@@ -270,38 +284,59 @@ export class PropagationEngine {
     const output = rule.propagate(input);
     if (!output) return false;
 
+    // 结果应用到哪一端：默认 target；DEPENDS 等规则会声明 'source'
+    const applyToSource = output.applyTo === 'source';
+    const applyState = applyToSource ? sourceState : targetState;
+    const applyNode = applyToSource ? sourceNode : targetNode;
+    const otherNodeId = applyToSource ? edge.targetNodeId : edge.sourceNodeId;
+
+    // 用户手设锁定：推导不得改写，只在推导结论与手设相悖时上报矛盾
+    if (applyState.pinned) {
+      const contradicts =
+        (output.newState === LogicState.FALSE && applyState.logicState === LogicState.TRUE) ||
+        (output.newState === LogicState.TRUE && applyState.logicState === LogicState.FALSE) ||
+        output.newState === LogicState.CONFLICT;
+      if (contradicts) {
+        this.recordConflict(
+          [applyState.nodeId, otherNodeId],
+          `推演结论与你设定的 "${applyNode.title}" 状态相悖（${output.reason || '关系推导'}）`
+        );
+      }
+      return false;
+    }
+
     // 检查状态是否真的改变了
     if (
-      targetState.logicState === output.newState &&
-      Math.abs(targetState.confidence - output.newConfidence) < 1
+      applyState.logicState === output.newState &&
+      Math.abs(applyState.confidence - output.newConfidence) < 1
     ) {
       return false;
     }
 
     // 记录事件
     this.events.push({
-      fromNodeId: edge.sourceNodeId,
-      toNodeId: edge.targetNodeId,
+      fromNodeId: otherNodeId,
+      toNodeId: applyState.nodeId,
       edgeId: edge.id,
       edgeType: edge.type as EdgeType,
-      oldState: targetState.logicState,
+      oldState: applyState.logicState,
       newState: output.newState,
       reason: output.reason || '',
       timestamp: Date.now(),
     });
 
-    // 更新状态
-    targetState.logicState = output.newState;
-    targetState.confidence = output.newConfidence;
-    targetState.derivedFrom = output.derivedFrom;
-    targetState.lastUpdated = Date.now();
+    // 更新状态（derivedFrom 去重，防止多轮迭代无限膨胀）
+    applyState.logicState = output.newState;
+    applyState.confidence = output.newConfidence;
+    applyState.derivedFrom = [...new Set(output.derivedFrom)];
+    applyState.lastUpdated = Date.now();
 
-    // 记录冲突
+    // 记录冲突（去重）
     if (output.newState === LogicState.CONFLICT && output.conflictsWith) {
-      this.conflicts.push({
-        nodeIds: [edge.targetNodeId, ...output.conflictsWith],
-        reason: output.reason || '检测到逻辑冲突',
-      });
+      this.recordConflict(
+        [applyState.nodeId, ...output.conflictsWith],
+        output.reason || '检测到逻辑冲突'
+      );
     }
 
     return output.shouldPropagate;
@@ -343,6 +378,21 @@ export class PropagationEngine {
     const output = rule.propagate(input);
     if (!output) return false;
 
+    // 用户手设锁定：推导不得改写，只在推导结论与手设相悖时上报矛盾
+    if (sourceState.pinned) {
+      const contradicts =
+        (output.newState === LogicState.FALSE && sourceState.logicState === LogicState.TRUE) ||
+        (output.newState === LogicState.TRUE && sourceState.logicState === LogicState.FALSE) ||
+        output.newState === LogicState.CONFLICT;
+      if (contradicts) {
+        this.recordConflict(
+          [edge.sourceNodeId, edge.targetNodeId],
+          `推演结论与你设定的 "${sourceNode.title}" 状态相悖（${output.reason || '关系推导'}）`
+        );
+      }
+      return false;
+    }
+
     // 检查状态是否真的改变了
     if (
       sourceState.logicState === output.newState &&
@@ -363,18 +413,18 @@ export class PropagationEngine {
       timestamp: Date.now(),
     });
 
-    // 更新状态
+    // 更新状态（derivedFrom 去重，防止多轮迭代无限膨胀）
     sourceState.logicState = output.newState;
     sourceState.confidence = output.newConfidence;
-    sourceState.derivedFrom = output.derivedFrom;
+    sourceState.derivedFrom = [...new Set(output.derivedFrom)];
     sourceState.lastUpdated = Date.now();
 
-    // 记录冲突
+    // 记录冲突（去重）
     if (output.newState === LogicState.CONFLICT && output.conflictsWith) {
-      this.conflicts.push({
-        nodeIds: [edge.sourceNodeId, ...output.conflictsWith],
-        reason: output.reason || '检测到逻辑冲突',
-      });
+      this.recordConflict(
+        [edge.sourceNodeId, ...output.conflictsWith],
+        output.reason || '检测到逻辑冲突'
+      );
     }
 
     return output.shouldPropagate;
@@ -401,6 +451,7 @@ export class PropagationEngine {
     this.states.clear();
     this.events = [];
     this.conflicts = [];
+    this.conflictKeys.clear();
   }
 }
 

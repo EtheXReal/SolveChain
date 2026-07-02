@@ -27,6 +27,8 @@ export interface NodeState {
   derivedFrom: string[];        // 状态来源（哪些节点传播过来的）
   conflictsWith?: string[];     // 冲突的节点ID（如果状态是CONFLICT）
   lastUpdated: number;          // 时间戳
+  /** 用户手设锁定：为 true 时推导不得改写该节点状态（只记录矛盾），手设永远优先 */
+  pinned?: boolean;
 }
 
 // ============ 传播规则接口 ============
@@ -51,6 +53,12 @@ export interface PropagationOutput {
   conflictsWith?: string[];
   shouldPropagate: boolean;     // 是否需要继续传播
   reason?: string;              // 传播原因（用于调试/展示）
+  /**
+   * 结果应用到哪一端，默认 'target'。
+   * DEPENDS 语义是"source 依赖 target"，target 为假时要改写的是 source，
+   * 此时规则须声明 'source'（否则引擎会把结果错误地写回 target）。
+   */
+  applyTo?: 'source' | 'target';
 }
 
 /** 传播规则接口（可插拔） */

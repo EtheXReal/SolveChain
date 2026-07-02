@@ -28,6 +28,11 @@ export class SupportsRule implements PropagationRule {
     // SUPPORTS: source 促成 target
     // 这是软性影响，主要影响置信度
 
+    // 每个来源在一次推演中只施加一次影响（否则多轮迭代会反复叠加，导致震荡不收敛）
+    if (targetState.derivedFrom.includes(sourceNode.id)) {
+      return null;
+    }
+
     // 规则1：如果支持方(source)为真，提升被支持方(target)的置信度
     if (sourceState.logicState === LogicState.TRUE) {
       // 边强度：0.1-2.0 范围，1.0 为标准，兼容旧版百分比数据
@@ -36,9 +41,11 @@ export class SupportsRule implements PropagationRule {
       const newConfidence = Math.min(100, targetState.confidence + confidenceBoost);
 
       // 只有置信度明显提升时才传播
+      // 注意：促成是软关系，只影响置信度，绝不改写逻辑状态——
+      // "有利条件成立"不等于"这件事会发生"（否则事实一确认，行动就被推成执行，图会瞬间坍缩成结论）
       if (newConfidence - targetState.confidence > 5) {
         return {
-          newState: targetState.logicState === LogicState.UNKNOWN ? LogicState.TRUE : targetState.logicState,
+          newState: targetState.logicState,
           newConfidence,
           derivedFrom: [...targetState.derivedFrom, sourceNode.id],
           shouldPropagate: true,

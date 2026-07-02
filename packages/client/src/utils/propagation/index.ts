@@ -47,6 +47,11 @@ export type {
 // 引擎
 export { PropagationEngine, defaultEngine } from './engine';
 
+// baseStatus 接线与洞察
+export { buildInitialStates, logicStateFromBaseStatus } from './initialStates';
+export { computeNextActions } from './insights';
+export type { NextActionItem, BlockerInfo } from './insights';
+
 // 规则注册
 export {
   registerRule,

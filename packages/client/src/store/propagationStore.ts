@@ -12,6 +12,7 @@ import {
   PropagationEvent,
   NodeState,
   LogicState,
+  buildInitialStates,
 } from '../utils/propagation';
 
 interface PropagationState {
@@ -86,7 +87,8 @@ export const usePropagationStore = create<PropagationState>((set, get) => ({
 
   runPropagation: (nodes, edges) => {
     const { engine } = get();
-    const result = engine.run(nodes, edges);
+    // baseStatus 是第一优先级的初始状态来源（confidence 仅兜底），见 initialStates.ts
+    const result = engine.run(nodes, edges, buildInitialStates(nodes));
 
     set({
       result,

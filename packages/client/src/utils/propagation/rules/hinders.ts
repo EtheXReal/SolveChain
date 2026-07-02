@@ -27,6 +27,11 @@ export class HindersRule implements PropagationRule {
 
     // HINDERS: source 阻碍 target
 
+    // 每个来源在一次推演中只施加一次影响（否则多轮迭代会反复叠加，导致震荡不收敛）
+    if (targetState.derivedFrom.includes(sourceNode.id)) {
+      return null;
+    }
+
     // 规则1：如果阻碍方(source)为真，被阻碍方(target)受影响
     if (sourceState.logicState === LogicState.TRUE) {
       // 边强度：0.1-2.0 范围，1.0 为标准，兼容旧版百分比数据
@@ -43,13 +48,14 @@ export class HindersRule implements PropagationRule {
         };
       }
 
-      // 一般阻碍：降低置信度
+      // 一般阻碍：只降低置信度，不改写逻辑状态——
+      // "存在不利因素"不等于"这件事必然不发生"（状态翻转只留给强阻碍/矛盾/依赖）
       const confidenceDrop = sourceState.confidence * strengthFactor * 0.5;
       const newConfidence = Math.max(0, targetState.confidence - confidenceDrop);
 
       if (targetState.confidence - newConfidence > 5) {
         return {
-          newState: newConfidence < 20 ? LogicState.FALSE : targetState.logicState,
+          newState: targetState.logicState,
           newConfidence,
           derivedFrom: [...targetState.derivedFrom, sourceNode.id],
           shouldPropagate: true,

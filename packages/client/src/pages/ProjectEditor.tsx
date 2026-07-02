@@ -11,14 +11,14 @@ import NodeLibrary from '../components/NodeLibrary';
 import FocusView from '../components/FocusView';
 import NodeEditPanel from '../components/NodeEditPanel';
 import EdgeEditPanel from '../components/EdgeEditPanel';
-import PropagationPanel from '../components/PropagationPanel';
-import AnalysisPanel from '../components/AnalysisPanel';
+import InsightsPanel from '../components/InsightsPanel';
+import { usePropagationStore } from '../store/propagationStore';
 import AIAssistantPanel from '../components/AIAssistantPanel';
 import SceneTabs from '../components/SceneTabs';
 import ImportDialog from '../components/ImportDialog';
 import SettingsDialog from '../components/SettingsDialog';
-import { NodeType, EdgeType } from '../types';
-import { Edit3, Eye, Download, Upload, FileText, Copy, Check, Activity, Brain, Bot } from 'lucide-react';
+import { NodeType, EdgeType, BaseStatus } from '../types';
+import { Edit3, Eye, Download, Upload, FileText, Copy, Check, Activity, Bot, AlertTriangle } from 'lucide-react';
 import {
   exportScene,
   exportProject,
@@ -93,11 +93,11 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   const [showTextExportMenu, setShowTextExportMenu] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // 传播面板状态
-  const [showPropagationPanel, setShowPropagationPanel] = useState(false);
+  // 洞察面板状态（矛盾 + 下一步行动 + 推演动态）
+  const [showInsightsPanel, setShowInsightsPanel] = useState(false);
 
-  // 分析面板状态
-  const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
+  // 示例项目的内存态状态覆盖：只读示例里点状态胶囊时改这里，绝不写 localStorage
+  const [statusOverrides, setStatusOverrides] = useState<Map<string, string>>(new Map());
 
   // AI 助手面板状态
   const [showAIAssistantPanel, setShowAIAssistantPanel] = useState(false);
@@ -109,6 +109,77 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
   useEffect(() => {
     fetchProject(projectId);
   }, [projectId, fetchProject]);
+
+  // ============ 活图：自动推演 ============
+  const { runPropagation, clearStates, conflicts } = usePropagationStore();
+
+  // 切换项目时清空推演状态与示例覆盖
+  useEffect(() => {
+    clearStates();
+    setStatusOverrides(new Map());
+  }, [projectId, clearStates]);
+
+  // 应用示例项目的内存态状态覆盖（普通项目 overrides 恒为空，原样返回）
+  const applyStatusOverrides = useCallback(
+    <T extends { id: string; baseStatus?: BaseStatus }>(list: T[]): T[] => {
+      if (statusOverrides.size === 0) return list;
+      return list.map((n) =>
+        statusOverrides.has(n.id)
+          ? { ...n, baseStatus: statusOverrides.get(n.id) as BaseStatus }
+          : n
+      );
+    },
+    [statusOverrides]
+  );
+
+  // 项目级全图（含覆盖），供推演使用——场景只是显示子集，推演永远看全图
+  const effectiveNodes = useMemo(() => applyStatusOverrides(nodes), [nodes, applyStatusOverrides]);
+
+  // 节点/边/状态任何变化后 debounce 自动重跑推演（毫秒级引擎，纯内存，不写任何存储）
+  useEffect(() => {
+    if (effectiveNodes.length === 0) return;
+    const timer = setTimeout(() => {
+      runPropagation(effectiveNodes, edges);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [effectiveNodes, edges, runPropagation]);
+
+  // 一键切换节点状态：普通项目写 baseStatus；只读示例走内存覆盖（不落盘）
+  const handleChangeNodeStatus = useCallback(
+    (nodeId: string, newStatus: string) => {
+      if (isExample) {
+        setStatusOverrides((prev) => {
+          const next = new Map(prev);
+          next.set(nodeId, newStatus);
+          return next;
+        });
+        return;
+      }
+      updateNode(nodeId, { baseStatus: newStatus as BaseStatus });
+    },
+    [isExample, updateNode]
+  );
+
+  // 矛盾去重（用于顶部冒泡提示）
+  const uniqueConflicts = useMemo(() => {
+    const seen = new Set<string>();
+    return conflicts.filter((c) => {
+      const key = [...c.nodeIds].sort().join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [conflicts]);
+
+  // 点击矛盾提示：轮流定位到矛盾涉及的节点
+  const conflictCycleRef = useRef(0);
+  const handleLocateConflict = useCallback(() => {
+    const ids = uniqueConflicts.flatMap((c) => c.nodeIds);
+    if (ids.length === 0) return;
+    const id = ids[conflictCycleRef.current % ids.length];
+    conflictCycleRef.current += 1;
+    setFocusedNodeId(id);
+  }, [uniqueConflicts]);
 
   // 项目加载完成后，默认选中第一个决策节点（仅初始加载时）
   const initialFocusSet = useRef(false);
@@ -446,8 +517,11 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showTextExportMenu]);
 
-  // 当前显示的节点和边
-  const displayNodes = currentSceneId ? sceneNodes : nodes;
+  // 当前显示的节点和边（应用示例项目的内存态状态覆盖，普通项目原样）
+  const displayNodes = useMemo(
+    () => applyStatusOverrides(currentSceneId ? sceneNodes : nodes),
+    [currentSceneId, sceneNodes, nodes, applyStatusOverrides]
+  );
   const displayEdges = currentSceneId ? sceneEdges : edges;
 
   // 导出当前场景
@@ -912,43 +986,30 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             <span>导出项目</span>
           </button>
 
-          {/* 状态传播按钮 */}
+          {/* 洞察按钮（推演常开，此处只看结果：矛盾/下一步/动态） */}
           <button
             onClick={() => {
-              setShowPropagationPanel(!showPropagationPanel);
-              if (!showPropagationPanel) setShowAnalysisPanel(false);
+              setShowInsightsPanel(!showInsightsPanel);
+              if (!showInsightsPanel) setShowAIAssistantPanel(false);
             }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+            className="relative flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
             style={{
-              background: showPropagationPanel ? 'var(--color-info-bg)' : 'var(--color-surface)',
-              color: showPropagationPanel ? 'var(--color-info)' : 'var(--color-text-secondary)',
-              border: `1px solid ${showPropagationPanel ? 'var(--color-info)' : 'var(--color-border)'}`,
+              background: showInsightsPanel ? 'var(--color-info-bg)' : 'var(--color-surface)',
+              color: showInsightsPanel ? 'var(--color-info)' : 'var(--color-text-secondary)',
+              border: `1px solid ${showInsightsPanel ? 'var(--color-info)' : 'var(--color-border)'}`,
             }}
-            title="状态传播面板"
+            title="推演洞察 - 矛盾、下一步行动建议、推演动态"
           >
             <Activity size={18} />
-            <span>传播</span>
-          </button>
-
-          {/* 分析面板按钮 */}
-          <button
-            onClick={() => {
-              setShowAnalysisPanel(!showAnalysisPanel);
-              if (!showAnalysisPanel) {
-                setShowPropagationPanel(false);
-                setShowAIAssistantPanel(false);
-              }
-            }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
-            style={{
-              background: showAnalysisPanel ? 'var(--color-node-conclusion-bg)' : 'var(--color-surface)',
-              color: showAnalysisPanel ? 'var(--color-node-conclusion)' : 'var(--color-text-secondary)',
-              border: `1px solid ${showAnalysisPanel ? 'var(--color-node-conclusion)' : 'var(--color-border)'}`,
-            }}
-            title="分析面板 - 获取下一步行动建议和可行性评估"
-          >
-            <Brain size={18} />
-            <span>分析</span>
+            <span>洞察</span>
+            {uniqueConflicts.length > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center"
+                style={{ background: 'var(--color-warning)', color: '#fff' }}
+              >
+                {uniqueConflicts.length}
+              </span>
+            )}
           </button>
 
           {/* AI 智能分析按钮 */}
@@ -956,8 +1017,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             onClick={() => {
               setShowAIAssistantPanel(!showAIAssistantPanel);
               if (!showAIAssistantPanel) {
-                setShowPropagationPanel(false);
-                setShowAnalysisPanel(false);
+                setShowInsightsPanel(false);
               }
             }}
             className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
@@ -1037,6 +1097,24 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
         </div>
       )}
 
+      {/* 活图：矛盾冒泡提示（点击轮流定位涉及的节点） */}
+      {!error && uniqueConflicts.length > 0 && (
+        <button
+          onClick={handleLocateConflict}
+          className="absolute top-28 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2 rounded-full text-sm transition-transform hover:scale-105"
+          style={{
+            background: 'var(--color-warning-bg, #fef3c7)',
+            border: '1px solid var(--color-warning)',
+            color: 'var(--color-warning)',
+            boxShadow: 'var(--shadow)',
+          }}
+          title={uniqueConflicts.map((c) => c.reason).join('\n')}
+        >
+          <AlertTriangle size={15} />
+          <span>推演发现 {uniqueConflicts.length} 处矛盾 · 点击定位</span>
+        </button>
+      )}
+
       {/* 主体区域：左侧节点库 + 中间聚焦视图 + 右侧编辑面板 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧节点库 - 始终显示所有节点 */}
@@ -1071,6 +1149,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           onCreateEdge={handleCreateEdge}
           onSaveLayout={saveLayout}
           onUpdatePendingPositions={setPendingLayoutPositions}
+          onChangeNodeStatus={handleChangeNodeStatus}
         />
 
         {/* 右侧编辑面板 */}
@@ -1095,17 +1174,13 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
           />
         )}
 
-        {/* 传播面板 */}
-        {showPropagationPanel && !editingNodeId && !editingEdgeId && (
-          <PropagationPanel />
-        )}
-
-        {/* 分析面板 */}
-        {showAnalysisPanel && !editingNodeId && !editingEdgeId && (
-          <AnalysisPanel
-            projectId={projectId}
-            selectedNodeId={focusedNodeId}
+        {/* 洞察面板（矛盾 / 下一步行动 / 推演动态） */}
+        {showInsightsPanel && !editingNodeId && !editingEdgeId && (
+          <InsightsPanel
+            nodes={effectiveNodes}
+            edges={edges}
             onNodeClick={handleSelectNode}
+            onClose={() => setShowInsightsPanel(false)}
           />
         )}
 

@@ -8,7 +8,16 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { useGraphStore, EditorMode } from '../store/graphStore';
 import { usePropagationStore } from '../store/propagationStore';
-import { GraphNode, GraphEdge, NODE_TYPE_CONFIG, EDGE_TYPE_CONFIG, EdgeType } from '../types';
+import {
+  GraphNode,
+  GraphEdge,
+  NODE_TYPE_CONFIG,
+  EDGE_TYPE_CONFIG,
+  EdgeType,
+  NodeType,
+  getStatusOptionsForType,
+  DEFAULT_BASE_STATUS,
+} from '../types';
 import { ZoomIn, ZoomOut, Maximize2, LayoutGrid, X } from 'lucide-react';
 import EdgeTypeSelector from './EdgeTypeSelector';
 import { hierarchicalLayout, radialLayout, forceDirectedRefinement } from '../utils/layoutAlgorithms';
@@ -40,6 +49,8 @@ interface FocusViewProps {
   onSaveLayout?: (positions: Array<{ id: string; x: number; y: number }>, sceneId?: string | null) => Promise<void>;
   // 更新待保存的布局位置（用于场景切换时自动保存）
   onUpdatePendingPositions?: (positions: Map<string, { x: number; y: number }>) => void;
+  // 一键切换节点状态（活图：无需进入编辑模式）；不传则不显示状态胶囊
+  onChangeNodeStatus?: (nodeId: string, newStatus: string) => void;
 }
 
 interface NodePosition {
@@ -69,10 +80,11 @@ export default function FocusView({
   currentSceneId,
   onCreateEdge,
   onSaveLayout,
-  onUpdatePendingPositions
+  onUpdatePendingPositions,
+  onChangeNodeStatus
 }: FocusViewProps) {
   const graphStore = useGraphStore();
-  const { getNodeLogicState } = usePropagationStore();
+  const { getNodeLogicState, getNodeState, events: propagationEvents } = usePropagationStore();
   const { theme } = useTheme();
   const canvasColors = theme.colors;
   const nodes = propNodes ?? graphStore.nodes;
@@ -968,10 +980,38 @@ export default function FocusView({
     const isConnectSource = connectingState?.sourceNodeId === node.id;
     const canBeConnectTarget = !!connectingState && !isConnectSource;
 
-    // 获取逻辑状态
-    const logicState = getNodeLogicState(node.id);
+    // ============ 活图：推演状态 ============
+    const nodeState = getNodeState(node.id);
+    const logicState = nodeState?.logicState ?? LogicState.UNKNOWN;
     const hasLogicState = logicState !== LogicState.UNKNOWN;
     const logicStateColor = getLogicStateColor(logicState);
+    // 手设（含初始态）vs 引擎推导：derivedFrom 非空即推导
+    const isDerived = (nodeState?.derivedFrom?.length ?? 0) > 0;
+    const isGoal = node.type === NodeType.GOAL;
+
+    // 悬停溯源文本
+    let derivationTip = '';
+    if (hasLogicState) {
+      if (isDerived) {
+        const sourceTitles = (nodeState?.derivedFrom ?? [])
+          .map((id) => nodes.find((n) => n.id === id)?.title)
+          .filter(Boolean)
+          .join('、');
+        const lastEvent = [...propagationEvents].reverse().find((e) => e.toNodeId === node.id);
+        derivationTip = `推导结果（不会写入你的数据）\n来源：${sourceTitles || '推演'}${lastEvent?.reason ? `\n${lastEvent.reason}` : ''}`;
+      } else {
+        derivationTip = '来自你设定的状态';
+      }
+    }
+
+    // 目标节点：可达性（推演后的置信度）
+    const goalPct = Math.round(Math.max(0, Math.min(100, nodeState?.confidence ?? node.confidence)));
+    const goalRingColor = goalPct >= 70 ? '#22c55e' : goalPct >= 40 ? '#f59e0b' : '#ef4444';
+
+    // 状态胶囊（一键切换）
+    const statusOptions = getStatusOptionsForType(node.type);
+    const currentStatusValue = (node.baseStatus as string) || (DEFAULT_BASE_STATUS[node.type] as string);
+    const currentStatusLabel = statusOptions.find((o) => o.value === currentStatusValue)?.label;
 
 
     return (
@@ -1125,6 +1165,24 @@ export default function FocusView({
           opacity={isUnrelated ? 0.4 : 1}
         />
 
+        {/* 活图：推演状态描边（实线=手设，虚线=推导；冲突脉冲） */}
+        {hasLogicState && (
+          <rect
+            x={-78}
+            y={-33}
+            width={156}
+            height={66}
+            rx={11}
+            fill="none"
+            stroke={logicStateColor}
+            strokeWidth={2}
+            strokeDasharray={isDerived ? '6,4' : undefined}
+            opacity={isUnrelated ? 0.25 : 0.9}
+            className={logicState === LogicState.CONFLICT ? 'animate-pulse' : undefined}
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+
         {/* 顶部高光层 - 暗夜模式 */}
         {theme.nodeStyle === 'neon' && !isUnrelated && (
           <rect
@@ -1193,26 +1251,104 @@ export default function FocusView({
           {node.title.length > 12 ? node.title.slice(0, 12) + '...' : node.title}
         </text>
 
-        {/* 逻辑状态指示器 */}
-        {hasLogicState && (
-          <g transform="translate(55, -25)">
+        {/* 活图：目标节点显示可达性进度环 */}
+        {isGoal && !isUnrelated && (
+          <g transform="translate(56, -26)">
+            <title>{`可达性推演：${goalPct}%${derivationTip ? `\n${derivationTip}` : ''}`}</title>
+            {/* 底环 */}
             <circle
-              r={8}
-              fill={logicStateColor}
-              stroke="white"
+              r={11}
+              fill={nodeBgColor}
+              stroke={canvasColors.canvasNodeTextSecondary}
               strokeWidth={2}
+              opacity={0.35}
+            />
+            {/* 进度弧 */}
+            <circle
+              r={11}
+              fill="none"
+              stroke={goalRingColor}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeDasharray={`${(goalPct / 100) * 2 * Math.PI * 11} ${2 * Math.PI * 11}`}
+              transform="rotate(-90)"
             />
             <text
               textAnchor="middle"
-              dy={4}
+              dy={3}
+              fontSize={8}
+              fontWeight="bold"
+              fill={canvasColors.canvasNodeText}
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              {goalPct}
+            </text>
+          </g>
+        )}
+
+        {/* 活图：逻辑状态徽章（实心=手设，空心=推导）；目标节点由进度环替代 */}
+        {hasLogicState && !isGoal && (
+          <g transform="translate(55, -25)">
+            <title>{`${logicState === LogicState.TRUE ? '推演为真' :
+              logicState === LogicState.FALSE ? '推演为假' :
+              logicState === LogicState.CONFLICT ? '存在矛盾' : '未知'}\n${derivationTip}`}</title>
+            <circle
+              r={8}
+              fill={isDerived ? nodeBgColor : logicStateColor}
+              stroke={logicStateColor}
+              strokeWidth={2}
+              strokeDasharray={isDerived ? '3,2' : undefined}
+            />
+            <text
+              textAnchor="middle"
+              dy={3.5}
               fontSize={10}
-              fill="white"
+              fill={isDerived ? logicStateColor : 'white'}
               fontWeight="bold"
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
               {logicState === LogicState.TRUE ? 'T' :
                logicState === LogicState.FALSE ? 'F' :
                logicState === LogicState.CONFLICT ? '!' : '?'}
+            </text>
+          </g>
+        )}
+
+        {/* 活图：状态胶囊 —— 单击循环切换 baseStatus，无需进入编辑模式 */}
+        {onChangeNodeStatus && currentStatusLabel && (
+          <g
+            transform="translate(0, 42)"
+            onMouseDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              const idx = statusOptions.findIndex((o) => o.value === currentStatusValue);
+              const next = statusOptions[(idx + 1) % statusOptions.length];
+              if (next) onChangeNodeStatus(node.id, next.value);
+            }}
+            style={{ cursor: 'pointer' }}
+            opacity={isUnrelated ? 0.3 : 1}
+          >
+            <title>点击切换状态（现实变了，就在这里更新它）</title>
+            <rect
+              x={-30}
+              y={-9}
+              width={60}
+              height={18}
+              rx={9}
+              fill={nodeBgColor}
+              stroke={hasLogicState && !isDerived ? logicStateColor : canvasColors.canvasNodeTextSecondary}
+              strokeWidth={1.2}
+              opacity={0.95}
+            />
+            <text
+              textAnchor="middle"
+              dy={3.5}
+              fontSize={10}
+              fill={canvasColors.canvasNodeText}
+              style={{ userSelect: 'none', pointerEvents: 'none' }}
+            >
+              {currentStatusLabel}
             </text>
           </g>
         )}
@@ -1351,6 +1487,18 @@ export default function FocusView({
     // 动画：暗夜和极光模式都启用，经典模式静态
     const isAnimated = config?.animated && !isUnrelated && (isNeonMode || isGlassMode);
 
+    // 活图：阻碍/矛盾关系"激活"警示——源为真（或任一端已陷入冲突）时该关系正在生效
+    const isThreatEdge = edge.type === EdgeType.HINDERS || edge.type === EdgeType.CONFLICTS;
+    const sourceLogic = isThreatEdge ? getNodeLogicState(edge.sourceNodeId) : LogicState.UNKNOWN;
+    const targetLogic = isThreatEdge ? getNodeLogicState(edge.targetNodeId) : LogicState.UNKNOWN;
+    const threatActive =
+      isThreatEdge &&
+      !isUnrelated &&
+      (sourceLogic === LogicState.TRUE ||
+        sourceLogic === LogicState.CONFLICT ||
+        targetLogic === LogicState.CONFLICT ||
+        (edge.type === EdgeType.CONFLICTS && targetLogic === LogicState.TRUE));
+
     return (
       <g
         key={edge.id}
@@ -1358,6 +1506,27 @@ export default function FocusView({
         onClick={(e) => handleEdgeClick(e, edge.id)}
         style={{ cursor: isEditMode ? 'pointer' : 'default' }}
       >
+        {/* 活图：激活的阻碍/矛盾关系呼吸警示层 */}
+        {threatActive && (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke={color}
+            strokeWidth={7}
+            strokeLinecap="round"
+            opacity={0.25}
+          >
+            <animate
+              attributeName="opacity"
+              values="0.1;0.45;0.1"
+              dur="1.6s"
+              repeatCount="indefinite"
+            />
+          </line>
+        )}
+
         {/* 透明的粗线用于更容易点击 */}
         {isEditMode && (
           <line

@@ -30,6 +30,7 @@ export class DependsRule implements PropagationRule {
     // 所以我们检查 target（被依赖方）的状态来影响 source（依赖方）
 
     // 规则1：如果被依赖方(target)为假，依赖方(source)也应该为假
+    // 注意 applyTo: 'source'——DEPENDS 的结果写回依赖方，不是被依赖方
     if (targetState.logicState === LogicState.FALSE) {
       // 只有当 source 当前不是 FALSE 时才传播
       if (sourceState.logicState !== LogicState.FALSE) {
@@ -39,6 +40,7 @@ export class DependsRule implements PropagationRule {
           derivedFrom: [...sourceState.derivedFrom, targetNode.id],
           shouldPropagate: true,
           reason: `"${sourceNode.title}" 依赖 "${targetNode.title}"，但后者为假`,
+          applyTo: 'source',
         };
       }
     }
@@ -49,14 +51,17 @@ export class DependsRule implements PropagationRule {
 
     // 规则3：如果被依赖方状态变为冲突，依赖方也有问题
     if (targetState.logicState === LogicState.CONFLICT) {
-      return {
-        newState: LogicState.CONFLICT,
-        newConfidence: targetState.confidence,
-        derivedFrom: [...sourceState.derivedFrom, targetNode.id],
-        conflictsWith: targetState.conflictsWith,
-        shouldPropagate: true,
-        reason: `"${sourceNode.title}" 依赖的 "${targetNode.title}" 存在冲突`,
-      };
+      if (sourceState.logicState !== LogicState.CONFLICT) {
+        return {
+          newState: LogicState.CONFLICT,
+          newConfidence: targetState.confidence,
+          derivedFrom: [...sourceState.derivedFrom, targetNode.id],
+          conflictsWith: targetState.conflictsWith,
+          shouldPropagate: true,
+          reason: `"${sourceNode.title}" 依赖的 "${targetNode.title}" 存在冲突`,
+          applyTo: 'source',
+        };
+      }
     }
 
     return null; // 不需要传播
