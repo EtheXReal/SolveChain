@@ -930,7 +930,17 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             <span>传播</span>
           </button>
 
-          {/* 分析面板按钮 */}
+          {/* 分析面板按钮
+              暂时隐藏。AnalysisPanel 依赖两个后端接口：
+                POST /api/projects/:id/analyze/next-action
+                POST /api/projects/:id/analyze/feasibility
+              它们由 v1 的 Express 后端提供。v2 改为纯本地存储 + Vercel 函数后，
+              线上只有 /api/llm-proxy 一个函数，这两个接口不存在，点击必然 404。
+
+              隐藏而非删除：这两个分析（找阻塞点、算可行性）都是纯图计算，
+              不需要数据库，后续应当迁到前端实现，届时把入口放回来即可。
+              相关代码保留在 components/AnalysisPanel.tsx 与 api/index.ts。 */}
+          {false && (
           <button
             onClick={() => {
               setShowAnalysisPanel(!showAnalysisPanel);
@@ -950,6 +960,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             <Brain size={18} />
             <span>分析</span>
           </button>
+          )}
 
           {/* AI 智能分析按钮 */}
           <button
