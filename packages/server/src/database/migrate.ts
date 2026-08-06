@@ -16,7 +16,7 @@ async function migrate() {
 
   try {
     // 读取 schema.sql
-    const schemaPath = path.join(__dirname, '../../../../src/database/schema.sql');
+    const schemaPath = path.join(__dirname, '../../schema.sql');
     let schema: string;
 
     try {

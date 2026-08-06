@@ -2,168 +2,129 @@
 
 > 基于第一性原理的个人决策辅助系统
 
-将复杂问题分解为基本事实和假设，构建清晰的决策逻辑链，让 AI 帮你发现盲点，做出更理性的决策。
+把复杂问题拆成基本事实与假设，构建可视化的决策逻辑链，再让 LLM 帮你发现盲点。
+
+---
+
+## 架构演进（重要）
+
+本项目经历过一次架构调整，**当前运行的是 v2**：
+
+| | v1 | **v2（当前）** |
+|---|---|---|
+| 数据存储 | PostgreSQL | **浏览器 localStorage** |
+| 后端 | Express 服务（REST API + 仓储层） | **无常驻后端** |
+| LLM 调用 | 后端服务代理 | **无状态 Serverless 函数**（`packages/client/api/llm-proxy.ts`） |
+| 部署 | 需要服务器 + 数据库 | **纯静态托管** |
+
+**为什么改**：这是个人决策工具，数据天然是单人、单机、低频的。
+为它维护一台服务器和一个数据库，运维成本远大于收益；
+用户也未必愿意把自己的决策草稿存在别人的数据库里。
+
+改成本地存储后，部署成本降到零，隐私问题自然消失。
+唯一需要联网的是 LLM 调用，用一个无状态函数代理即可——
+它只转发请求并隐藏 API Key，不持有任何用户数据。
+
+**v1 的后端代码保留在 `packages/server/`，但不参与运行**，留作架构演进的记录。
+它是一套完整的 Express + PostgreSQL 分层实现（路由 / 仓储 / 服务 / 迁移脚本），
+如需回到 client-server 架构可以此为起点。
+
+---
 
 ## 功能特性
 
-- **可视化决策图** - 用节点和边构建决策逻辑链
-- **形式化逻辑系统** (v2.1) - 基于命题逻辑的节点和关系类型
-  - 节点类型：目标、行动、事实、假设、约束、结论
-  - 关系类型：依赖、促成、实现、阻碍、导致、矛盾
-- **状态系统** (v2.2) - baseStatus/computedStatus 分离架构
-  - 每种节点类型有独立的状态枚举
-  - 自动状态传播（ACHIEVES 关系）
-  - 权重和边强度使用 0.1-2.0 范围
-- **状态传播算法** (v2.1.1) - 可插拔的逻辑推理引擎
-  - 自动传播节点的逻辑状态
-  - 冲突检测与提示
-  - 传播事件历史追踪
-- **权重计算** - 自动计算各决策选项的综合得分
-- **AI 分析** - LLM 帮助分解问题、质疑假设、发现盲点
-- **多 LLM 支持** - 默认通义千问，支持 DeepSeek、OpenAI 等
-- **智能布局** - 自动分层布局和径向布局算法
-- **布局自动保存** - 切换场景时自动保存布局
-- **三种主题风格** - 经典(静态专业)、暗夜(霓虹发光)、极光(彩虹流光)
+- **可视化决策图** —— 用节点和边构建决策逻辑链（ReactFlow）
+- **形式化逻辑系统** —— 基于命题逻辑的节点与关系类型
+  - 节点：目标、行动、事实、假设、约束、结论
+  - 关系：依赖、促成、实现、阻碍、导致、矛盾
+- **状态系统** —— `baseStatus`（用户设定）与 `computedStatus`（系统推导）分离
+- **状态传播算法** —— 可插拔推理引擎，自动传播逻辑状态、检测冲突、记录传播历史
+- **权重计算** —— 自动计算各决策选项的综合得分（权重与边强度均为 0.1–2.0）
+- **LLM 智能分析** —— 风险分析、下一步建议、逻辑检查、补全建议，以及自由提问
+- **多 LLM 支持** —— 通义千问 / DeepSeek / 任意 OpenAI 兼容接口
+- **智能布局** —— 自动分层与径向布局，切换场景时自动保存
+- **三种主题** —— 经典（静态专业）、暗夜（霓虹发光）、极光（彩虹流光）
 
-## 技术栈
-
-- **前端**: React 18 + TypeScript + Vite + ReactFlow + Tailwind CSS
-- **后端**: Node.js + Express + TypeScript
-- **数据库**: PostgreSQL
-- **LLM**: 通义千问 (DashScope) / DeepSeek / OpenAI
+---
 
 ## 快速开始
 
-### 1. 环境要求
+### 环境要求
 
 - Node.js >= 18
-- PostgreSQL >= 14
-- pnpm (推荐) 或 npm
 
-### 2. 安装依赖
+**不需要数据库，也不需要启动后端。**
+
+### 安装与运行
 
 ```bash
-# 克隆项目
-cd SolveChain
-
-# 安装依赖
 npm install
+
+# v2 架构无常驻后端，只启动前端即可
+npm run dev -w @solvechain/client
+# 打开 http://localhost:5173
 ```
 
-### 3. 配置环境变量
+首次进入会有一个只读示例项目，可直接查看效果。
 
-```bash
-# 复制环境变量模板
-cp packages/server/.env.example packages/server/.env
+### 配置 LLM（可选）
 
-# 编辑 .env 文件，配置：
-# - DATABASE_URL: PostgreSQL 连接地址
-# - DASHSCOPE_API_KEY: 通义千问 API Key
-```
+不配置也能使用除 AI 分析外的全部功能。
 
-### 4. 初始化数据库
+在应用内「设置」中填入 API Key，密钥保存在浏览器本地，不会上传。
 
-```bash
-# 创建数据库
-createdb solvechain
+| Provider | 说明 |
+|---|---|
+| 通义千问（DashScope） | 默认 |
+| DeepSeek | 价格较低 |
+| 任意 OpenAI 兼容接口 | 自填 baseURL |
 
-# 运行迁移
-npm run db:migrate
-```
+部署到 Vercel 时也可改为在服务端配置密钥，由 `api/llm-proxy` 统一代理，
+避免密钥出现在浏览器中。
 
-### 5. 启动开发服务器
-
-```bash
-# 同时启动前后端
-npm run dev
-
-# 或分别启动
-npm run dev:server  # 后端 http://localhost:3001
-npm run dev:client  # 前端 http://localhost:5173
-```
+---
 
 ## 项目结构
 
 ```
 SolveChain/
 ├── packages/
-│   ├── server/          # 后端服务
-│   │   ├── src/
-│   │   │   ├── database/    # 数据库配置
-│   │   │   ├── repositories/ # 数据访问层
-│   │   │   ├── routes/      # API 路由
-│   │   │   ├── services/    # 业务逻辑
-│   │   │   │   ├── llm/     # LLM 服务
-│   │   │   │   └── calculationEngine.ts
-│   │   │   └── types/       # 类型定义
-│   │   └── package.json
+│   ├── client/                    # ← 当前运行的全部代码
+│   │   ├── api/                   # Vercel Serverless 函数（仅 LLM 代理）
+│   │   └── src/
+│   │       ├── components/        # 组件（决策图、各类面板）
+│   │       ├── pages/             # 页面
+│   │       ├── store/             # Zustand 状态 + localStorage 持久化
+│   │       ├── services/llm/      # LLM 客户端与提示词
+│   │       ├── utils/propagation/ # 状态传播引擎
+│   │       ├── themes/            # 主题系统
+│   │       └── types/
 │   │
-│   └── client/          # 前端应用
-│       ├── src/
-│       │   ├── api/         # API 客户端
-│       │   ├── components/  # 组件
-│       │   ├── pages/       # 页面
-│       │   ├── store/       # 状态管理
-│       │   └── types/       # 类型定义
-│       └── package.json
+│   └── server/                    # ← v1 架构存档，不参与运行
+│       ├── src/{database,repositories,routes,services}
+│       └── schema.sql
 │
-├── docs/
-│   └── technical-design.md  # 技术设计文档
-│
-└── src/
-    ├── types/           # 共享类型定义
-    └── database/        # 数据库 Schema
+└── docs/technical-design.md
 ```
 
-## API 概览
+---
 
-### 决策图
-- `GET /api/graphs` - 获取所有决策图
-- `POST /api/graphs` - 创建决策图
-- `GET /api/graphs/:id` - 获取决策图详情
-- `PATCH /api/graphs/:id` - 更新决策图
-- `DELETE /api/graphs/:id` - 删除决策图
-- `POST /api/graphs/:id/calculate` - 计算决策得分
-- `POST /api/graphs/:id/simulate` - 模拟场景
+## 已知限制
 
-### 节点
-- `POST /api/graphs/:id/nodes` - 创建节点
-- `PATCH /api/nodes/:id` - 更新节点
-- `DELETE /api/nodes/:id` - 删除节点
+诚实记录当前状态，便于后续接手：
 
-### 边
-- `POST /api/graphs/:id/edges` - 创建边
-- `PATCH /api/edges/:id` - 更新边
-- `DELETE /api/edges/:id` - 删除边
+- **无自动化测试。** 约 16,000 行前端代码没有任何测试覆盖，重构风险高。
+- **「分析」面板入口已隐藏。** 它依赖 v1 后端的两个接口
+  （`/api/projects/:id/analyze/next-action` 与 `/analyze/feasibility`），
+  v2 架构下这两个接口不存在，点击会 404。
+  这两个分析（寻找阻塞点、计算可行性）都是**纯图计算，不需要数据库**，
+  应当迁移到前端实现，届时把入口放回即可。
+  代码保留在 `components/AnalysisPanel.tsx` 与 `api/index.ts`。
+- **数据仅存于浏览器。** 换设备或清除浏览器数据会丢失，需手动导出 / 导入。
+- **根 `package.json` 的 `dev` 与 `build` 脚本仍会带上 server 包**，
+  在没有数据库的环境下会失败，请使用上文的 client 单独启动命令。
 
-### LLM
-- `POST /api/llm/analyze` - AI 分析
-- `POST /api/llm/chat` - AI 对话
-- `GET /api/llm/providers` - 获取可用 Provider
-
-## LLM 配置
-
-默认使用阿里云通义千问 (DashScope)。支持的 Provider：
-
-| Provider | 环境变量 | 价格 |
-|----------|---------|------|
-| 通义千问 | `DASHSCOPE_API_KEY` | ¥4-12/百万 tokens |
-| DeepSeek | `DEEPSEEK_API_KEY` | ¥1-2/百万 tokens |
-| 智谱 AI | `ZHIPU_API_KEY` | 免费 (Flash) |
-| OpenAI | `OPENAI_API_KEY` | 需科学上网 |
-
-## 开发指南
-
-### 添加新的 LLM Provider
-
-1. 在 `packages/server/src/services/llm/providers/` 创建新文件
-2. 实现 `callXxx(apiKey, model, request)` 函数
-3. 在 `packages/server/src/services/llm/index.ts` 注册
-
-### 自定义节点类型
-
-1. 在 `packages/client/src/types/index.ts` 的 `NODE_TYPE_CONFIG` 添加配置
-2. 在数据库枚举类型中添加新值
+---
 
 ## 更新日志
 
