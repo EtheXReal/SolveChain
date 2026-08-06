@@ -8,10 +8,10 @@
  */
 
 import { PropagationEngine, buildInitialStates, computeNextActions, LogicState } from '../src/utils/propagation';
-import { getExampleProjectDetails } from '../src/data/exampleProject';
+import { getExampleProjectDetails, EXAMPLE_PROJECT_ID } from '../src/data/examples';
 import { GraphNode, GraphEdge, NodeType, EdgeType, NodeStatus } from '../src/types';
 
-const { nodes, edges } = getExampleProjectDetails();
+const { nodes, edges } = getExampleProjectDetails(EXAMPLE_PROJECT_ID)!;
 
 function fmt(s: LogicState): string {
   return { true: 'TRUE ', false: 'FALSE', unknown: '?    ', conflict: 'CONF!' }[s] || s;
@@ -98,6 +98,31 @@ for (const a of actions) {
   console.log(`  [优先级 ${a.priority}] ${a.node.title} — ${status}${a.achieves.length ? ` | 直达: ${a.achieves.map(g => g.title).join('、')}` : ''}`);
 }
 
+// ---------- 火星救援示例 ----------
+const mars = getExampleProjectDetails('example-mars')!;
+// M0 初始：水源/热量未满足 → 种植被依赖阻塞；没有通讯已确认 → 没有救援成立（与手设一致）
+const m0 = runAndPrint('火星M0 初始（水源热量未满足）', mars.nodes, mars.edges);
+console.log('\n===== 火星 下一步行动建议（M0 状态） =====');
+const marsActions = computeNextActions(mars.nodes, mars.edges, m0.states);
+for (const a of marsActions) {
+  const status = a.executable ? '✓ 可执行' : a.blockedBy.length > 0 ? `✗ 阻塞: ${a.blockedBy.map(b => b.node.title).join('、')}` : `? 待确认: ${a.waitingFor.map(n => n.title).join('、')}`;
+  console.log(`  [优先级 ${a.priority}] ${a.node.title} — ${status}${a.achieves.length ? ` | 直达: ${a.achieves.map(g => g.title).join('、')}` : ''}`);
+}
+// M1 燃烧制水=成功：achieves 翻转水源需求 → 种植不再被依赖压成 FALSE
+const m1n = withStatus(mars.nodes, 'mars-a3', 'success');
+const m1 = runAndPrint('火星M1 燃烧制水=成功（水源被满足）', m1n, mars.edges);
+// M2 修复通讯=成功：causes 推「有通讯能力」成立，但用户手设它=未成立 → 矛盾上报
+const m2n = withStatus(mars.nodes, 'mars-a2', 'success');
+const m2 = runAndPrint('火星M2 修复通讯=成功（与手设的「有通讯能力=未成立」相悖）', m2n, mars.edges);
+
+// ---------- 教父示例 ----------
+const gf = getExampleProjectDetails('example-godfather')!;
+// G0 初始：全部状态未定 → 全 UNKNOWN，无任何误报
+const g0 = runAndPrint('教父G0 初始（全部未定）', gf.nodes, gf.edges);
+// G1 官方共谋=成立：causes 链 I1→I2(零点危机)→D1(转移阵地) 逐级点亮
+const g1n = withStatus(gf.nodes, 'gf-n03', 'established');
+const g1 = runAndPrint('教父G1 官方共谋=成立（causes 链传导）', g1n, gf.edges);
+
 // ---------- 断言汇总 ----------
 console.log('\n===== 断言 =====');
 const get = (r: any, id: string) => r.states.get(id)!;
@@ -117,6 +142,24 @@ const checks: Array<[string, boolean]> = [
   ['6.1 causes 逆矛盾被上报', r6.conflicts.length > 0],
   ['6.2 手设的 B 不被改写（仍 FALSE）', get(r6, 'b').logicState === 'false'],
   ['7.1 achieves：约束被推为满足', get(r7, 'con').logicState === 'true'],
+  // 火星救援
+  ['M0.1 收敛且无矛盾误报', m0.converged && m0.conflicts.length === 0],
+  ['M0.2 种植作物被水源依赖压为 FALSE', get(m0, 'mars-a1').logicState === 'false'],
+  ['M0.3 燃烧制水在下一步建议中且可执行', marsActions.some(a => a.node.id === 'mars-a3' && a.executable)],
+  ['M0.4 有通讯能力=手设 FALSE 且锁定', get(m0, 'mars-i2').logicState === 'false' && get(m0, 'mars-i2').pinned === true],
+  ['M1.1 制水成功 → 水源需求被推为满足', get(m1, 'mars-c3').logicState === 'true'],
+  ['M1.2 水源满足后种植不再被压为 FALSE', get(m1, 'mars-a1').logicState !== 'false'],
+  ['M1.3 收敛', m1.converged],
+  ['M2.1 修复通讯与手设的「有通讯能力=未成立」矛盾被上报', m2.conflicts.length > 0],
+  ['M2.2 手设的「有通讯能力」不被改写（仍 FALSE）', get(m2, 'mars-i2').logicState === 'false'],
+  ['M2.3 achieves/depends 拉锯不再震荡（收敛）', m2.converged],
+  // 教父
+  ['G0.1 收敛且无矛盾误报', g0.converged && g0.conflicts.length === 0],
+  ['G0.2 除高置信度假设（置信度兜底，未锁定）外全部 UNKNOWN',
+    gf.nodes.filter(n => n.type !== NodeType.ASSUMPTION).every(n => get(g0, n.id).logicState === 'unknown')
+    && get(g0, 'gf-n07').pinned !== true && get(g0, 'gf-n17').pinned !== true],
+  ['G1.1 官方共谋成立 → 零点危机被推为 TRUE', get(g1, 'gf-n04').logicState === 'true'],
+  ['G1.2 causes 链继续传导 → 转移阵地被推为 TRUE', get(g1, 'gf-n05').logicState === 'true'],
 ];
 let pass = 0;
 for (const [name, ok] of checks) {

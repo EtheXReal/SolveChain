@@ -29,7 +29,12 @@ export class AchievesRule implements PropagationRule {
     // source 通常是 ACTION，target 通常是 CONSTRAINT 或 GOAL
 
     // 规则1：如果行动(source)执行，目标(target)被满足
-    if (sourceState.logicState === LogicState.TRUE) {
+    // 每个来源只施加一次（若 target 又被别的规则如 depends 压回，双方会每轮互相翻转、永不收敛；
+    // 来源退出 derivedFrom 由规则2 负责，届时可重新生效）
+    if (
+      sourceState.logicState === LogicState.TRUE &&
+      !targetState.derivedFrom.includes(sourceNode.id)
+    ) {
       // 边强度：0.1-2.0 范围，1.0 为标准，兼容旧版百分比数据
       const strengthFactor = edge.strength > 2 ? 1.0 : edge.strength;
       const newConfidence = sourceState.confidence * strengthFactor;

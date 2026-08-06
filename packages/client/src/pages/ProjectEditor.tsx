@@ -39,9 +39,11 @@ import { loadAll, importProject } from '../store/localStore';
 interface ProjectEditorProps {
   projectId: string;
   onBack: () => void;
+  /** 切换到另一个项目（「编辑此示例」把示例复制成普通项目后跳转用） */
+  onSwitchProject?: (projectId: string) => void;
 }
 
-export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps) {
+export default function ProjectEditor({ projectId, onBack, onSwitchProject }: ProjectEditorProps) {
   const {
     currentProject,
     scenes,
@@ -54,6 +56,7 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     error,
     editorMode,
     isExample,
+    materializeExample,
     fetchProject,
     fetchProjects,
     setCurrentScene,
@@ -159,6 +162,16 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
     },
     [isExample, updateNode]
   );
+
+  // 「编辑此示例」：把示例（连同当前试玩的状态覆盖）复制成一个普通项目并跳转过去进入编辑模式。
+  // 示例本体保持只读、永远可从列表重新打开原版。
+  const handleEditExample = useCallback(async () => {
+    const newProjectId = await materializeExample(statusOverrides);
+    if (newProjectId) {
+      setEditorMode('edit');
+      onSwitchProject?.(newProjectId);
+    }
+  }, [materializeExample, statusOverrides, setEditorMode, onSwitchProject]);
 
   // 矛盾去重（用于顶部冒泡提示）
   const uniqueConflicts = useMemo(() => {
@@ -1032,19 +1045,20 @@ export default function ProjectEditor({ projectId, onBack }: ProjectEditorProps)
             <span>AI</span>
           </button>
 
-          {/* 模式切换按钮（示例项目为只读，隐藏切换、改为只读标识） */}
+          {/* 模式切换按钮（示例本体只读；点「编辑此示例」把它复制成你的项目再进入编辑模式） */}
           {isExample ? (
-            <div
-              className="flex items-center gap-2 px-4 py-2 rounded-lg"
+            <button
+              onClick={handleEditExample}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
               style={{
                 background: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-muted)',
+                color: 'var(--color-text-secondary)',
               }}
-              title="这是预置示例项目，只读，任何改动都不会被保存"
+              title="示例本体只读。点击会把它（连同你刚才切换的状态）复制成你自己的项目，并进入编辑模式"
             >
-              <Eye size={18} />
-              <span>示例 · 只读</span>
-            </div>
+              <Edit3 size={18} />
+              <span>编辑此示例</span>
+            </button>
           ) : (
             <button
               onClick={toggleEditorMode}

@@ -15,10 +15,11 @@ import {
 } from '../types';
 import * as localStore from './localStore';
 import {
-  EXAMPLE_PROJECT_ID,
+  isExampleProjectId,
   getExampleProjectDetails,
   getExampleSceneDetails,
-} from '../data/exampleProject';
+  getExampleImportInput,
+} from '../data/examples';
 
 // 视图模式
 export type ViewMode = 'single' | 'panorama';
@@ -50,6 +51,10 @@ interface ProjectState {
   // 是否处于「只读示例项目」上下文：为 true 时数据来自静态文件，
   // 且所有写操作短路为 no-op，绝不写入 localStorage。
   isExample: boolean;
+
+  // 把当前打开的示例复制成一个普通项目（走 importProject，全新 id），
+  // 返回新项目 id；statusOverrides 是编辑器内存态的状态覆盖，一并带入副本。
+  materializeExample: (statusOverrides?: Map<string, string>) => Promise<string | null>;
 
   // 项目操作
   fetchProjects: () => Promise<void>;
@@ -148,9 +153,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
     // 只读示例项目：数据全部来自静态文件，强制查看模式，且不经过 setCurrentScene 的
     // 自动保存逻辑（直接落到概览，避免任何 localStorage 写入）。
-    if (projectId === EXAMPLE_PROJECT_ID) {
+    if (isExampleProjectId(projectId)) {
       try {
-        const { project, scenes, nodes, edges } = getExampleProjectDetails();
+        const details = getExampleProjectDetails(projectId);
+        if (!details) throw new Error('示例项目不存在');
+        const { project, scenes, nodes, edges } = details;
         set({
           currentProject: project,
           scenes,
@@ -236,6 +243,21 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
   },
 
+  materializeExample: async (statusOverrides) => {
+    const { currentProject, isExample } = get();
+    if (!isExample || !currentProject) return null;
+    try {
+      const input = getExampleImportInput(currentProject.id, statusOverrides);
+      if (!input) return null;
+      const result = localStore.importProject(input);
+      set({ projects: localStore.listProjects() });
+      return result.projectId;
+    } catch (err: any) {
+      set({ error: err.message });
+      return null;
+    }
+  },
+
   // ========== 场景操作 ==========
 
   setPendingLayoutPositions: (positions) => {
@@ -281,7 +303,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   fetchScene: async (sceneId) => {
     try {
       const { nodes, edges } = get().isExample
-        ? getExampleSceneDetails(sceneId)
+        ? getExampleSceneDetails(get().currentProject?.id ?? '', sceneId)
         : localStore.getSceneDetails(sceneId);
       set({
         sceneNodes: nodes,

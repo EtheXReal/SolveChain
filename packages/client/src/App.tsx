@@ -43,7 +43,13 @@ export default function App() {
       case 'projects':
         return <ProjectList onSelectProject={handleSelectProject} />;
       case 'project-editor':
-        return <ProjectEditor projectId={view.projectId} onBack={handleBack} />;
+        return (
+          <ProjectEditor
+            projectId={view.projectId}
+            onBack={handleBack}
+            onSwitchProject={handleSelectProject}
+          />
+        );
       case 'home':
       default:
         return <Home onSelectGraph={handleSelectGraph} />;

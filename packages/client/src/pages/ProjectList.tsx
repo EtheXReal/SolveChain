@@ -7,7 +7,7 @@ import { useProjectStore } from '../store/projectStore';
 import { Plus, FolderOpen, Trash2, MoreVertical, Sparkles } from 'lucide-react';
 import { Project } from '../types';
 import ThemeSwitcher from '../components/ThemeSwitcher';
-import { exampleProject, EXAMPLE_PROJECT_ID } from '../data/exampleProject';
+import { exampleProjects } from '../data/examples';
 
 interface ProjectListProps {
   onSelectProject: (projectId: string) => void;
@@ -125,7 +125,7 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
                     创建第一个项目
                   </button>
                   <button
-                    onClick={() => onSelectProject(EXAMPLE_PROJECT_ID)}
+                    onClick={() => onSelectProject(exampleProjects[0].id)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
                     style={{
                       background: 'var(--color-surface)',
@@ -141,21 +141,22 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* 预置只读示例项目：始终可见，不来自 localStorage */}
+              {/* 预置示例项目：始终可见，不来自 localStorage；进入编辑会另存为用户自己的项目 */}
+              {exampleProjects.map((example) => (
               <div
-                key={exampleProject.id}
+                key={example.id}
                 className="node-card rounded-lg transition-all cursor-pointer relative"
                 style={{
                   background: 'var(--color-surface)',
                   border: '1px dashed var(--color-border)',
                   borderRadius: 'var(--border-radius)',
                 }}
-                onClick={() => onSelectProject(EXAMPLE_PROJECT_ID)}
+                onClick={() => onSelectProject(example.id)}
               >
                 <div className="p-4">
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold line-clamp-1" style={{ color: 'var(--color-text)' }}>
-                      {exampleProject.title}
+                      {example.title}
                     </h3>
                     <span
                       className="flex items-center gap-1 px-2 py-0.5 rounded text-xs shrink-0"
@@ -173,17 +174,18 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
                     className="text-sm mt-2 line-clamp-2"
                     style={{ color: 'var(--color-text-secondary)' }}
                   >
-                    {exampleProject.description}
+                    {example.description}
                   </p>
 
                   <div
                     className="flex items-center justify-between mt-4 text-xs"
                     style={{ color: 'var(--color-text-muted)' }}
                   >
-                    <span>点开即可浏览（只读，不影响你的数据）</span>
+                    <span>点开即可试玩 · 进入编辑会另存为你的项目</span>
                   </div>
                 </div>
               </div>
+              ))}
 
               {projects.map((project: Project) => (
               <div
