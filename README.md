@@ -16,7 +16,7 @@
 | 账号 | 无 | 无 | **邮箱 + 密码；不登录可当游客用** |
 | 后端 | Express + 仓储层 | 无常驻后端 | **一个 Node 进程（Express + 内置 SQLite），打成单文件** |
 | LLM 调用 | 后端代理 | Vercel 无状态函数 | **同一后端的 `/api/llm-proxy`**（仍是无状态转发） |
-| 部署 | 服务器 + 数据库 | Vercel 静态托管 | **自有 VPS：Caddy 托管静态页 + 反代 `/api`** |
+| 部署 | 服务器 + 数据库 | Vercel 静态托管 | **自有 VPS：Caddy 托管静态页 + 反代 `/api`**（2026-09-12 上线） |
 
 **v3 的存储模型：本地优先，后台同步。**
 
@@ -103,7 +103,6 @@ node scripts/e2e-sync.mjs   # 浏览器端到端验收（需先启动 dev，且�
 SolveChain/
 ├── packages/
 │   ├── client/                    # 前端（React + Vite + Zustand + ReactFlow）
-│   │   ├── api/                   # 过渡期的 Vercel 函数副本，整站切到 VPS 后删除
 │   │   └── src/
 │   │       ├── components/        # 组件（决策图、各类面板、AccountMenu / AuthDialog）
 │   │       ├── pages/             # 页面
@@ -155,7 +154,7 @@ SolveChain/
   服务端会话；项目按用户整份存储，`rev` 乐观并发，软删除。
 - 前端本地存储层加入"所有者"与变更事件；新增同步引擎（本地优先、防抖推送、全量对账、冲突保留两份）；
   项目列表页加入账号入口与同步状态。
-- LLM 代理从 Vercel 函数迁到后端同一进程；Vite dev 不再自带中间件，`npm run dev` 同时起前后端。
+- LLM 代理从 Vercel 函数迁到后端同一进程（Vercel 函数副本已随整站切换到 VPS 后删除）；Vite dev 不再自带中间件，`npm run dev` 同时起前后端。
 - 新增 `deploy/`（Caddy、systemd、初始化/部署/备份脚本）与 `scripts/e2e-sync.mjs` 端到端验收。
 - v1 的 Express + PostgreSQL 代码已从工作区移除，需要时看 git 历史（`c5a21d5` 之前的 `packages/server/`）。
 

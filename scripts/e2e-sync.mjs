@@ -6,6 +6,7 @@
  * （默认从本目录解析，或用 PLAYWRIGHT_ROOT=<装了 playwright 的目录>）。
  *
  * 用法：node scripts/e2e-sync.mjs [截图输出目录]
+ *   线上：E2E_BASE=https://solvechain.xreal.cc E2E_PROD=1 node scripts/e2e-sync.mjs（会注册一个 e2e-<时间戳>@example.com 测试账号，跑完记得清掉）
  */
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -16,7 +17,9 @@ const require = createRequire(
 );
 const { chromium } = require('playwright');
 
-const BASE = process.env.E2E_BASE || 'http://127.0.0.1:5173';
+const BASE = process.env.E2E_BASE || 'http://localhost:5173';
+// E2E_PROD=1：对线上构建版跑（没有 Vite 源码，跳过需要 import 源文件的冲突用例）
+const PROD = process.env.E2E_PROD === '1';
 const OUT = process.argv[2] || path.resolve('e2e-shots');
 fs.mkdirSync(OUT, { recursive: true });
 const email = `e2e-${Date.now()}@example.com`;
@@ -128,42 +131,47 @@ try {
   await A.waitForSelector('text=来自B的项目', { state: 'detached', timeout: 10000 });
   check(true, 'A 上该项目已被移除');
 
-  console.log('冲突：B 经接口改了服务器版本，A 在没拉取的情况下也改 → 保留两份');
-  const bumped = await B.evaluate(async () => {
-    const list = await fetch('/api/projects').then((r) => r.json());
-    const p = list.projects.find((x) => x.title === '游客项目');
-    const full = await fetch('/api/projects/' + p.id).then((r) => r.json());
-    full.doc.project.title = '游客项目（B改）';
-    full.doc.project.updatedAt = new Date().toISOString();
-    const res = await fetch('/api/projects/' + p.id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ doc: full.doc, baseRev: full.rev }),
-    }).then((r) => r.json());
-    return { id: p.id, rev: res.rev };
-  });
-  check(bumped.rev >= 2, 'B 已把服务器 rev 推到 ' + bumped.rev);
-  // A 通过前端持久层直接改标题（Vite dev 下模块实例与页面共用，会触发同步引擎推送）
-  await A.evaluate(async ({ id }) => {
-    const ls = await import('/src/store/localStore.ts');
-    ls.updateProject(id, { title: '游客项目（A改）' });
-  }, bumped);
-  await A.waitForSelector('text=游客项目（B改）', { timeout: 15000 });
-  await A.waitForSelector('text=本机副本', { timeout: 15000 });
-  await waitSyncIdle(A);
-  const listAfter = await A.evaluate(() => fetch('/api/projects').then((r) => r.json()));
-  const live = listAfter.projects.filter((p) => !p.deletedAt);
-  check(
-    live.length === 2 && live.some((p) => p.title === '游客项目（B改）') && live.some((p) => p.title.includes('本机副本')),
-    '服务器上两份：B 改的原项目 + A 的本机副本'
-  );
-  await shot(A, 'conflict-kept-both');
-  await A.getByTestId('account-button').click();
-  await shot(A, 'conflict-message');
-  const statusText = await A.getByTestId('sync-status').innerText();
-  check(statusText.includes('保留两份'), '菜单里提示了"已保留两份"');
-  await A.locator('.fixed.inset-0.z-10').click({ force: true });
-  await A.waitForSelector('[data-testid="sync-status"]', { state: 'detached' });
+  if (PROD) {
+    console.log('线上模式：跳过冲突用例（需要 Vite 源码）');
+  } else {
+    console.log('冲突：B 经接口改了服务器版本，A 在没拉取的情况下也改 → 保留两份');
+    const bumped = await B.evaluate(async () => {
+      const list = await fetch('/api/projects').then((r) => r.json());
+      const p = list.projects.find((x) => x.title === '游客项目');
+      const full = await fetch('/api/projects/' + p.id).then((r) => r.json());
+      full.doc.project.title = '游客项目（B改）';
+      full.doc.project.updatedAt = new Date().toISOString();
+      const res = await fetch('/api/projects/' + p.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doc: full.doc, baseRev: full.rev }),
+      }).then((r) => r.json());
+      return { id: p.id, rev: res.rev };
+    });
+    check(bumped.rev >= 2, 'B 已把服务器 rev 推到 ' + bumped.rev);
+    // A 通过前端持久层直接改标题（Vite dev 下模块实例与页面共用，会触发同步引擎推送）
+    await A.evaluate(async ({ id }) => {
+      const ls = await import('/src/store/localStore.ts');
+      ls.updateProject(id, { title: '游客项目（A改）' });
+    }, bumped);
+    await A.waitForSelector('text=游客项目（B改）', { timeout: 15000 });
+    await A.waitForSelector('text=本机副本', { timeout: 15000 });
+    await waitSyncIdle(A);
+    const listAfter = await A.evaluate(() => fetch('/api/projects').then((r) => r.json()));
+    const live = listAfter.projects.filter((p) => !p.deletedAt);
+    check(
+      live.length === 2 && live.some((p) => p.title === '游客项目（B改）') && live.some((p) => p.title.includes('本机副本')),
+      '服务器上两份：B 改的原项目 + A 的本机副本'
+    );
+    await shot(A, 'conflict-kept-both');
+    await A.getByTestId('account-button').click();
+    await shot(A, 'conflict-message');
+    const statusText = await A.getByTestId('sync-status').innerText();
+    check(statusText.includes('保留两份'), '菜单里提示了"已保留两份"');
+    await A.locator('.fixed.inset-0.z-10').click({ force: true });
+    await A.waitForSelector('[data-testid="sync-status"]', { state: 'detached' });
+
+  }
 
   console.log('A: 退出登录 → 游客视图不显示账号项目；重新登录恢复');
   await A.getByTestId('account-button').click();
@@ -172,7 +180,7 @@ try {
   await A.waitForSelector('text=游客项目', { state: 'detached' });
   await shot(A, 'after-logout-guest');
   const stillLocal = await A.evaluate(() => JSON.parse(localStorage.getItem('solvechain-data')).projects.length);
-  check(stillLocal === 2, '退出后数据仍留在本机（仅隐藏；冲突后本机是原项目 + 副本共 2 个）');
+  check(stillLocal === (PROD ? 1 : 2), '退出后数据仍留在本机（仅隐藏）');
   await loginVia(A, 'login');
   await waitSyncIdle(A);
   await A.waitForSelector('text=游客项目');

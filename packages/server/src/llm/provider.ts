@@ -1,10 +1,8 @@
 /**
- * 无状态 LLM 代理核心（与 packages/client/api/_provider.ts 同源）
+ * 无状态 LLM 代理核心
  *
  * 只做两件事：让浏览器绕过跨域限制直达大模型服务商；把用户自己的 API Key 原样转发。
  * 不保存任何状态、不接触数据库、不做业务逻辑（提示词/解析都在浏览器侧）。
- *
- * packages/client/api/ 下那份是 Vercel 过渡期副本，整站切到 VPS 后删除。
  */
 
 type Role = 'system' | 'user' | 'assistant';

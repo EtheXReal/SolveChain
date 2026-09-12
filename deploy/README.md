@@ -28,7 +28,7 @@
 3. Cloudflare 里把 `solvechain.xreal.cc` 的 CNAME（vercel-dns）删掉，改为 **A 记录 → 43.133.170.5，仅 DNS（灰云）**。
    Caddy 会在第一次请求时自动申请证书。
 4. 验证：`curl https://solvechain.xreal.cc/api/health`，浏览器打开站点注册一个账号。
-5. 收尾：Vercel 项目可删除；仓库里 `packages/client/api/` 这份过渡期的 Vercel 函数可以删掉。
+5. 收尾：Vercel 项目可删除（仓库里的 Vercel 函数副本已在 2026-09-12 切换后删除）。
 
 ## 日常更新
 
