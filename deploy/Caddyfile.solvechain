@@ -1,0 +1,32 @@
+# SolveChain —— 追加到 /etc/caddy/Caddyfile（与 mdk.xreal.cc 同一文件），然后 sudo systemctl reload caddy
+# 静态页由 Caddy 直接托管，/api/* 反代到 Node（127.0.0.1:8060）。
+# DNS：solvechain.xreal.cc 需从 Vercel 的 CNAME 改为 A 记录 → 43.133.170.5（Cloudflare 里"仅 DNS"，不开橙云，
+#      否则 Caddy 申请证书会失败）。
+solvechain.xreal.cc {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8060
+	}
+
+	handle {
+		root * /srv/solvechain/www
+		# 带哈希的静态资源长缓存；index.html 不缓存
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output file /var/log/caddy/solvechain-access.log
+	}
+}

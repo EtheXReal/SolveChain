@@ -1,0 +1,27 @@
+[Unit]
+Description=SolveChain API (Node + SQLite)
+After=network.target
+
+[Service]
+User=solvechain
+Group=solvechain
+WorkingDirectory=/srv/solvechain/app
+Environment=NODE_ENV=production
+Environment=PORT=8060
+Environment=HOST=127.0.0.1
+Environment=DB_PATH=/srv/solvechain/data/solvechain.sqlite
+# 其它可选项（SESSION_TTL_DAYS、MAX_DOC_BYTES 等）放这里，600 权限，部署不覆盖
+EnvironmentFile=-/srv/solvechain/service.env
+ExecStart=/usr/bin/node /srv/solvechain/app/server.mjs
+Restart=always
+RestartSec=3
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/solvechain/data /srv/solvechain/logs
+StandardOutput=append:/srv/solvechain/logs/server.log
+StandardError=append:/srv/solvechain/logs/server.log
+
+[Install]
+WantedBy=multi-user.target
