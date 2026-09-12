@@ -30,14 +30,18 @@ sudo systemctl daemon-reload
 sudo systemctl enable solvechain
 
 echo "== Caddy 站点"
+# Caddy 以 caddy 用户运行，无权在 /var/log/caddy 下新建文件：先把访问日志建好并交给它
+if [[ ! -f /var/log/caddy/solvechain-access.log ]]; then
+  sudo install -o caddy -g caddy -m 640 /dev/null /var/log/caddy/solvechain-access.log
+fi
 if ! grep -q '^solvechain.xreal.cc' /etc/caddy/Caddyfile; then
   printf '\n' | sudo tee -a /etc/caddy/Caddyfile >/dev/null
   sudo tee -a /etc/caddy/Caddyfile < "$(dirname "$0")/Caddyfile.solvechain" >/dev/null
-  sudo caddy validate --config /etc/caddy/Caddyfile
-  sudo systemctl reload caddy
 else
-  echo "   已存在，跳过"
+  echo "   站点块已存在"
 fi
+sudo caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 && echo "   配置校验通过"
+sudo systemctl reload caddy && echo "   Caddy 已重载"
 
 echo "== 每日备份（03:30，保留 30 天）"
 sudo install -m 755 "$(dirname "$0")/backup.sh" /usr/local/bin/solvechain-backup
