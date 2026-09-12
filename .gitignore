@@ -32,3 +32,9 @@ nul
 # Local config / scripts (not for repo)
 .claude/settings.local.json
 启动开发服务器.bat
+
+# Server runtime data (SQLite)
+packages/server/data/
+
+# e2e screenshots
+e2e-shots/
