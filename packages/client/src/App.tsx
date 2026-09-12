@@ -3,12 +3,13 @@
  * 支持 v1（决策图）和 v2（项目-场景）两种模式
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ThemeProvider } from './themes/ThemeContext';
 import Home from './pages/Home';
 import Editor from './pages/Editor';
 import ProjectList from './pages/ProjectList';
 import ProjectEditor from './pages/ProjectEditor';
+import { useAuthStore } from './store/authStore';
 
 type View =
   | { type: 'home' }
@@ -21,6 +22,11 @@ const USE_V2_MODE = true;
 
 export default function App() {
   const [view, setView] = useState<View>(USE_V2_MODE ? { type: 'projects' } : { type: 'home' });
+
+  // 启动时确认登录态（已登录则启动后台同步）
+  useEffect(() => {
+    void useAuthStore.getState().init();
+  }, []);
 
   // v1 模式
   const handleSelectGraph = (graphId: string) => {

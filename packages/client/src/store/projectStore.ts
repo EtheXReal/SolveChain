@@ -727,3 +727,46 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setEditorMode: (mode) => set({ editorMode: mode }),
   clearError: () => set({ error: null }),
 }));
+
+// ========== 同步引擎回写：服务器版本落地/移除后刷新内存态 ==========
+localStore.subscribe((e) => {
+  if (e.type !== 'project-replaced' && e.type !== 'project-removed') return;
+  const state = useProjectStore.getState();
+  const projects = localStore.listProjects();
+  if (state.isExample || state.currentProject?.id !== e.projectId) {
+    useProjectStore.setState({ projects });
+    return;
+  }
+  if (e.type === 'project-removed') {
+    useProjectStore.setState({
+      projects,
+      currentProject: null,
+      scenes: [],
+      nodes: [],
+      edges: [],
+      sceneNodes: [],
+      sceneEdges: [],
+      currentSceneId: null,
+    });
+    return;
+  }
+  const details = localStore.getProjectDetails(e.projectId);
+  if (!details) {
+    useProjectStore.setState({ projects, currentProject: null });
+    return;
+  }
+  const { project, scenes, nodes, edges } = details;
+  const sceneId = state.currentSceneId;
+  const keepScene = !!sceneId && scenes.some((s) => s.id === sceneId);
+  const sceneData = keepScene ? localStore.getSceneDetails(sceneId!) : { nodes, edges };
+  useProjectStore.setState({
+    projects,
+    currentProject: project,
+    scenes,
+    nodes,
+    edges,
+    currentSceneId: keepScene ? sceneId : null,
+    sceneNodes: sceneData.nodes,
+    sceneEdges: sceneData.edges,
+  });
+});

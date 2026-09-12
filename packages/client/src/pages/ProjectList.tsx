@@ -8,6 +8,8 @@ import { Plus, FolderOpen, Trash2, MoreVertical, Sparkles } from 'lucide-react';
 import { Project } from '../types';
 import ThemeSwitcher from '../components/ThemeSwitcher';
 import { exampleProjects } from '../data/examples';
+import AccountMenu from '../components/AccountMenu';
+import { useAuthStore } from '../store/authStore';
 
 interface ProjectListProps {
   onSelectProject: (projectId: string) => void;
@@ -19,10 +21,13 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const authStatus = useAuthStore((s) => s.status);
+  const userId = useAuthStore((s) => s.user?.id ?? null);
 
+  // 登录态确定后再读列表；换账号（所有者变化）时重新读
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    if (authStatus !== 'unknown') fetchProjects();
+  }, [fetchProjects, authStatus, userId]);
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -77,6 +82,7 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <AccountMenu />
             <ThemeSwitcher />
             <button
               onClick={() => setShowCreateModal(true)}
@@ -98,7 +104,7 @@ export default function ProjectList({ onSelectProject }: ProjectListProps) {
           </div>
         )}
 
-        {loading && projects.length === 0 ? (
+        {authStatus === 'unknown' || (loading && projects.length === 0) ? (
           <div className="flex items-center justify-center h-64">
             <div style={{ color: 'var(--color-text-muted)' }}>加载中...</div>
           </div>
