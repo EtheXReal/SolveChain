@@ -33,7 +33,7 @@ tar -C "$STAGE" -czf - app www | ssh "$SSH_HOST" "set -e
   sudo systemctl restart solvechain
   # 只留最近 3 个版本
   ls -1dt /srv/solvechain/releases/* | tail -n +4 | xargs -r rm -rf
-  sleep 1
+  sleep 1.5
   curl -sf -m 5 http://127.0.0.1:8060/api/health >/dev/null && echo '   本机 health OK' || { echo '   health FAILED'; tail -20 /srv/solvechain/logs/server.log; exit 1; }
 "
 rm -rf "$STAGE"

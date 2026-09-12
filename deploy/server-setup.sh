@@ -13,10 +13,12 @@ node -v
 
 echo "== 用户与目录"
 id -u solvechain >/dev/null 2>&1 || sudo useradd --system --home /srv/solvechain --shell /usr/sbin/nologin solvechain
-sudo mkdir -p /srv/solvechain/{app,www,data,logs,backups}
+# 根目录与 releases/ 归部署账号（ubuntu），deploy.sh 在这里放版本并切换 app/www 软链；
+# data/logs/backups 归服务账号（solvechain）。app 与 www 是软链，由首次 deploy.sh 创建。
+sudo mkdir -p /srv/solvechain/{releases,data,logs,backups}
+sudo chown ubuntu:solvechain /srv/solvechain /srv/solvechain/releases
+sudo chmod 755 /srv/solvechain /srv/solvechain/releases
 sudo chown -R solvechain:solvechain /srv/solvechain/{data,logs,backups}
-# app/www 由部署账号（ubuntu）写入，服务只读
-sudo chown -R ubuntu:solvechain /srv/solvechain/app /srv/solvechain/www
 sudo chmod 750 /srv/solvechain/data /srv/solvechain/logs /srv/solvechain/backups
 if [[ ! -f /srv/solvechain/service.env ]]; then
   sudo install -o solvechain -g solvechain -m 600 /dev/null /srv/solvechain/service.env
@@ -43,4 +45,4 @@ sudo tee /etc/cron.d/solvechain-backup >/dev/null <<'CRON'
 30 3 * * * solvechain /usr/local/bin/solvechain-backup >> /srv/solvechain/logs/backup.log 2>&1
 CRON
 
-echo "== 完成。接下来在本机运行 deploy/deploy.sh 上传代码。"
+echo "== 完成。接下来在本机运行 deploy/deploy.sh 上传代码（服务在首次部署后才会启动）。"
