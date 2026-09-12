@@ -18,15 +18,15 @@ fi
 [[ -f packages/server/dist/server.mjs ]] || { echo "缺少 packages/server/dist/server.mjs"; exit 1; }
 [[ -f packages/client/dist/index.html ]] || { echo "缺少 packages/client/dist/index.html"; exit 1; }
 
-echo "== 上传（单次连接）"
+echo "== 上传（单次连接，链路易断，最多重试 3 次）"
 # 打包：app/server.mjs + www/*
 STAGE=$(mktemp -d)
 mkdir -p "$STAGE/app" "$STAGE/www"
 cp packages/server/dist/server.mjs "$STAGE/app/"
 cp -R packages/client/dist/. "$STAGE/www/"
-tar -C "$STAGE" -czf - app www | ssh "$SSH_HOST" "set -e
+REMOTE_SCRIPT="set -e
   R=/srv/solvechain/releases/$STAMP
-  mkdir -p \$R && tar -C \$R -xzf -
+  rm -rf \$R && mkdir -p \$R && tar -C \$R -xzf -
   # 原子切换：先换静态目录，再换 app，再重启
   ln -sfn \$R/www /srv/solvechain/www.new && mv -Tf /srv/solvechain/www.new /srv/solvechain/www
   ln -sfn \$R/app /srv/solvechain/app.new && mv -Tf /srv/solvechain/app.new /srv/solvechain/app
@@ -36,6 +36,15 @@ tar -C "$STAGE" -czf - app www | ssh "$SSH_HOST" "set -e
   sleep 1.5
   curl -sf -m 5 http://127.0.0.1:8060/api/health >/dev/null && echo '   本机 health OK' || { echo '   health FAILED'; tail -20 /srv/solvechain/logs/server.log; exit 1; }
 "
+ok=0
+for attempt in 1 2 3; do
+  if tar -C "$STAGE" -czf - app www | ssh -o ConnectTimeout=20 "$SSH_HOST" "$REMOTE_SCRIPT"; then
+    ok=1; break
+  fi
+  echo "   第 $attempt 次上传失败（多半是链路断了），5 秒后重试"
+  sleep 5
+done
+[[ $ok -eq 1 ]] || { rm -rf "$STAGE"; echo "上传三次都失败，放弃"; exit 1; }
 rm -rf "$STAGE"
 
 echo "== 线上冒烟 $SITE"
